@@ -576,6 +576,222 @@ jest.spyOn(prisma.expense, 'create').mockResolvedValue({
 
 ---
 
+## 12. FE 테스트 — 실제 프로젝트에서 어떻게 쓰나?
+
+### 테스트를 왜 하는가? (현실적인 이유)
+
+개발하다 보면 이런 상황이 반드시 온다.
+
+```
+"가계부 필터 기능 추가했는데 기존 달력 뷰가 갑자기 안 됨"
+"설정 저장 버튼 고쳤는데 다크모드가 초기화됨"
+"로그인 수정했는데 로그아웃이 안 됨"
+```
+
+이걸 **배포 전에 자동으로 잡아주는 것**이 테스트의 핵심 목적.
+
+```
+테스트 없음 → 코드 수정 → 직접 클릭해서 확인 → 놓치면 사용자가 버그 발견
+테스트 있음 → 코드 수정 → npm test → 어디가 깨졌는지 즉시 확인
+```
+
+---
+
+### FE 테스트 3종류
+
+| 종류 | 무엇을 테스트 | 도구 | 속도 |
+|------|------------|------|------|
+| **단위 테스트** | 함수, 훅, 유틸리티 | Jest | 빠름 |
+| **컴포넌트 테스트** | UI 컴포넌트 렌더링/동작 | React Testing Library | 중간 |
+| **E2E 테스트** | 실제 브라우저에서 전체 흐름 | Playwright / Cypress | 느림 |
+
+---
+
+### 단위 테스트 — 함수/훅 테스트
+
+BE API 없이 **순수한 로직만** 테스트.
+
+```typescript
+// utils/formatCurrency.ts
+export function formatKRW(amount: number): string {
+  return amount.toLocaleString('ko-KR') + '원';
+}
+
+// utils/formatCurrency.test.ts
+test('금액을 한국 원화 형식으로 변환한다', () => {
+  expect(formatKRW(50000)).toBe('50,000원');
+  expect(formatKRW(1000000)).toBe('1,000,000원');
+});
+```
+
+**언제 쓰나**: 날짜 포맷, 금액 계산, 카테고리 필터 같은 순수 함수들.
+
+---
+
+### 컴포넌트 테스트 — React Testing Library
+
+UI가 올바르게 렌더링되는지, 버튼 클릭 시 올바르게 동작하는지 테스트.
+**실제 브라우저 없이** jsdom(가상 DOM)에서 실행.
+
+```typescript
+// ExpenseCard.test.tsx
+import { render, screen, fireEvent } from '@testing-library/react';
+
+test('지출 카드가 금액과 카테고리를 보여준다', () => {
+  render(<ExpenseCard amount={5000} category="식비" />);
+
+  expect(screen.getByText('5,000원')).toBeInTheDocument();
+  expect(screen.getByText('식비')).toBeInTheDocument();
+});
+
+test('삭제 버튼 클릭 시 onDelete가 호출된다', () => {
+  const onDelete = jest.fn();
+  render(<ExpenseCard amount={5000} category="식비" onDelete={onDelete} />);
+
+  fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+
+  expect(onDelete).toHaveBeenCalledTimes(1);
+});
+```
+
+---
+
+### FE에서 BE API를 어떻게 Mock하나?
+
+**가장 많이 쓰는 방법 3가지**
+
+#### 방법 1 — jest.mock (단순한 경우)
+
+```typescript
+// API 함수 자체를 가짜로 교체
+jest.mock('@/lib/api', () => ({
+  getExpenses: jest.fn().mockResolvedValue([
+    { id: '1', amount: 5000, category: '식비' }
+  ])
+}));
+
+test('지출 목록을 불러와서 표시한다', async () => {
+  render(<ExpenseList />);
+  expect(await screen.findByText('5,000원')).toBeInTheDocument();
+});
+```
+
+#### 방법 2 — MSW (Mock Service Worker) ⭐ 실무에서 가장 많이 씀
+
+API 요청 자체를 가로채서 가짜 응답을 주는 방식.
+컴포넌트 코드를 건드리지 않아도 됨.
+
+```typescript
+// mocks/handlers.ts
+import { http, HttpResponse } from 'msw';
+
+export const handlers = [
+  http.get('/api/v1/money/expenses', () => {
+    return HttpResponse.json([
+      { id: '1', amount: 5000, category: '식비', date: '2026-06-10' },
+      { id: '2', amount: 12000, category: '교통', date: '2026-06-10' },
+    ]);
+  }),
+];
+
+// 테스트에서 사용
+test('가계부 페이지에서 지출 목록이 표시된다', async () => {
+  render(<AccountBookPage />);
+  
+  // API 응답이 올 때까지 기다림
+  expect(await screen.findByText('5,000원')).toBeInTheDocument();
+  expect(await screen.findByText('12,000원')).toBeInTheDocument();
+});
+```
+
+#### 방법 3 — E2E에서 실제 API 사용
+
+Playwright 같은 E2E 도구는 실제 서버를 띄우고 진짜 API와 통신.
+
+```typescript
+// e2e/account-book.spec.ts (Playwright)
+test('가계부 페이지 전체 흐름', async ({ page }) => {
+  await page.goto('/demo/account-book');
+  await expect(page.getByText('이번 달 지출')).toBeVisible();
+  
+  // 지출 추가 버튼 클릭
+  await page.getByRole('button', { name: '지출 추가' }).click();
+  await page.getByLabel('금액').fill('5000');
+  await page.getByLabel('카테고리').selectOption('식비');
+  await page.getByRole('button', { name: '저장' }).click();
+  
+  // 추가된 항목 확인
+  await expect(page.getByText('5,000원')).toBeVisible();
+});
+```
+
+---
+
+### 실제 프로젝트에서 테스트 활용 방법
+
+#### 스타트업 / 사이드 프로젝트 (현실적인 방식)
+
+```
+핵심 유틸 함수       → 단위 테스트 (필수)
+주요 컴포넌트 동작   → 컴포넌트 테스트 (중요한 것만)
+E2E                 → 주요 유저 시나리오 2~3개만
+```
+
+처음부터 100% 커버리지를 목표로 하면 개발 속도가 너무 느려짐.
+**"이게 망가지면 서비스가 안 된다"** 싶은 것만 먼저 테스트.
+
+#### 대기업 / 팀 프로젝트
+
+```
+PR 올리면 → GitHub Actions에서 자동으로 테스트 실행
+테스트 통과해야만 → merge 가능
+커버리지 80% 이상 → 유지
+```
+
+---
+
+### iNote Money FE 테스트 우선순위
+
+| 우선순위 | 대상 | 이유 |
+|---------|------|------|
+| 🔴 높음 | `formatKRW`, `calcTotal` 같은 계산 함수 | 틀리면 금액 표시 오류 |
+| 🔴 높음 | 인증 상태에 따른 라우팅 | 미로그인 시 접근 차단 |
+| 🟡 중간 | 가계부 CRUD 흐름 | 핵심 기능 |
+| 🟡 중간 | 다크모드 토글 | localStorage 연동 |
+| 🟢 낮음 | UI 스냅샷 | 디자인 변경 잦으면 오히려 부담 |
+
+---
+
+### FE 테스트 도구 설치 (Next.js 기준)
+
+```bash
+# React Testing Library (컴포넌트 테스트)
+npm install -D @testing-library/react @testing-library/jest-dom @testing-library/user-event
+
+# MSW (API Mock)
+npm install -D msw
+
+# Playwright (E2E)
+npm install -D @playwright/test
+npx playwright install
+```
+
+---
+
+### BE가 없을 때 개발하는 법 (현재 상황)
+
+```
+지금 inote-money는 localStorage 기반 데모
+→ BE 연결 전까지는 MSW로 API Mock 만들어두기
+→ BE 완성되면 MSW handler만 실제 API URL로 교체
+→ 컴포넌트 코드는 건드릴 필요 없음
+```
+
+이렇게 하면 BE 없이도 FE를 완성하고,
+BE 연결 시에는 Mock만 제거하면 됨.
+
+---
+
 ## 참고 자료
 
 | 주제 | 링크 |
@@ -586,3 +802,6 @@ jest.spyOn(prisma.expense, 'create').mockResolvedValue({
 | Better Auth 공식 문서 | https://www.better-auth.com |
 | TypeScript 핸드북 | https://www.typescriptlang.org/docs/handbook |
 | Jest 공식 문서 | https://jestjs.io/docs/getting-started |
+| React Testing Library | https://testing-library.com/docs/react-testing-library/intro |
+| MSW 공식 문서 | https://mswjs.io/docs |
+| Playwright 공식 문서 | https://playwright.dev/docs/intro |
