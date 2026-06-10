@@ -428,11 +428,161 @@ export class CreateExpenseDto {
 
 ---
 
+## 11. 테스트
+
+### 왜 테스트가 필요한가?
+
+기능을 추가하거나 코드를 수정할 때 **기존 기능이 망가지지 않았는지** 자동으로 확인하는 수단.
+
+```
+테스트 없을 때: 코드 수정 → 직접 API 호출해서 눈으로 확인 → 실수 발견 못하면 배포 → 장애
+테스트 있을 때: 코드 수정 → npm test → 자동으로 이상 여부 확인 → 안전하게 배포
+```
+
+### 테스트 종류 3가지
+
+| 종류 | 범위 | 속도 | 설명 |
+|------|------|------|------|
+| **단위 테스트 (Unit)** | 함수/클래스 1개 | 빠름 | 서비스 메서드 하나만 격리해서 테스트 |
+| **통합 테스트 (Integration)** | 모듈 여러 개 | 중간 | DB 연결 포함, 실제 데이터 흐름 테스트 |
+| **E2E 테스트** | 전체 앱 | 느림 | 실제 HTTP 요청 → 응답까지 전체 흐름 테스트 |
+
+### NestJS 기본 테스트 도구
+
+NestJS는 프로젝트 생성 시 **Jest**가 기본으로 설치되어 있음.
+
+```bash
+npm run test          # 단위 테스트 실행
+npm run test:watch    # 파일 변경 시 자동 재실행
+npm run test:e2e      # E2E 테스트 실행
+npm run test:cov      # 테스트 커버리지 확인
+```
+
+### 단위 테스트 예시 — ExpensesService
+
+```typescript
+// expenses.service.spec.ts
+describe('ExpensesService', () => {
+  let service: ExpensesService;
+  let prisma: PrismaService;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      providers: [
+        ExpensesService,
+        {
+          provide: PrismaService,
+          useValue: {
+            expense: {
+              findMany: jest.fn(),  // 실제 DB 대신 가짜 함수
+              create: jest.fn(),
+            },
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get(ExpensesService);
+    prisma = module.get(PrismaService);
+  });
+
+  it('월별 지출 목록을 반환한다', async () => {
+    const mockExpenses = [
+      { id: '1', amount: 5000, category: '식비', date: new Date() },
+    ];
+
+    // DB 조회 결과를 가짜로 지정
+    jest.spyOn(prisma.expense, 'findMany').mockResolvedValue(mockExpenses as any);
+
+    const result = await service.findByMonth('user-1', 2026, 6);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].amount).toBe(5000);
+  });
+});
+```
+
+### E2E 테스트 예시 — 실제 HTTP 요청
+
+```typescript
+// test/expenses.e2e-spec.ts
+describe('Expenses (e2e)', () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    const module = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  it('GET /api/v1/money/expenses → 200', () => {
+    return request(app.getHttpServer())
+      .get('/api/v1/money/expenses')
+      .set('Authorization', 'Bearer test-token')
+      .expect(200)
+      .expect((res) => {
+        expect(Array.isArray(res.body)).toBe(true);
+      });
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+});
+```
+
+### 핵심 Jest 문법
+
+```typescript
+describe('그룹 이름', () => {       // 테스트 묶음
+  beforeEach(() => { ... });       // 각 테스트 전 실행
+  afterAll(() => { ... });         // 모든 테스트 후 실행
+
+  it('테스트 설명', () => {         // 테스트 케이스 하나
+    expect(result).toBe(5000);           // 값이 일치하는지
+    expect(result).toEqual({ id: '1' }); // 객체가 일치하는지
+    expect(result).toHaveLength(3);      // 배열 길이
+    expect(fn).toHaveBeenCalledWith(id); // 함수가 호출됐는지
+  });
+});
+```
+
+### Mock (가짜 객체)
+
+단위 테스트에서 DB를 실제로 연결하지 않고 **가짜 응답을 만들어** 쓰는 것.
+
+```typescript
+// DB 없이 테스트 가능
+jest.spyOn(prisma.expense, 'create').mockResolvedValue({
+  id: 'fake-id',
+  amount: 3000,
+  ...
+} as any);
+```
+
+### 이 프로젝트에서 테스트 전략
+
+| 단계 | 테스트 |
+|------|--------|
+| 서비스 로직 검증 | 단위 테스트 (Jest + Mock) |
+| API 엔드포인트 검증 | E2E 테스트 (supertest) |
+| DB 연동 검증 | 통합 테스트 (Neon dev 브랜치 사용) |
+
+> 처음부터 모든 테스트를 완벽하게 짤 필요는 없음.
+> 핵심 서비스 로직(지출 합계 계산, 유저 권한 확인 등)부터 단위 테스트 작성 → 점진적으로 확대.
+
+---
+
 ## 참고 자료
 
 | 주제 | 링크 |
 |------|------|
 | NestJS 공식 문서 | https://docs.nestjs.com |
+| NestJS 테스트 가이드 | https://docs.nestjs.com/fundamentals/testing |
 | Prisma 공식 문서 | https://www.prisma.io/docs |
 | Better Auth 공식 문서 | https://www.better-auth.com |
 | TypeScript 핸드북 | https://www.typescriptlang.org/docs/handbook |
+| Jest 공식 문서 | https://jestjs.io/docs/getting-started |
