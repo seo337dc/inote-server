@@ -932,12 +932,64 @@ Better Auth가 자동으로 아래 테이블들을 Prisma 스키마에 추가해
 
 ---
 
+### NextAuth vs Better Auth — 이 프로젝트에서 왜 Better Auth인가?
+
+처음에 NextAuth(Auth.js)와 Better Auth 중 고민했음. 결론부터 말하면 **이 프로젝트 구조에는 Better Auth가 맞음.**
+
+#### NextAuth의 설계 의도
+
+NextAuth는 원래 이런 구조를 가정하고 만들어진 라이브러리:
+
+```
+Next.js 서버 = 인증 서버 = API 서버 (하나의 서버)
+```
+
+FE와 BE가 같은 서버에 있는 풀스택 Next.js 앱에 최적화되어 있음.
+
+#### 이 프로젝트 구조
+
+```
+FE (AWS Amplify)  ←→  BE (Railway)
+   Next.js                NestJS
+   포트 3100              포트 3200
+   (별개 서버)            (별개 서버)
+```
+
+FE와 BE가 완전히 분리된 구조. 이 경우 NextAuth를 쓰면:
+- FE에서 NextAuth로 소셜 로그인 처리
+- BE는 NextAuth를 모르기 때문에 → 세션 검증 코드 직접 작성
+- FE 세션과 BE 토큰을 연결하는 로직 따로 설계
+- **추가 작업 2~3일 더 발생**
+
+#### Better Auth는 이 구조를 기본 지원
+
+```
+FE: Better Auth 클라이언트 설치 → 로그인 UI + 세션 관리
+BE: Better Auth 서버 설치 → 토큰 발급/검증 + DB 저장
+→ 같은 라이브러리가 양쪽에서 통신 → 추가 작업 없음
+```
+
+#### 비교 요약
+
+| | NextAuth (Auth.js v5) | Better Auth |
+|---|---|---|
+| 설계 의도 | Next.js 풀스택 (FE=BE 같은 서버) | FE + 별도 BE 분리 구조 지원 |
+| NestJS 공식 지원 | ❌ 없음 | ✅ 공식 어댑터 |
+| Prisma 연동 | 별도 설정 필요 | ✅ 어댑터 내장 |
+| FE/BE 분리 구조 | 추가 작업 필요 | 기본 지원 |
+| 커뮤니티 크기 | 매우 큼 | 작음 (신생) |
+
+→ **결론**: NextAuth는 커뮤니티가 크지만 이 프로젝트 구조와 맞지 않음. Better Auth 선택.
+
+---
+
 ### 정리
 
 | 항목 | 내용 |
 |------|------|
 | Better Auth란 | 인증 전체(소셜 로그인, JWT, 세션)를 대신 처리해주는 라이브러리 |
 | 왜 쓰나 | 직접 구현 시 2~3주 걸리고 보안 위험, 라이브러리가 이미 검증됨 |
+| NextAuth 대신 쓰는 이유 | FE/BE 분리 구조 공식 지원, NestJS 어댑터 내장 |
 | 어디에 설치 | FE(Next.js) + BE(NestJS) 양쪽 모두 |
 | DB 연결 | Prisma 어댑터로 자동 연결 |
 | 지원 소셜 | Google, GitHub, Kakao, Apple 등 |
