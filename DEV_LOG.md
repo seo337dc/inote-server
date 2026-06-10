@@ -11,7 +11,8 @@
 |------|------|
 | 레포 위치 | https://github.com/seo337dc/inote-server |
 | 실행 포트 | `http://localhost:3200` |
-| 현재 진행 단계 | NestJS 초기화 진행 중 |
+| Swagger 문서 | `http://localhost:3200/api/docs` |
+| 현재 진행 단계 | NestJS + Prisma 세팅 완료 — Better Auth 다음 작업 |
 
 ---
 
@@ -31,21 +32,59 @@ npm run start:dev
 
 #### ✅ 완료
 - GitHub 레포 생성 (`inote-server`)
-- CLAUDE.md / DEV_LOG.md / NESTJS_GUIDE.md 추가
+- CLAUDE.md / DEV_LOG.md / NESTJS_GUIDE.md / LEARNING.md 추가
 - 인프라 및 기술 스택 전체 결정 완료
+- NestJS 11 프로젝트 초기화 (TypeScript strict, 포트 3200)
+- Swagger UI 설정 (`/api/docs`)
+- CORS / ValidationPipe / API prefix(`/api/v1`) 설정
+- Prisma 설치 + Neon PostgreSQL 연결
+- DB 스키마 확정 및 마이그레이션 적용 (User, Expense, Stock, UserSetting)
+- PrismaModule (@Global) + PrismaService 구현
 
-#### 🔜 진행 중
-- NestJS 프로젝트 초기화
+#### 🔜 다음 작업 (다른 노트북에서 이어서)
+- Better Auth 설치 및 소셜 로그인 설정
+- Users 모듈
+- Money 모듈 (가계부, 주식, 설정)
+
+---
+
+## ⚡ 다른 노트북에서 작업 이어받기
+
+```bash
+# 1. 레포 클론
+git clone https://github.com/seo337dc/inote-server
+cd inote-server
+
+# 2. 패키지 설치
+npm install
+
+# 3. 환경변수 설정 (.env 파일 생성)
+cp .env.example .env
+# .env 에 아래 값 입력 (별도 전달)
+# DATABASE_URL = Neon 연결 문자열
+# BETTER_AUTH_SECRET = (아직 미설정)
+
+# 4. Prisma Client 생성
+npx prisma generate
+
+# 5. 서버 실행
+npm run start:dev
+```
+
+> ⚠️ `.env` 파일은 git에 올라가지 않으므로 직접 만들어야 합니다.
+> DATABASE_URL은 Neon 대시보드(https://neon.tech)에서 확인하세요.
 
 ---
 
 ## 다음 작업 예정
 
-- [ ] NestJS 프로젝트 초기화
-- [ ] Prisma 설치 및 Neon PostgreSQL 연결
-- [ ] Better Auth 설치 및 소셜 로그인 설정
-- [ ] Users 모듈
-- [ ] Money 모듈 (가계부, 주식, 설정)
+- [x] NestJS 프로젝트 초기화
+- [x] Prisma 설치 및 Neon PostgreSQL 연결
+- [ ] **Better Auth 설치 및 소셜 로그인 설정** ← 여기서 이어받기
+- [ ] Users 모듈 (GET /users/me, PATCH /users/me)
+- [ ] Money 모듈 — Expenses (가계부 CRUD)
+- [ ] Money 모듈 — Stocks (주식 CRUD)
+- [ ] Money 모듈 — Settings (내 정보 설정)
 
 ---
 

@@ -219,14 +219,24 @@ PORT=3200
 
 ## 현재 단계
 
-레포 생성 완료, 문서 정리 완료 — NestJS 초기화 진행 예정
+**NestJS + Prisma 세팅 완료** — Better Auth 다음 작업
+
+| 항목 | 상태 |
+|------|------|
+| NestJS 11 초기화 | ✅ 완료 |
+| Swagger (`/api/docs`) | ✅ 완료 |
+| CORS / ValidationPipe | ✅ 완료 |
+| Prisma + Neon DB 연결 | ✅ 완료 |
+| DB 마이그레이션 (init) | ✅ 완료 |
+| Better Auth | 🔜 다음 작업 |
+| Users 모듈 | 🔜 예정 |
+| Money 모듈 | 🔜 예정 |
 
 ---
 
 ## 미결정 항목
 
-- [ ] Neon 프로젝트 생성 및 DB URL 발급
 - [ ] Better Auth 소셜 로그인 제공자 확정 (Google만? Kakao 추가?)
 - [ ] Sentry 프로젝트 생성
-- [ ] Railway 프로젝트 생성
+- [ ] Railway 프로젝트 생성 및 배포
 - [ ] 포인트 시스템 정책

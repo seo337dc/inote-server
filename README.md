@@ -144,8 +144,24 @@ DB  →  Neon PostgreSQL
 
 ---
 
+## 구현 현황
+
+| 항목 | 상태 |
+|------|------|
+| NestJS 초기화 | ✅ 완료 |
+| Swagger (`/api/docs`) | ✅ 완료 |
+| Prisma + Neon DB 연결 | ✅ 완료 |
+| DB 마이그레이션 | ✅ 완료 |
+| Better Auth 소셜 로그인 | 🔜 예정 |
+| Users 모듈 | 🔜 예정 |
+| Money 모듈 (가계부/주식/설정) | 🔜 예정 |
+| Railway 배포 | 🔜 예정 |
+
+---
+
 ## 관련 문서
 
 - [CLAUDE.md](./CLAUDE.md) — AI 작업 컨텍스트 기준 문서
-- [DEV_LOG.md](./DEV_LOG.md) — 세션별 작업 기록
-- [NESTJS_GUIDE.md](./NESTJS_GUIDE.md) — NestJS 학습 가이드
+- [DEV_LOG.md](./DEV_LOG.md) — 세션별 작업 기록 + 다른 PC 이어받기 가이드
+- [NESTJS_GUIDE.md](./NESTJS_GUIDE.md) — NestJS 코드 패턴 가이드
+- [LEARNING.md](./LEARNING.md) — Node.js / NestJS / Prisma 개념 학습
