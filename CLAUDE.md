@@ -209,11 +209,58 @@ PORT=3200
 
 ---
 
+## 테스트 전략
+
+### 도구
+
+| 도구 | 용도 |
+|------|------|
+| **Jest** | 단위 테스트 (NestJS 기본 내장) |
+| **supertest** | E2E 테스트 HTTP 요청 시뮬레이션 |
+| **@nestjs/testing** | NestJS 테스트 모듈 생성 |
+
+### 테스트 종류별 적용 범위
+
+| 종류 | 대상 | DB 연결 |
+|------|------|---------|
+| 단위 테스트 | 서비스 로직 (계산, 필터, 검증) | ❌ Mock 사용 |
+| E2E 테스트 | API 엔드포인트 전체 흐름 | ✅ Neon dev 브랜치 |
+
+### 우선순위
+
+1. **핵심 서비스 로직** — 지출 합계, 유저 권한 확인, 입력값 검증
+2. **API 엔드포인트** — 인증 필요 API, CRUD 정상 동작
+3. 나머지는 기능 완성 후 점진적으로 추가
+
+### 파일 구조 컨벤션
+
+```
+src/money/expenses/
+├── expenses.service.ts
+├── expenses.service.spec.ts   ← 단위 테스트 (서비스 옆에 배치)
+└── expenses.controller.ts
+
+test/
+└── expenses.e2e-spec.ts       ← E2E 테스트
+```
+
+### 실행 명령어
+
+```bash
+npm run test          # 단위 테스트 전체 실행
+npm run test:watch    # 변경 감지 자동 실행
+npm run test:e2e      # E2E 테스트 실행
+npm run test:cov      # 커버리지 리포트
+```
+
+---
+
 ## 개발 방식
 
 - 모든 코드 작업은 Claude Code + AI로만 진행
 - CLAUDE.md를 프로젝트 맥락 기준 문서로 유지
 - 기능/스키마 확정 시 이 파일 업데이트
+- 모듈 구현 시 서비스 단위 테스트 함께 작성
 
 ---
 
