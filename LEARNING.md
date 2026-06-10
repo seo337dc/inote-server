@@ -996,6 +996,132 @@ BE: Better Auth 서버 설치 → 토큰 발급/검증 + DB 저장
 
 ---
 
+---
+
+## Chapter 14 — Google OAuth 2.0
+
+### OAuth 2.0이란?
+
+OAuth 2.0은 **인증(Authentication)이 아니라 인가(Authorization) 프로토콜**이다.
+"내 구글 계정 정보를 이 앱이 대신 읽어도 됩니다"라고 **권한을 위임**하는 표준 방식.
+
+> "로그인"이 아니라 "접근 권한 빌려주기"가 핵심 개념.
+
+### 왜 쓰나?
+
+직접 구글 로그인을 구현하려면:
+- 구글 계정 검증 서버 직접 구축
+- 비밀번호 해시, 토큰 발급, 만료 처리 등 보안 로직 전부 직접 구현
+
+OAuth 2.0을 쓰면:
+- 구글이 인증을 대신 처리
+- 우리 서버는 "이 사람이 구글 계정 소유자"임을 보장받기만 하면 됨
+- 비밀번호를 직접 다루지 않아도 됨 → 보안 위험 감소
+
+### 동작 흐름 (Authorization Code Flow)
+
+```
+1. 사용자 → 우리 앱 "구글로 로그인" 버튼 클릭
+2. 우리 앱 → 구글 인증 서버로 리다이렉트
+   (Client ID, Redirect URI, Scope 포함)
+3. 사용자 → 구글에서 계정 선택 + 권한 승인
+4. 구글 → Redirect URI로 Authorization Code 전달
+   (우리 서버의 콜백 URL: /api/v1/auth/callback/google)
+5. 우리 서버 → 구글에 Authorization Code + Client Secret 교환 요청
+6. 구글 → Access Token + ID Token 응답
+7. 우리 서버 → ID Token에서 사용자 정보(이메일, 이름) 추출
+8. 우리 서버 → DB에 유저 저장/조회 + 세션 생성
+9. 사용자 → 로그인 완료, FE로 리다이렉트
+```
+
+### 주요 용어
+
+| 용어 | 설명 |
+|------|------|
+| Client ID | 구글에 등록한 우리 앱의 식별자 (공개 가능) |
+| Client Secret | 구글과 우리 서버만 아는 비밀 키 (절대 공개 금지) |
+| Redirect URI | 인증 완료 후 구글이 code를 전달할 우리 서버 URL |
+| Authorization Code | 한 번만 쓸 수 있는 단기 코드 (Access Token으로 교환용) |
+| Access Token | 구글 API를 호출할 수 있는 토큰 |
+| ID Token | 사용자 신원 정보가 담긴 JWT (이메일, 이름 등) |
+| Scope | 요청하는 권한 범위 (예: `openid email profile`) |
+
+### 이 프로젝트에서의 설정
+
+```
+Google Cloud Console
+├── OAuth 2.0 클라이언트 생성
+├── 승인된 Redirect URI 등록
+│   ├── http://localhost:3200/api/v1/auth/callback/google  (로컬)
+│   └── https://inote-server.railway.app/api/v1/auth/callback/google  (운영)
+└── Client ID + Client Secret → .env에 저장
+```
+
+---
+
+## Chapter 15 — JWT vs DB 세션 (Better Auth 세션 방식)
+
+### 두 가지 세션 방식
+
+#### JWT (JSON Web Token)
+
+```
+로그인 성공 → 서버가 JWT 발급 → 클라이언트에 저장
+이후 요청 → JWT를 헤더에 포함 → 서버가 서명 검증
+```
+
+- **서버에 저장 없음** — stateless
+- 토큰 자체에 사용자 정보 포함
+- 만료 전까지 강제 로그아웃 불가 (취소가 어려움)
+- 주로 모바일 앱, 마이크로서비스 구조에 적합
+
+#### DB 세션
+
+```
+로그인 성공 → 서버가 세션 생성 → DB에 저장 → 세션 ID를 쿠키로 전달
+이후 요청 → 쿠키의 세션 ID → DB에서 세션 조회
+```
+
+- **서버(DB)에 저장** — stateful
+- 세션 ID만 클라이언트에 존재, 실제 정보는 DB에
+- 강제 로그아웃 가능 (DB에서 세션 삭제)
+- 주로 웹 서비스에 적합
+
+### Better Auth의 선택: DB 세션 기본
+
+Better Auth는 **DB 세션 방식을 기본**으로 사용한다.
+
+이유:
+- 세션 취소/만료 관리가 쉬움
+- 보안 사고 시 즉시 로그아웃 가능
+- 웹 서비스에서 더 일반적인 방식
+
+Prisma 스키마의 `session` 테이블이 이 세션들을 저장한다.
+
+### JWT가 필요한 경우
+
+| 상황 | 이유 |
+|------|------|
+| React Native 앱 | 쿠키 기반 세션 관리 어려움 |
+| 마이크로서비스 | 서비스 간 인증 시 DB 조회 없이 토큰 검증 |
+| 서드파티 API 제공 | 외부 클라이언트에게 토큰 발급 |
+
+→ 이 프로젝트는 현재 웹 위주이므로 **DB 세션 그대로 사용**.
+모바일 앱 지원 시 Better Auth의 JWT 플러그인 추가 검토.
+
+### 정리
+
+| 항목 | JWT | DB 세션 |
+|------|-----|---------|
+| 저장 위치 | 클라이언트 | 서버(DB) |
+| Stateless | ✅ | ❌ |
+| 강제 로그아웃 | 어려움 | 쉬움 |
+| 서버 부하 | 낮음 | DB 조회 발생 |
+| 적합한 환경 | 모바일, MSA | 웹 서비스 |
+| Better Auth 기본 | ❌ | ✅ |
+
+---
+
 ## 참고 자료
 
 | 주제 | 링크 |

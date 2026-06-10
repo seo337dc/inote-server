@@ -12,7 +12,7 @@
 | 레포 위치 | https://github.com/seo337dc/inote-server |
 | 실행 포트 | `http://localhost:3200` |
 | Swagger 문서 | `http://localhost:3200/api/docs` |
-| 현재 진행 단계 | NestJS + Prisma 세팅 완료 — Better Auth 다음 작업 |
+| 현재 진행 단계 | Better Auth (Google OAuth) 완료 — Users / Money 모듈 다음 작업 |
 
 ---
 
@@ -28,7 +28,56 @@ npm run start:dev
 
 ## 작업 로그
 
-### 2026-06-10
+### 2026-06-10 (2차)
+
+#### ✅ 완료 — Better Auth + Google OAuth 2.0 전체 연동
+
+**환경변수 세팅**
+- `.env` 파일 생성
+- `DATABASE_URL` — Neon PostgreSQL 연결 문자열 설정
+- `BETTER_AUTH_SECRET` — 랜덤 시크릿 키 생성
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Google Cloud Console에서 발급
+
+**Google Cloud Console 설정**
+- OAuth 2.0 클라이언트 ID 생성
+- 승인된 Redirect URI 등록:
+  - `http://localhost:3200/api/v1/auth/callback/google`
+
+**Better Auth BE 설치**
+- `better-auth`, `better-auth/adapters/prisma` 설치
+- `src/auth/auth.ts` 생성 — Prisma 어댑터 + Google 소셜 프로바이더 설정
+- `main.ts` 수정:
+  - CORS를 Better Auth 미들웨어보다 먼저 등록 (순서 중요)
+  - `/api/v1/auth` 경로로 들어오는 요청을 `toNodeHandler(auth)`로 처리
+
+**Prisma 스키마 마이그레이션**
+- `User` → `user` (소문자) 로 테이블명 변경 (Better Auth 요구사항)
+- `avatar` → `image`, `emailVerified` 컬럼 추가
+- Better Auth 필수 테이블 추가: `session`, `account`, `verification`
+- 마이그레이션 적용: `npx prisma migrate dev`
+
+**Better Auth FE 연동 (inote-money)**
+- `better-auth/react` 설치
+- `src/lib/auth-client.ts` 생성 — `createAuthClient` 설정
+- `src/app/login/page.tsx` 생성 — Google 로그인 버튼 UI
+
+**트러블슈팅**
+- `toNodeHandler(auth)(req, res, next)` → `next` 인자 제거 필요 (handler는 Express 미들웨어가 아님)
+- CORS 오류: Better Auth 미들웨어를 `enableCors()` 이전에 등록했을 때 발생 → 순서 변경으로 해결
+- `callbackURL: "/demo"` → 상대 경로 사용 시 BE 서버로 리다이렉트됨 → 절대 URL(`http://localhost:3100/demo`)로 수정
+
+**검증**
+- `GET /api/v1/auth/get-session` → `null` 응답 (세션 없음) 정상 확인
+- Google 계정 선택 → FE(`localhost:3100/demo`)로 정상 리다이렉트 확인
+
+#### 🔜 다음 작업
+- Users 모듈 (GET /users/me, PATCH /users/me)
+- Money 모듈 (가계부 CRUD, 주식 CRUD, 설정)
+- Railway 배포
+
+---
+
+### 2026-06-10 (1차)
 
 #### ✅ 완료
 - GitHub 레포 생성 (`inote-server`)
@@ -80,11 +129,12 @@ npm run start:dev
 
 - [x] NestJS 프로젝트 초기화
 - [x] Prisma 설치 및 Neon PostgreSQL 연결
-- [ ] **Better Auth 설치 및 소셜 로그인 설정** ← 여기서 이어받기
-- [ ] Users 모듈 (GET /users/me, PATCH /users/me)
+- [x] Better Auth 설치 및 Google 소셜 로그인 연동
+- [ ] **Users 모듈 (GET /users/me, PATCH /users/me)** ← 여기서 이어받기
 - [ ] Money 모듈 — Expenses (가계부 CRUD)
 - [ ] Money 모듈 — Stocks (주식 CRUD)
 - [ ] Money 모듈 — Settings (내 정보 설정)
+- [ ] Railway 배포
 
 ---
 

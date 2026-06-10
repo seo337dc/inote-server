@@ -137,24 +137,70 @@ inote-server/
 
 ## DB 스키마 (확정)
 
-```prisma
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  avatar    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+> Better Auth 적용으로 테이블명 및 컬럼 변경됨 (2026-06-10)
 
-  expenses  Expense[]
-  stocks    Stock[]
-  setting   UserSetting?
+```prisma
+// Better Auth 필수 테이블
+model user {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions session[]
+  accounts account[]
+
+  expenses Expense[]
+  stocks   Stock[]
+  setting  UserSetting?
 }
 
+model session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// 앱 테이블
 model Expense {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount    Int
   category  String
   type      String   // "income" | "expense"
@@ -167,7 +213,7 @@ model Expense {
 model Stock {
   id           String   @id @default(cuid())
   userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade)
   ticker       String
   name         String
   currency     String   // "KRW" | "USD"
@@ -183,7 +229,7 @@ model Stock {
 model UserSetting {
   id           String   @id @default(cuid())
   userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade)
   salary       Int?
   savings      Int?
   fixedExpense Int?
@@ -266,7 +312,7 @@ npm run test:cov      # 커버리지 리포트
 
 ## 현재 단계
 
-**NestJS + Prisma 세팅 완료** — Better Auth 다음 작업
+**Better Auth (Google 소셜 로그인) 완료** — Users / Money 모듈 다음 작업
 
 | 항목 | 상태 |
 |------|------|
@@ -275,7 +321,7 @@ npm run test:cov      # 커버리지 리포트
 | CORS / ValidationPipe | ✅ 완료 |
 | Prisma + Neon DB 연결 | ✅ 완료 |
 | DB 마이그레이션 (init) | ✅ 완료 |
-| Better Auth | 🔜 다음 작업 |
+| Better Auth (Google OAuth) | ✅ 완료 |
 | Users 모듈 | 🔜 예정 |
 | Money 모듈 | 🔜 예정 |
 
@@ -283,7 +329,7 @@ npm run test:cov      # 커버리지 리포트
 
 ## 미결정 항목
 
-- [ ] Better Auth 소셜 로그인 제공자 확정 (Google만? Kakao 추가?)
+- [ ] 소셜 로그인 제공자 추가 여부 (Kakao 등)
 - [ ] Sentry 프로젝트 생성
 - [ ] Railway 프로젝트 생성 및 배포
 - [ ] 포인트 시스템 정책
