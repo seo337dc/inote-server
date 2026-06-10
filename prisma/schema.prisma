@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenses Expense[]
+  stocks   Stock[]
+  setting  UserSetting?
+}
+
+model Expense {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  category  String
+  type      String   // "income" | "expense"
+  memo      String?
+  date      DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Stock {
+  id           String  @id @default(cuid())
+  userId       String
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticker       String
+  name         String
+  currency     String  // "KRW" | "USD"
+  inputMode    String  // "shares" | "amount"
+  quantity     Float?
+  buyPrice     Float?
+  investAmount Float?
+  memo         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserSetting {
+  id           String @id @default(cuid())
+  userId       String @unique
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  salary       Int?
+  savings      Int?
+  fixedExpense Int?
+  salaryDate   Int?   // 1~31
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
