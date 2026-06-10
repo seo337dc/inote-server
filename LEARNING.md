@@ -358,6 +358,8 @@ eyJhbGci... . eyJ1c2VyS... . SflKxwRJ...
 - JWT 관리 자동화
 - Next.js + Prisma 공식 통합 지원
 
+> 자세한 내용은 **챕터 13** 참고
+
 ---
 
 ## 9. 이 프로젝트 전체 흐름
@@ -792,6 +794,156 @@ BE 연결 시에는 Mock만 제거하면 됨.
 
 ---
 
+## 13. Better Auth — 인증 라이브러리 제대로 이해하기
+
+### 인증을 직접 만들면 무슨 일이 생기나?
+
+로그인 기능을 처음부터 직접 구현하면 해야 할 일 목록:
+
+```
+- 회원가입 시 비밀번호 암호화 (bcrypt)
+- 로그인 시 비밀번호 비교
+- JWT 토큰 발급 + 만료 처리
+- Refresh Token 관리 (자동 로그인 유지)
+- 소셜 로그인 (Google OAuth 흐름 직접 구현)
+- 세션 저장소 관리
+- 보안 취약점 대응 (CSRF, XSS 등)
+```
+
+→ 인증만 만드는 데 2~3주 걸림. 그리고 보안 실수 하나면 전체 서비스 위험.
+
+**Better Auth**: 위 모든 것을 라이브러리가 대신 해줌.
+
+---
+
+### Better Auth vs 다른 인증 라이브러리 비교
+
+| 라이브러리 | 특징 | 단점 |
+|-----------|------|------|
+| **NextAuth (Auth.js)** | Next.js 공식 추천, 가장 유명 | Next.js에 강하게 묶임, 설정 복잡 |
+| **Passport.js** | Express/NestJS 전통적 방식 | 설정 많음, 오래된 패턴 |
+| **Clerk** | UI까지 제공, 가장 쉬움 | 유료 (무료 한도 있음) |
+| **Better Auth** | Next.js + NestJS + Prisma 공식 지원, 최신 | 상대적으로 신생 라이브러리 |
+
+→ **이 프로젝트 선택 이유**: FE(Next.js)와 BE(NestJS) 양쪽에서 공식 지원, Prisma 어댑터 내장
+
+---
+
+### 소셜 로그인 전체 흐름
+
+구글 로그인을 예시로 흐름을 이해해보자.
+
+```
+1. 사용자가 "Google로 로그인" 버튼 클릭
+        ↓
+2. FE → Better Auth 클라이언트 → Google 로그인 페이지로 리다이렉트
+        ↓
+3. 사용자가 Google 계정으로 로그인
+        ↓
+4. Google이 BE 서버로 "인증 코드" 전달 (callback URL)
+        ↓
+5. BE → Better Auth 서버 → Google에 코드 교환 → 유저 정보 받음
+        ↓
+6. Better Auth → Prisma로 DB에 유저 저장 (없으면 생성, 있으면 업데이트)
+        ↓
+7. Better Auth → JWT 세션 토큰 발급
+        ↓
+8. FE에 토큰 전달 → 로그인 완료
+```
+
+---
+
+### Better Auth 구성 요소
+
+```
+Better Auth
+├── 서버 사이드 (NestJS에 설치)
+│   ├── 소셜 로그인 callback 처리
+│   ├── JWT 발급/검증
+│   └── Prisma로 유저 DB 저장
+│
+└── 클라이언트 사이드 (Next.js에 설치)
+    ├── 로그인/로그아웃 함수 제공
+    ├── 현재 세션(로그인 상태) 조회
+    └── 각 소셜 로그인 버튼 연결
+```
+
+---
+
+### 코드로 보면
+
+**BE 설정 (NestJS)**
+```typescript
+// auth.config.ts
+export const auth = betterAuth({
+  database: prismaAdapter(prisma),      // DB 연결
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    },
+  },
+});
+```
+
+**FE 사용 (Next.js)**
+```typescript
+// 로그인 버튼
+await authClient.signIn.social({ provider: 'google' });
+
+// 로그아웃
+await authClient.signOut();
+
+// 현재 로그인 유저 정보
+const { data: session } = authClient.useSession();
+console.log(session?.user.name); // "홍길동"
+```
+
+---
+
+### Better Auth가 DB에 만드는 테이블
+
+Better Auth가 자동으로 아래 테이블들을 Prisma 스키마에 추가해야 함.
+
+| 테이블 | 역할 |
+|--------|------|
+| `User` | 유저 기본 정보 (email, name, avatar) |
+| `Session` | 로그인 세션 (토큰, 만료시간) |
+| `Account` | 소셜 계정 연결 정보 (Google 계정 ID 등) |
+| `Verification` | 이메일 인증 토큰 |
+
+→ 기존에 만든 `User` 모델과 통합하거나 Better Auth 스키마에 맞춰 조정 필요.
+
+---
+
+### Google OAuth 설정 방법 (사전 준비)
+
+소셜 로그인을 쓰려면 Google에 앱 등록이 필요함.
+
+1. [Google Cloud Console](https://console.cloud.google.com) 접속
+2. 새 프로젝트 생성
+3. **API 및 서비스 → 사용자 인증 정보 → OAuth 2.0 클라이언트 ID 만들기**
+4. 승인된 리다이렉션 URI 추가:
+   ```
+   http://localhost:3200/api/auth/callback/google   ← 개발용
+   https://your-domain.railway.app/api/auth/callback/google  ← 배포용
+   ```
+5. **클라이언트 ID**, **클라이언트 보안 비밀** 복사 → `.env`에 저장
+
+---
+
+### 정리
+
+| 항목 | 내용 |
+|------|------|
+| Better Auth란 | 인증 전체(소셜 로그인, JWT, 세션)를 대신 처리해주는 라이브러리 |
+| 왜 쓰나 | 직접 구현 시 2~3주 걸리고 보안 위험, 라이브러리가 이미 검증됨 |
+| 어디에 설치 | FE(Next.js) + BE(NestJS) 양쪽 모두 |
+| DB 연결 | Prisma 어댑터로 자동 연결 |
+| 지원 소셜 | Google, GitHub, Kakao, Apple 등 |
+
+---
+
 ## 참고 자료
 
 | 주제 | 링크 |
@@ -800,6 +952,7 @@ BE 연결 시에는 Mock만 제거하면 됨.
 | NestJS 테스트 가이드 | https://docs.nestjs.com/fundamentals/testing |
 | Prisma 공식 문서 | https://www.prisma.io/docs |
 | Better Auth 공식 문서 | https://www.better-auth.com |
+| Better Auth NestJS 가이드 | https://www.better-auth.com/docs/integrations/nestjs |
 | TypeScript 핸드북 | https://www.typescriptlang.org/docs/handbook |
 | Jest 공식 문서 | https://jestjs.io/docs/getting-started |
 | React Testing Library | https://testing-library.com/docs/react-testing-library/intro |
