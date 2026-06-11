@@ -127,14 +127,27 @@ npm run start:dev
 
 ## 다음 작업 예정
 
+### 1단계 — BE 완성 + 배포
+
 - [x] NestJS 프로젝트 초기화
 - [x] Prisma 설치 및 Neon PostgreSQL 연결
 - [x] Better Auth 설치 및 Google 소셜 로그인 연동
-- [ ] **Users 모듈 (GET /users/me, PATCH /users/me)** ← 여기서 이어받기
-- [ ] Money 모듈 — Expenses (가계부 CRUD)
-- [ ] Money 모듈 — Stocks (주식 CRUD)
-- [ ] Money 모듈 — Settings (내 정보 설정)
-- [ ] Railway 배포
+- [ ] **DB 다이어그램 생성** (dbdiagram.io — DBML 작성 후 ERD 이미지 노션 등록) ← 여기서 시작
+- [ ] Users 모듈 구현 (`GET /api/v1/users/me`, `PATCH /api/v1/users/me`) + Swagger 데코레이터
+- [ ] Money 모듈 — Expenses 가계부 CRUD + Swagger 데코레이터
+- [ ] Money 모듈 — Stocks 주식 CRUD + Swagger 데코레이터
+- [ ] Money 모듈 — Settings 내 정보 설정 GET/PUT + Swagger 데코레이터
+- [ ] Railway 배포 (dev 환경 URL 확보)
+- [ ] Sentry 프로젝트 생성 및 DSN 연결
+
+### 3단계 — FE + BE 연동 (Railway 배포 후)
+
+> inote-money 레포에서 진행. BE dev URL 확보 후 시작.
+
+- [ ] 로그인 페이지 실제 연동 (Better Auth 소셜 로그인)
+- [ ] 가계부 localStorage → 실제 API 교체
+- [ ] 주식 localStorage → 실제 API 교체
+- [ ] 내 정보 설정 localStorage → 실제 API 교체
 
 ---
 
