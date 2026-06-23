@@ -25,6 +25,16 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     },
   },
+
+  advanced: {
+    crossSubDomainCookies: {
+      enabled: false,
+    },
+    defaultCookieAttributes: {
+      sameSite: 'none',
+      secure: true,
+    },
+  },
 });
 
 export type Auth = typeof auth;
