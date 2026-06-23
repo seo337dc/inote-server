@@ -552,6 +552,225 @@ describe('그룹 이름', () => {       // 테스트 묶음
 });
 ```
 
+---
+
+## 12. NestJS Guard (인증 가드)
+
+> ⚠️ 학습 필요 — 코드는 구현했지만 개념 학습 필요
+
+### Guard란?
+
+요청이 컨트롤러에 도달하기 **전에** 실행되는 문지기.
+로그인 여부, 권한 여부를 여기서 검사함.
+
+```
+클라이언트 요청
+    ↓
+[Guard] ← 여기서 막힘 (401/403 반환)
+    ↓ (통과 시)
+컨트롤러
+    ↓
+서비스
+```
+
+### 실제 구현 코드 (inote-server)
+
+```typescript
+// src/auth/auth.guard.ts
+@Injectable()
+export class AuthGuard implements CanActivate {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+
+    // Better Auth로 세션 검증
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(request.headers),
+    });
+
+    if (!session) {
+      throw new UnauthorizedException('로그인이 필요합니다.');
+    }
+
+    // 이후 컨트롤러에서 꺼내 쓸 수 있도록 주입
+    request.user = session.user;
+    return true;
+  }
+}
+```
+
+### 컨트롤러에 적용
+
+```typescript
+@UseGuards(AuthGuard)       // 이 컨트롤러 전체에 가드 적용
+@Controller('users')
+export class UsersController { ... }
+```
+
+### 핵심 개념
+
+| 개념 | 설명 |
+|------|------|
+| `CanActivate` | Guard가 구현해야 하는 인터페이스 |
+| `canActivate()` | `true` 반환 시 통과, `false` 또는 예외 시 차단 |
+| `ExecutionContext` | 현재 요청의 컨텍스트 (HTTP, WebSocket 등) |
+| `switchToHttp()` | HTTP 요청으로 전환해서 `request`, `response` 꺼냄 |
+
+---
+
+## 13. 커스텀 데코레이터
+
+> ⚠️ 학습 필요 — 코드는 구현했지만 개념 학습 필요
+
+### 커스텀 데코레이터란?
+
+NestJS가 제공하는 `@Param()`, `@Body()` 처럼 **내가 직접 만드는 데코레이터**.
+주로 요청 객체에서 특정 값을 꺼내올 때 사용.
+
+### 실제 구현 코드 (inote-server)
+
+```typescript
+// src/auth/current-user.decorator.ts
+export const CurrentUser = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.user; // Guard에서 주입한 유저 정보 반환
+  },
+);
+```
+
+### 사용 방법
+
+```typescript
+// Guard가 request.user에 넣어준 값을 바로 꺼내서 사용
+@Get('me')
+getMe(@CurrentUser() user: { id: string }) {
+  return this.usersService.getMe(user.id);
+}
+```
+
+### Guard와 세트로 동작하는 흐름
+
+```
+요청 도착
+  → AuthGuard 실행 → session 검증 → request.user = 유저정보 주입
+  → 컨트롤러 실행 → @CurrentUser()가 request.user 꺼내줌
+  → 서비스에 userId 전달
+```
+
+---
+
+## 14. DTO & class-validator
+
+> ⚠️ 학습 필요 — 코드는 구현했지만 개념 학습 필요
+
+### DTO란?
+
+API 요청 데이터의 **형태와 규칙을 정의**하는 클래스.
+`class-validator` 데코레이터로 유효성 검사 규칙을 붙임.
+
+### 실제 구현 코드 (inote-server)
+
+```typescript
+// src/money/expenses/dto/create-expense.dto.ts
+export class CreateExpenseDto {
+  @IsInt()
+  @Min(1)
+  amount: number;         // 정수, 최소 1
+
+  @IsString()
+  category: string;       // 문자열
+
+  @IsIn(['income', 'expense'])
+  type: string;           // 두 값 중 하나만 허용
+
+  @IsDateString()
+  date: string;           // YYYY-MM-DD 형식
+
+  @IsOptional()
+  @IsString()
+  memo?: string;          // 없어도 됨
+}
+```
+
+### 주요 데코레이터
+
+| 데코레이터 | 의미 |
+|-----------|------|
+| `@IsString()` | 문자열 |
+| `@IsInt()` | 정수 |
+| `@IsNumber()` | 숫자 (소수 포함) |
+| `@IsOptional()` | 없어도 됨 (선택값) |
+| `@IsIn(['a','b'])` | 지정한 값 중 하나 |
+| `@IsDateString()` | 날짜 문자열 (ISO 형식) |
+| `@Min(n)` / `@Max(n)` | 최솟값 / 최댓값 |
+| `@IsUrl()` | URL 형식 |
+
+### PartialType — 수정 DTO 쉽게 만들기
+
+```typescript
+// create DTO를 상속받아 모든 필드를 optional로 변환
+export class UpdateExpenseDto extends PartialType(CreateExpenseDto) {}
+// → CreateExpenseDto의 모든 필드가 자동으로 선택값이 됨
+```
+
+### ValidationPipe 전역 등록 (main.ts)
+
+```typescript
+app.useGlobalPipes(new ValidationPipe({
+  whitelist: true,   // DTO에 없는 필드는 자동 제거
+  transform: true,   // 타입 자동 변환 (string → number 등)
+}));
+```
+
+---
+
+## 15. Prisma upsert 패턴
+
+> ⚠️ 학습 필요 — 코드는 구현했지만 개념 학습 필요
+
+### upsert란?
+
+**"없으면 생성(insert), 있으면 수정(update)"** 을 한 번에 처리하는 Prisma 메서드.
+`UserSetting`처럼 유저당 1개만 존재하는 데이터에 적합.
+
+### 실제 구현 코드 (inote-server)
+
+```typescript
+// src/money/settings/settings.service.ts
+async upsert(userId: string, dto: UpsertSettingsDto) {
+  return this.prisma.userSetting.upsert({
+    where: { userId },        // 이 조건으로 찾고
+    create: { userId, ...dto }, // 없으면 생성
+    update: dto,              // 있으면 수정
+  });
+}
+```
+
+### 일반 create/update vs upsert 비교
+
+```typescript
+// ❌ 직접 분기 처리
+const existing = await prisma.userSetting.findUnique({ where: { userId } });
+if (existing) {
+  await prisma.userSetting.update({ where: { userId }, data: dto });
+} else {
+  await prisma.userSetting.create({ data: { userId, ...dto } });
+}
+
+// ✅ upsert로 한 줄
+await prisma.userSetting.upsert({
+  where: { userId },
+  create: { userId, ...dto },
+  update: dto,
+});
+```
+
+### 언제 쓰나?
+
+- 유저당 1개만 존재하는 데이터 (설정, 프로필 등)
+- "저장" 버튼 하나로 생성/수정 모두 처리할 때
+- PUT 방식 API (`/settings`)에 적합
+
 ### Mock (가짜 객체)
 
 단위 테스트에서 DB를 실제로 연결하지 않고 **가짜 응답을 만들어** 쓰는 것.
