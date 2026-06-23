@@ -13,6 +13,7 @@ export const auth = betterAuth({
   basePath: '/api/v1/auth',
 
   trustedOrigins: [
+    'http://localhost:3000',
     'http://localhost:3100',
     'https://inote-money.vercel.app',
   ],
