@@ -312,7 +312,7 @@ npm run test:cov      # 커버리지 리포트
 
 ## 현재 단계
 
-**Better Auth (Google 소셜 로그인) 완료** — Users / Money 모듈 다음 작업
+**Money 모듈 완료** — Railway 배포 다음 작업
 
 | 항목 | 상태 |
 |------|------|
@@ -322,8 +322,11 @@ npm run test:cov      # 커버리지 리포트
 | Prisma + Neon DB 연결 | ✅ 완료 |
 | DB 마이그레이션 (init) | ✅ 완료 |
 | Better Auth (Google OAuth) | ✅ 완료 |
-| Users 모듈 | 🔜 예정 |
-| Money 모듈 | 🔜 예정 |
+| DB 다이어그램 (dbdiagram.io) | ✅ 완료 |
+| Users 모듈 | ✅ 완료 |
+| Money 모듈 (Expenses/Stocks/Settings) | ✅ 완료 |
+| Railway 배포 | 🔜 예정 |
+| Sentry 연결 | 🔜 예정 |
 
 ---
 

@@ -12,7 +12,7 @@
 | 레포 위치 | https://github.com/seo337dc/inote-server |
 | 실행 포트 | `http://localhost:3200` |
 | Swagger 문서 | `http://localhost:3200/api/docs` |
-| 현재 진행 단계 | Better Auth (Google OAuth) 완료 — Users / Money 모듈 다음 작업 |
+| 현재 진행 단계 | Money 모듈 완료 — Railway 배포 다음 작업 |
 
 ---
 
@@ -27,6 +27,62 @@ npm run start:dev
 ---
 
 ## 작업 로그
+
+### 2026-06-23
+
+#### ✅ DB 다이어그램 생성
+
+- Prisma 스키마 → DBML 변환
+- dbdiagram.io에서 ERD 시각화 및 PNG export
+- 노션 DB 문서 서브페이지에 등록 예정
+- DBML 원본 + 테이블 한글 설명 문서 (`Downloads/inote-server-db-docs.md`) 작성
+
+#### ✅ Users 모듈 구현
+
+**신규 파일**
+- `src/auth/auth.guard.ts` — Better Auth 세션 검증 가드 (`AuthGuard`)
+  - `auth.api.getSession()` + `fromNodeHeaders`로 세션 확인
+  - 실패 시 `401 UnauthorizedException` 반환
+  - `request.user`에 유저 정보 주입
+- `src/auth/current-user.decorator.ts` — `@CurrentUser()` 데코레이터 (컨트롤러에서 유저 추출)
+- `src/users/dto/update-user.dto.ts` — 이름 / 이미지 URL 수정 DTO
+- `src/users/users.service.ts` — `getMe` / `updateMe` (password 등 민감 필드 select 제외)
+- `src/users/users.controller.ts` — `GET /users/me`, `PATCH /users/me`
+- `src/users/users.module.ts`
+
+**트러블슈팅**
+- `npm install` 안 된 상태에서 빌드 시도 → `better-auth/node` 모듈 없음 오류 → `npm install` 후 해결
+- Prisma Client 재생성 필요 (`npx prisma generate`) — `emailVerified` 컬럼 인식 못하던 문제 해결
+
+#### ✅ Money 모듈 구현
+
+**신규 파일**
+- `src/money/expenses/` — 가계부 CRUD
+  - `GET /money/expenses?year=&month=` — 월별 조회 (기본값: 현재 년/월)
+  - `POST /money/expenses` — 항목 추가
+  - `PATCH /money/expenses/:id` — 항목 수정
+  - `DELETE /money/expenses/:id` — 항목 삭제
+  - 본인 소유 확인 (`verifyOwner`) — 타인 데이터 접근 시 `403 Forbidden`
+- `src/money/stocks/` — 주식 CRUD
+  - `GET /money/stocks` — 전체 목록
+  - `POST /money/stocks` — 종목 추가
+  - `PATCH /money/stocks/:id` — 종목 수정
+  - `DELETE /money/stocks/:id` — 종목 삭제
+- `src/money/settings/` — 내 정보 설정
+  - `GET /money/settings` — 설정 조회
+  - `PUT /money/settings` — 설정 저장 (upsert — 없으면 생성, 있으면 수정)
+- `src/money/money.module.ts`
+
+**공통 패턴**
+- 모든 라우트 `@UseGuards(AuthGuard)` 적용
+- `@CurrentUser()` 데코레이터로 유저 ID 추출
+- `@ApiTags` / `@ApiOperation` Swagger 데코레이터 적용
+
+#### 🔜 다음 작업
+- Railway 배포 (dev 환경 URL 확보)
+- Sentry 연결
+
+---
 
 ### 2026-06-10 (2차)
 
@@ -132,12 +188,12 @@ npm run start:dev
 - [x] NestJS 프로젝트 초기화
 - [x] Prisma 설치 및 Neon PostgreSQL 연결
 - [x] Better Auth 설치 및 Google 소셜 로그인 연동
-- [ ] **DB 다이어그램 생성** (dbdiagram.io — DBML 작성 후 ERD 이미지 노션 등록) ← 여기서 시작
-- [ ] Users 모듈 구현 (`GET /api/v1/users/me`, `PATCH /api/v1/users/me`) + Swagger 데코레이터
-- [ ] Money 모듈 — Expenses 가계부 CRUD + Swagger 데코레이터
-- [ ] Money 모듈 — Stocks 주식 CRUD + Swagger 데코레이터
-- [ ] Money 모듈 — Settings 내 정보 설정 GET/PUT + Swagger 데코레이터
-- [ ] Railway 배포 (dev 환경 URL 확보)
+- [x] DB 다이어그램 생성 (dbdiagram.io — DBML 작성 후 ERD 이미지 노션 등록)
+- [x] Users 모듈 구현 (`GET /api/v1/users/me`, `PATCH /api/v1/users/me`) + Swagger 데코레이터
+- [x] Money 모듈 — Expenses 가계부 CRUD + Swagger 데코레이터
+- [x] Money 모듈 — Stocks 주식 CRUD + Swagger 데코레이터
+- [x] Money 모듈 — Settings 내 정보 설정 GET/PUT + Swagger 데코레이터
+- [ ] **Railway 배포 (dev 환경 URL 확보)** ← 다음 작업
 - [ ] Sentry 프로젝트 생성 및 DSN 연결
 
 ### 3단계 — FE + BE 연동 (Railway 배포 후)
