@@ -312,7 +312,7 @@ npm run test:cov      # 커버리지 리포트
 
 ## 현재 단계
 
-**Money 모듈 완료** — Railway 배포 다음 작업
+**Render 배포 완료** — Sentry 연결 다음 작업
 
 | 항목 | 상태 |
 |------|------|
@@ -325,7 +325,7 @@ npm run test:cov      # 커버리지 리포트
 | DB 다이어그램 (dbdiagram.io) | ✅ 완료 |
 | Users 모듈 | ✅ 완료 |
 | Money 모듈 (Expenses/Stocks/Settings) | ✅ 완료 |
-| Railway 배포 | 🔜 예정 |
+| Render 배포 | ✅ 완료 (https://inote-server-5a63.onrender.com) |
 | Sentry 연결 | 🔜 예정 |
 
 ---

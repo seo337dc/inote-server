@@ -10,9 +10,12 @@
 | 항목 | 상태 |
 |------|------|
 | 레포 위치 | https://github.com/seo337dc/inote-server |
-| 실행 포트 | `http://localhost:3200` |
-| Swagger 문서 | `http://localhost:3200/api/docs` |
-| 현재 진행 단계 | Money 모듈 완료 — Railway 배포 다음 작업 |
+| 실행 포트 (로컬) | `http://localhost:3200` |
+| Swagger 문서 (로컬) | `http://localhost:3200/api/docs` |
+| 서버 URL (dev) | `https://inote-server-5a63.onrender.com` |
+| Swagger 문서 (dev) | `https://inote-server-5a63.onrender.com/api/docs` |
+| 헬스체크 | `https://inote-server-5a63.onrender.com/api/v1/health` |
+| 현재 진행 단계 | Render 배포 완료 — Sentry 연결 다음 작업 |
 
 ---
 
@@ -28,7 +31,40 @@ npm run start:dev
 
 ## 작업 로그
 
-### 2026-06-23
+### 2026-06-23 (2차)
+
+#### ✅ Render 배포 완료
+
+**배포 플랫폼 결정**
+- Railway → Render로 변경 (Railway 무료 플랜 없음, Render 영구 무료)
+- Render 무료 플랜: 512MB RAM, 0.1 CPU, 15분 비활성 시 슬립
+
+**배포 설정**
+- `render.yaml` 추가
+- Build Command: `npm install --include=dev && npx prisma generate && npm run build`
+- Start Command: `npm run start:prod` (`prisma migrate deploy && node dist/main`)
+- Health Check: `/api/v1/health` 엔드포인트 추가 (`AppController`)
+
+**트러블슈팅**
+
+1. `nest: not found` — devDependencies 미설치 → `--include=dev` 추가로 해결
+2. `dist/main` not found — `prisma.config.ts`가 루트에 있어 TypeScript의 rootDir이 `.`으로 추론됨 → 출력이 `dist/src/main.js`로 잘못 생성됨
+   - `tsconfig.json`에 `"rootDir": "src"` 추가
+   - `tsconfig.build.json`에 `prisma.config.ts` exclude 추가
+3. OOM (heap out of memory) — Start Command에 빌드 중복 포함 → Start Command에서 빌드 제거로 해결
+
+**결과**
+- 서버 URL: https://inote-server-5a63.onrender.com
+- `GET /api/v1/health` → `{ "status": "ok" }` 정상 응답 확인
+- Google OAuth Redirect URI 업데이트 완료
+
+#### 🔜 다음 작업
+- Sentry 프로젝트 생성 및 DSN 연결
+- FE + BE 연동 (3단계)
+
+---
+
+### 2026-06-23 (1차)
 
 #### ✅ DB 다이어그램 생성
 

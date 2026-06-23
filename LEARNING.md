@@ -1341,6 +1341,73 @@ Prisma 스키마의 `session` 테이블이 이 세션들을 저장한다.
 
 ---
 
+## Chapter 24 — Render 배포
+
+> ⚠️ 학습 필요 — 배포는 완료했지만 개념 학습 필요
+
+### Render란?
+
+GitHub 레포를 연결하면 자동으로 빌드·배포해주는 PaaS(Platform as a Service).
+무료 플랜: 512MB RAM, 0.1 CPU, 15분 비활성 시 슬립.
+
+### 배포 흐름
+
+```
+git push → Render가 감지
+  → Build Command 실행 (npm install, prisma generate, nest build)
+  → Start Command 실행 (prisma migrate deploy, node dist/main)
+  → Health Check 통과 → Live
+```
+
+### render.yaml — 배포 설정 파일
+
+```yaml
+services:
+  - type: web
+    name: inote-server
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npx prisma generate && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/v1/health
+```
+
+### Build vs Start 단계 차이
+
+| 단계 | 실행 내용 | 특징 |
+|------|----------|------|
+| Build | npm install, prisma generate, nest build | 빌드 산출물 생성 |
+| Start | prisma migrate deploy, node dist/main | 앱 실행 |
+
+### 트러블슈팅 기록 (2026-06-23)
+
+**1. `nest: not found`**
+- 원인: `NODE_ENV=production` 환경에서 `npm install`은 devDependencies 스킵
+- `@nestjs/cli`가 devDependencies에 있어서 `nest` 명령어 없음
+- 해결: `npm install --include=dev`
+
+**2. `dist/main not found`**
+- 원인: `prisma.config.ts`가 프로젝트 루트에 있어서 TypeScript의 rootDir이 자동으로 `.`으로 추론됨
+- 결과: `src/main.ts` → `dist/src/main.js` (예상: `dist/main.js`)
+- 해결: `tsconfig.json`에 `"rootDir": "src"` 추가 + `tsconfig.build.json`에 `prisma.config.ts` exclude
+
+**3. OOM (heap out of memory)**
+- 원인: Build Command + Start Command 양쪽에서 `nest build` 실행 → 512MB 부족
+- 해결: Start Command에서 빌드 제거, Build Command에서만 빌드
+
+### TypeScript rootDir 이해
+
+```
+rootDir 미설정 상태에서 prisma.config.ts가 루트에 있으면:
+  rootDir = "." (프로젝트 루트)
+  src/main.ts → dist/src/main.js  ← 잘못된 경로
+
+rootDir = "src" 설정하면:
+  src/main.ts → dist/main.js  ← 올바른 경로
+```
+
+---
+
 ## 참고 자료
 
 | 주제 | 링크 |
