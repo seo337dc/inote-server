@@ -11,10 +11,9 @@
 | 언어 | TypeScript |
 | 프레임워크 | NestJS |
 | ORM | Prisma |
-| 인증 | Better Auth |
+| 인증 | Better Auth (Google OAuth) |
 | DB | PostgreSQL (Neon) |
-| 배포 | Railway |
-| 에러 추적 | Sentry |
+| 배포 | Render |
 | API 문서 | Swagger |
 
 ---
@@ -48,13 +47,15 @@ cp .env.example .env
 `.env` 파일에 값 입력:
 
 ```bash
-DATABASE_URL="postgresql://..."   # Neon 연결 문자열
-BETTER_AUTH_SECRET="..."          # 랜덤 시크릿 (openssl rand -hex 32)
+DATABASE_URL="postgresql://...?sslmode=require"   # Neon 연결 문자열
+BETTER_AUTH_SECRET="..."                           # 랜덤 시크릿 (openssl rand -hex 32)
+BETTER_AUTH_URL="http://localhost:3200"
 GOOGLE_CLIENT_ID="..."
 GOOGLE_CLIENT_SECRET="..."
-SENTRY_DSN="..."
 PORT=3200
 ```
+
+> ⚠️ Neon DATABASE_URL에 `channel_binding=require` 옵션은 제거하세요. Prisma와 호환되지 않습니다.
 
 ### 3. DB 마이그레이션
 
@@ -73,6 +74,7 @@ npm run start:dev
 |-----|------|
 | `http://localhost:3200` | API 서버 |
 | `http://localhost:3200/api/docs` | Swagger API 문서 |
+| `http://localhost:3200/api/v1/health` | 헬스 체크 |
 
 ---
 
@@ -96,12 +98,12 @@ src/
 
 ## API 목록
 
-### 인증
+### 인증 (Better Auth)
 | Method | URL | 설명 |
 |--------|-----|------|
-| POST | `/api/v1/auth/signup` | 회원가입 |
-| POST | `/api/v1/auth/signin` | 로그인 |
-| POST | `/api/v1/auth/signout` | 로그아웃 |
+| POST | `/api/v1/auth/sign-in/social` | 소셜 로그인 |
+| POST | `/api/v1/auth/sign-out` | 로그아웃 |
+| GET | `/api/v1/auth/get-session` | 세션 조회 |
 
 ### 유저
 | Method | URL | 설명 |
@@ -136,10 +138,9 @@ src/
 ## 인프라
 
 ```
-FE  →  AWS Amplify
-BE  →  Railway (이 서버)
+FE  →  Vercel (inote-money)
+BE  →  Render (이 서버) — https://inote-server-5a63.onrender.com
 DB  →  Neon PostgreSQL
-로그 →  Sentry + Railway 내장 로그
 ```
 
 ---
@@ -152,16 +153,16 @@ DB  →  Neon PostgreSQL
 | Swagger (`/api/docs`) | ✅ 완료 |
 | Prisma + Neon DB 연결 | ✅ 완료 |
 | DB 마이그레이션 | ✅ 완료 |
-| Better Auth 소셜 로그인 | 🔜 예정 |
+| Better Auth Google 소셜 로그인 | ✅ 완료 |
+| Render 배포 | ✅ 완료 |
+| Money 모듈 (가계부/주식/설정) | ✅ 완료 |
 | Users 모듈 | 🔜 예정 |
-| Money 모듈 (가계부/주식/설정) | 🔜 예정 |
-| Railway 배포 | 🔜 예정 |
+| Sentry 연결 | 🔜 예정 |
 
 ---
 
 ## 관련 문서
 
 - [CLAUDE.md](./CLAUDE.md) — AI 작업 컨텍스트 기준 문서
-- [DEV_LOG.md](./DEV_LOG.md) — 세션별 작업 기록 + 다른 PC 이어받기 가이드
-- [NESTJS_GUIDE.md](./NESTJS_GUIDE.md) — NestJS 코드 패턴 가이드
-- [LEARNING.md](./LEARNING.md) — Node.js / NestJS / Prisma 개념 학습
+- [DEV_LOG.md](./DEV_LOG.md) — 세션별 작업 기록
+- [LEARNING.md](./LEARNING.md) — NestJS / Prisma 개념 학습
