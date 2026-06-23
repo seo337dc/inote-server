@@ -26,7 +26,7 @@ iNote 시리즈 서비스의 공통 백엔드 서버.
 | ORM | Prisma | 타입 자동생성, 마이그레이션 관리 |
 | 인증 | Better Auth | 소셜 로그인, JWT 세션 |
 | DB | PostgreSQL (Neon) | 영구 무료, dev/prod 브랜치 분리 |
-| BE 배포 | Railway | 영구 무료, 컨테이너 배포 |
+| BE 배포 | Render | 영구 무료 (슬립 있음), GitHub 연동 자동 배포 |
 | FE 배포 | AWS Amplify | Next.js SSR 지원, 무료 플랜 |
 | 에러 로그 | Sentry | 영구 무료 5K/월 |
 | API 문서 | Swagger | @nestjs/swagger, 자동 생성 |
@@ -37,7 +37,7 @@ iNote 시리즈 서비스의 공통 백엔드 서버.
 
 ```
 FE (Next.js)  →  AWS Amplify
-BE (NestJS)   →  Railway
+BE (NestJS)   →  Render
 DB            →  Neon PostgreSQL (dev 브랜치 / prod 브랜치)
 에러 추적      →  Sentry
 API 로그      →  Railway 내장 로그

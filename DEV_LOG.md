@@ -215,7 +215,7 @@ npm run start:dev
 | ORM | Prisma | TypeScript 타입 자동 생성, 마이그레이션 관리 용이 |
 | 인증 | Better Auth | Next.js 16 + Prisma 공식 지원, next-auth 대체, 소셜 로그인 내장 |
 | DB | Neon PostgreSQL | 영구 무료, dev/prod 브랜치 분리 가능, 512MB 제공 |
-| BE 배포 | Railway | 영구 무료 (500시간/월), NestJS 컨테이너 배포 간단 |
+| BE 배포 | Render | 영구 무료 (15분 슬립), GitHub 연동 자동 배포 |
 | FE 배포 | AWS Amplify | Next.js SSR 공식 지원, GitHub 연동 CI/CD 자동화, 무료 플랜 |
 | 에러 로그 | Sentry | 영구 무료 (5K 에러/월), 에러 추적 + 알림 |
 | API 서버 로그 | Railway 내장 로그 | 별도 설정 불필요, 무료 |
@@ -231,10 +231,10 @@ npm run start:dev
 - Supabase: 1주 비활성 시 슬립, Storage/Auth 등 부가 기능 많지만 지금은 불필요
 - **Neon 선택**: 5분 슬립이지만 dev/prod 브랜치 분리 가능 → 개발환경과 운영환경 DB 분리하기 좋음
 
-### BE 배포 — Railway 선택 이유
+### BE 배포 — Render 선택 이유
 - AWS EC2 t2.micro는 12개월 무료 후 과금 (~$9/월)
-- AWS RDS는 12개월 무료 후 과금 (~$15/월)
-- **Railway 선택**: 영구 무료, Docker 기반 NestJS 배포 간단, 환경변수 관리 UI 제공
+- Railway는 무료 플랜 없음 ($5/월 최소 과금)
+- **Render 선택**: 영구 무료 (15분 슬립), GitHub 연동 자동 배포, 환경변수 관리 UI 제공
 
 ### FE 배포 — AWS Amplify 선택 이유
 - Next.js App Router (SSR)는 S3+CloudFront만으로 불가
