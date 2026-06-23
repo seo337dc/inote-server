@@ -10,7 +10,7 @@ async function bootstrap() {
 
   // 1. CORS 먼저 — Better Auth 요청에도 적용되어야 하므로 최우선 등록
   app.enableCors({
-    origin: ['http://localhost:3100', 'https://inote-money.vercel.app'],
+    origin: ['http://localhost:3000', 'http://localhost:3100', 'https://inote-money.vercel.app'],
     credentials: true,
   });
 
