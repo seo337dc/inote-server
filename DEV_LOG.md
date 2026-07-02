@@ -31,6 +31,40 @@ npm run start:dev
 
 ## 작업 로그
 
+### 2026-07-02
+
+#### ✅ 로컬 서버 실행 불가 버그 수정 (`npm run start:dev` → dist not found)
+
+**증상**
+- `npm run start:dev` 실행 시 "Found 0 errors. Watching for file changes." 출력 후
+- `Cannot find module '/dist/main'` 에러 발생
+- `npm run build` 도 exit 1로 실패하나 오류 메시지 없음
+
+**근본 원인**
+`nest-cli.json`의 `deleteOutDir: true` + `tsconfig.json`의 `incremental: true` 조합 충돌
+
+1. `nest start --watch` 실행 → dist 폴더 삭제 (`deleteOutDir: true`)
+2. tsc watch가 `tsconfig.build.tsbuildinfo` 캐시를 발견 → "변경 없음"으로 판단 → 파일 emit 안 함
+3. dist가 비어있는 채로 NestJS가 `dist/main` 실행 시도 → `MODULE_NOT_FOUND` 에러
+
+**수정**
+`tsconfig.json`에 `tsBuildInfoFile` 경로를 dist 내부로 지정:
+
+```json
+"tsBuildInfoFile": "./dist/.tsbuildinfo"
+```
+
+dist 삭제 시 `.tsbuildinfo` 캐시도 함께 삭제되어 tsc가 항상 정상 재컴파일함.
+
+**주의사항**
+- 기존에 `tsconfig.build.tsbuildinfo` 파일이 루트에 남아있다면 수동 삭제 필요:
+  ```bash
+  rm -f tsconfig.build.tsbuildinfo
+  ```
+- 이후 `npm run start:dev`만으로 정상 동작
+
+---
+
 ### 2026-06-23 (2차)
 
 #### ✅ Render 배포 완료
