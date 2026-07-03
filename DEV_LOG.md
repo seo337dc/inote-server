@@ -98,6 +98,57 @@ dist 삭제 시 `.tsbuildinfo` 캐시도 함께 삭제되어 tsc가 항상 정�
 
 ---
 
+### 2026-07-03
+
+#### ✅ Prisma 스키마 재설계 — inote-money API 모델 추가
+
+기존 `Expense`, `Stock`, `UserSetting` 모델이 API 스펙과 맞지 않아 전면 재설계.
+
+**변경 내용**
+
+| 모델 | 변경 사항 |
+|------|-----------|
+| `UserSetting` | `dailyLimit`, `monthlySavingGoal`, `assetUpdateDate`, `salaryDate` 추가. `savings`/`fixedExpenses` `Int` → `Json` 배열로 변경 |
+| `Expense` | `isWaste`, `description` 추가. `category` 문자열 → `Category` enum. 불필요한 `type` 필드 제거 |
+| `Stock` → `StockHolding` | `market`(KR/US) 추가. `inputMode` 문자열 → `InputMode` enum. `ticker` optional로 변경 |
+| `Review` | 신규 추가 — 주간/월간 리뷰 (rating, text). `(userId, type, year, period)` unique |
+
+**추가된 enum**
+- `Category`: FOOD / CAFE / TRANSPORT / SHOPPING / MEDICAL / CULTURE / SUBSCRIPTION / ETC
+- `Market`: KR / US
+- `InputMode`: QUANTITY / AMOUNT
+- `ReviewType`: WEEKLY / MONTHLY
+
+**마이그레이션 이슈**
+- Neon 기본 샘플 테이블 `playing_with_neon`이 마이그레이션 히스토리에 없어 drift 감지
+- `migrate dev` 대신 `db push --accept-data-loss`로 처리 (샘플 데이터라 무방)
+
+#### ✅ user 모델 확장 — v2 회원가입 대비
+
+v2에서 이메일 로그인, 핸드폰 OTP 등 다양한 인증 방식 추가를 고려해 모델만 선제적으로 확장.
+
+```prisma
+nickname      String?
+phone         String?
+phoneVerified Boolean  @default(false)
+```
+
+- 실제 기능(이메일 로그인, 이메일 인증, 핸드폰 등록)은 v2에서 구현 예정
+- v1은 Google OAuth만 사용
+
+#### ✅ Notion 서버 기획 문서 작성
+
+- BE API 스펙 전체 정리 (Users, Expenses, StockHoldings, Reviews)
+- DB 스키마 초안 포함
+- v1/v2 범위 분리 명시 (v1: inote-money만, v2: 멀티앱 구조 개선)
+- DB 확인 방법 (Prisma Studio, Neon 콘솔) 노션 메인 페이지에 추가
+
+#### 🔜 다음 작업
+- NestJS 모듈 구현 (Users 설정 → Expenses → Reviews → Stocks)
+- Google 팝업 로그인 구현 (FE)
+
+---
+
 ### 2026-06-23 (1차)
 
 #### ✅ DB 다이어그램 생성
