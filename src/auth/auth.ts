@@ -19,6 +19,11 @@ export const auth = betterAuth({
     'https://inote-money.vercel.app',
   ],
 
+  session: {
+    expiresIn: 60 * 60 * 24,     // 1일
+    updateAge: 60 * 60 * 12,     // 12시간마다 자동 갱신
+  },
+
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
