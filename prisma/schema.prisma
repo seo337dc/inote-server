@@ -11,22 +11,21 @@ datasource db {
 // ── Better Auth 필수 테이블 ──────────────────────────────────────
 
 model user {
-  id            String       @id @default(cuid())
+  id            String      @id @default(cuid())
   name          String
-  email         String       @unique
-  emailVerified Boolean      @default(false)
+  email         String      @unique
+  emailVerified Boolean     @default(false)
   image         String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
-  // Better Auth 관계
   sessions      session[]
   accounts      account[]
 
-  // 앱 관계
-  expenses      Expense[]
-  stocks        Stock[]
   setting       UserSetting?
+  expenses      Expense[]
+  stocks        StockHolding[]
+  reviews       Review[]
 }
 
 model session {
@@ -59,53 +58,98 @@ model account {
 }
 
 model verification {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   identifier String
   value      String
   expiresAt  DateTime
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 // ── 앱 테이블 ──────────────────────────────────────────────────
 
-model Expense {
-  id        String   @id @default(cuid())
-  userId    String
-  amount    Int
-  category  String
-  type      String
-  memo      String?
-  date      DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Stock {
-  id           String   @id @default(cuid())
-  userId       String
-  ticker       String
-  name         String
-  currency     String
-  inputMode    String
-  quantity     Float?
-  buyPrice     Float?
-  investAmount Float?
-  memo         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
+// savings: [{ id, name, amount, transferDate }]
+// fixedExpenses: [{ id, name, amount, transferDate }]
 model UserSetting {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  salary       Int?
-  savings      Int?
-  fixedExpense Int?
-  salaryDate   Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  salary            Int      @default(0)
+  salaryDate        Int      @default(25)
+  dailyLimit        Int      @default(0)
+  monthlySavingGoal Int      @default(0)
+  assetUpdateDate   Int      @default(1)
+  savings           Json     @default("[]")
+  fixedExpenses     Json     @default("[]")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime
+  amount      Int
+  description String?
+  category    Category @default(ETC)
+  isWaste     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Category {
+  FOOD
+  CAFE
+  TRANSPORT
+  SHOPPING
+  MEDICAL
+  CULTURE
+  SUBSCRIPTION
+  ETC
+}
+
+model StockHolding {
+  id             String    @id @default(cuid())
+  userId         String
+  market         Market
+  ticker         String?
+  name           String
+  inputMode      InputMode
+  quantity       Float?
+  averagePrice   Float?
+  investedAmount Float?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Market {
+  KR
+  US
+}
+
+enum InputMode {
+  QUANTITY
+  AMOUNT
+}
+
+model Review {
+  id        String     @id @default(cuid())
+  userId    String
+  type      ReviewType
+  year      Int
+  period    Int
+  rating    Int
+  text      String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      user       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, year, period])
+}
+
+enum ReviewType {
+  WEEKLY
+  MONTHLY
 }
