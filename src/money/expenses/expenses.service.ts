@@ -19,7 +19,14 @@ export class ExpensesService {
 
   async create(userId: string, dto: CreateExpenseDto) {
     return this.prisma.expense.create({
-      data: { ...dto, date: new Date(dto.date), userId },
+      data: {
+        userId,
+        date: new Date(dto.date),
+        amount: dto.amount,
+        description: dto.description,
+        category: dto.category,
+        isWaste: dto.isWaste,
+      },
     });
   }
 
@@ -27,7 +34,13 @@ export class ExpensesService {
     await this.verifyOwner(userId, id);
     return this.prisma.expense.update({
       where: { id },
-      data: { ...dto, ...(dto.date && { date: new Date(dto.date) }) },
+      data: {
+        ...(dto.date && { date: new Date(dto.date) }),
+        ...(dto.amount !== undefined && { amount: dto.amount }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.category !== undefined && { category: dto.category }),
+        ...(dto.isWaste !== undefined && { isWaste: dto.isWaste }),
+      },
     });
   }
 

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { Category } from '@prisma/client';
+import { IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateExpenseDto {
   @ApiProperty({ description: '금액 (원)', example: 15000 })
@@ -7,20 +8,22 @@ export class CreateExpenseDto {
   @Min(1)
   amount: number;
 
-  @ApiProperty({ description: '카테고리', example: '식비' })
-  @IsString()
-  category: string;
-
-  @ApiProperty({ description: '타입', enum: ['income', 'expense'] })
-  @IsIn(['income', 'expense'])
-  type: string;
-
-  @ApiProperty({ description: '날짜 (YYYY-MM-DD)', example: '2026-06-23' })
+  @ApiProperty({ description: '날짜 (YYYY-MM-DD)', example: '2026-07-03' })
   @IsDateString()
   date: string;
 
-  @ApiPropertyOptional({ description: '메모', example: '점심' })
+  @ApiPropertyOptional({ description: '사용처', example: '스타벅스' })
   @IsOptional()
   @IsString()
-  memo?: string;
+  description?: string;
+
+  @ApiPropertyOptional({ description: '카테고리', enum: Category, default: Category.ETC })
+  @IsOptional()
+  @IsEnum(Category)
+  category?: Category;
+
+  @ApiPropertyOptional({ description: '낭비 여부', default: false })
+  @IsOptional()
+  @IsBoolean()
+  isWaste?: boolean;
 }
