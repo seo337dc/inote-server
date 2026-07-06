@@ -11,10 +11,16 @@ export class SettingsService {
   }
 
   async upsert(userId: string, dto: UpsertSettingsDto) {
+    const data = {
+      ...dto,
+      savings: dto.savings ?? undefined,
+      fixedExpenses: dto.fixedExpenses ?? undefined,
+    };
+
     return this.prisma.userSetting.upsert({
       where: { userId },
-      create: { userId, ...dto },
-      update: dto,
+      create: { userId, ...data },
+      update: data,
     });
   }
 }
