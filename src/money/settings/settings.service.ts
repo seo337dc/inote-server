@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpsertSettingsDto } from './dto/upsert-settings.dto';
@@ -24,6 +24,32 @@ export class SettingsService {
       where: { userId },
       create: { userId, ...data },
       update: data,
+    });
+  }
+
+  async createHistory(userId: string, month: string) {
+    const current = await this.prisma.userSetting.findUnique({ where: { userId } });
+    if (!current) throw new NotFoundException('저장된 자산 설정이 없습니다');
+
+    return this.prisma.settingHistory.create({
+      data: {
+        userId,
+        month,
+        salary: current.salary,
+        salaryDate: current.salaryDate,
+        dailyLimit: current.dailyLimit,
+        monthlySavingGoal: current.monthlySavingGoal,
+        assetUpdateDate: current.assetUpdateDate,
+        savings: current.savings as Prisma.InputJsonValue,
+        fixedExpenses: current.fixedExpenses as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  async getHistory(userId: string) {
+    return this.prisma.settingHistory.findMany({
+      where: { userId },
+      orderBy: { recordedAt: 'desc' },
     });
   }
 }

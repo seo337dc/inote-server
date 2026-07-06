@@ -25,10 +25,11 @@ model user {
   sessions      session[]
   accounts      account[]
 
-  setting       UserSetting?
-  expenses      Expense[]
-  stocks        StockHolding[]
-  reviews       Review[]
+  setting          UserSetting?
+  settingHistories SettingHistory[]
+  expenses         Expense[]
+  stocks           StockHolding[]
+  reviews          Review[]
 }
 
 model session {
@@ -85,6 +86,21 @@ model UserSetting {
   fixedExpenses     Json     @default("[]")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  user              user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SettingHistory {
+  id                String   @id @default(cuid())
+  userId            String
+  month             String   // "2026-07"
+  salary            Int      @default(0)
+  salaryDate        Int?
+  dailyLimit        Int      @default(0)
+  monthlySavingGoal Int      @default(0)
+  assetUpdateDate   Int?
+  savings           Json     @default("[]")
+  fixedExpenses     Json     @default("[]")
+  recordedAt        DateTime @default(now())
   user              user     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
