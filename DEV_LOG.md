@@ -15,7 +15,7 @@
 | 서버 URL (dev) | `https://inote-server-5a63.onrender.com` |
 | Swagger 문서 (dev) | `https://inote-server-5a63.onrender.com/api/docs` |
 | 헬스체크 | `https://inote-server-5a63.onrender.com/api/v1/health` |
-| 현재 진행 단계 | Render 배포 완료 — Sentry 연결 다음 작업 |
+| 현재 진행 단계 | SettingHistory API 완료 — 가계부/대시보드 API 연동 다음 |
 
 ---
 
@@ -30,6 +30,42 @@ npm run start:dev
 ---
 
 ## 작업 로그
+
+### 2026-07-06
+
+#### ✅ SettingHistory 모델 추가 — 자산 설정 히스토리 기능
+
+**Prisma 스키마 변경**
+- `SettingHistory` 모델 신규: `userId`, `month("2026-07")`, `title?`, 설정값 스냅샷(`salary`, `dailyLimit`, `monthlySavingGoal`, `salaryDate?`, `assetUpdateDate?`), `savings Json`, `fixedExpenses Json`, `memo?`, `recordedAt`
+- `UserSetting`에 `memo String?` 필드 추가
+- `prisma db push` 사용 (migrate dev drift 방지 — 기존 마이그레이션과 충돌 없이 스키마 동기화)
+
+**Settings 컨트롤러 확장 (5개 엔드포인트 추가)**
+- `GET /money/settings/history` — 목록 조회 (최신순, userId 필터)
+- `POST /money/settings/history` — 현재 설정값 스냅샷 저장
+- `GET /money/settings/history/:id` — 단건 조회 (본인 소유 확인)
+- `PATCH /money/settings/history/:id` — 제목 수정
+- `DELETE /money/settings/history/:id` — 삭제
+
+**신규 DTO**
+- `create-setting-history.dto.ts` — `title?` + 설정값 스냅샷 전체
+- `update-setting-history.dto.ts` — `title?` (제목만 수정 가능)
+
+#### ✅ UpsertSettingsDto 재설계 — savings/fixedExpenses 배열 구조
+
+기존 `savings Int`, `fixedExpense Int` 단일 값 → `SettingsItemDto[]` 배열로 변경
+```ts
+class SettingsItemDto {
+  id: string;
+  name: string;
+  amount: number;
+  day?: number; // 이체일
+}
+```
+- `@ValidateNested({ each: true })` + `@Type(() => SettingsItemDto)` 적용
+- FE UpsertSettingsDto와 구조 동기화 완료
+
+---
 
 ### 2026-07-02
 
@@ -309,22 +345,23 @@ npm run start:dev
 - [x] NestJS 프로젝트 초기화
 - [x] Prisma 설치 및 Neon PostgreSQL 연결
 - [x] Better Auth 설치 및 Google 소셜 로그인 연동
-- [x] DB 다이어그램 생성 (dbdiagram.io — DBML 작성 후 ERD 이미지 노션 등록)
-- [x] Users 모듈 구현 (`GET /api/v1/users/me`, `PATCH /api/v1/users/me`) + Swagger 데코레이터
-- [x] Money 모듈 — Expenses 가계부 CRUD + Swagger 데코레이터
-- [x] Money 모듈 — Stocks 주식 CRUD + Swagger 데코레이터
-- [x] Money 모듈 — Settings 내 정보 설정 GET/PUT + Swagger 데코레이터
-- [ ] **Railway 배포 (dev 환경 URL 확보)** ← 다음 작업
+- [x] DB 다이어그램 생성 (dbdiagram.io)
+- [x] Users 모듈 구현 (`GET /users/me`, `PATCH /users/me`)
+- [x] Money 모듈 — Expenses 가계부 CRUD
+- [x] Money 모듈 — Stocks(StockHolding) CRUD
+- [x] Money 모듈 — Settings 내 자산 설정 GET/PUT
+- [x] SettingHistory API 5개 + DTO 2개
+- [x] Render 배포 완료
 - [ ] Sentry 프로젝트 생성 및 DSN 연결
 
-### 3단계 — FE + BE 연동 (Railway 배포 후)
+### 3단계 — FE + BE 연동 (Render 배포 완료)
 
-> inote-money 레포에서 진행. BE dev URL 확보 후 시작.
-
-- [ ] 로그인 페이지 실제 연동 (Better Auth 소셜 로그인)
+- [x] 로그인 페이지 실제 연동 (Better Auth Google 소셜 로그인)
+- [x] 내 자산 설정 API 연동 완료
+- [x] 자산 설정 히스토리 API 연동
+- [ ] 대시보드 내 자산 카드 → settings API 연동
 - [ ] 가계부 localStorage → 실제 API 교체
 - [ ] 주식 localStorage → 실제 API 교체
-- [ ] 내 정보 설정 localStorage → 실제 API 교체
 
 ---
 

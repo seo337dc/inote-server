@@ -27,7 +27,7 @@ iNote 시리즈 서비스의 공통 백엔드 서버.
 | 인증 | Better Auth | 소셜 로그인, JWT 세션 |
 | DB | PostgreSQL (Neon) | 영구 무료, dev/prod 브랜치 분리 |
 | BE 배포 | Render | 영구 무료 (슬립 있음), GitHub 연동 자동 배포 |
-| FE 배포 | AWS Amplify | Next.js SSR 지원, 무료 플랜 |
+| FE 배포 | Vercel | Next.js 무료 배포 |
 | 에러 로그 | Sentry | 영구 무료 5K/월 |
 | API 문서 | Swagger | @nestjs/swagger, 자동 생성 |
 
@@ -36,11 +36,10 @@ iNote 시리즈 서비스의 공통 백엔드 서버.
 ## 인프라 구성
 
 ```
-FE (Next.js)  →  AWS Amplify
+FE (Next.js)  →  Vercel
 BE (NestJS)   →  Render
 DB            →  Neon PostgreSQL (dev 브랜치 / prod 브랜치)
-에러 추적      →  Sentry
-API 로그      →  Railway 내장 로그
+에러 추적      →  Sentry (예정)
 API 문서      →  /api/docs (Swagger UI)
 ```
 
@@ -71,8 +70,10 @@ inote-server/
 │   ├── points/               ← 포인트 시스템 (추후)
 │   ├── money/                ← inote-money API
 │   │   ├── expenses/         ← 가계부 CRUD
-│   │   ├── stocks/           ← 주식 CRUD
-│   │   └── settings/         ← 내 정보 설정
+│   │   ├── stocks/           ← 주식(StockHolding) CRUD
+│   │   ├── settings/         ← 내 자산 설정 + 히스토리
+│   │   │   └── dto/          ← upsert-settings, create/update-setting-history
+│   │   └── money.module.ts
 │   ├── daily/                ← inote-daily API (예정)
 │   └── goal/                 ← inote-goal API (예정)
 ├── prisma/
@@ -127,6 +128,13 @@ inote-server/
 - `GET /api/v1/money/settings`
 - `PUT /api/v1/money/settings`
 
+#### 자산 설정 히스토리
+- `GET /api/v1/money/settings/history` — 목록 (최신순)
+- `POST /api/v1/money/settings/history` — 현재 설정 스냅샷 저장
+- `GET /api/v1/money/settings/history/:id` — 단건 조회
+- `PATCH /api/v1/money/settings/history/:id` — 제목 수정
+- `DELETE /api/v1/money/settings/history/:id` — 삭제
+
 #### 주식
 - `GET /api/v1/money/stocks`
 - `POST /api/v1/money/stocks`
@@ -137,106 +145,123 @@ inote-server/
 
 ## DB 스키마 (확정)
 
-> Better Auth 적용으로 테이블명 및 컬럼 변경됨 (2026-06-10)
+> Better Auth 적용으로 테이블명 및 컬럼 변경됨 (2026-06-10)  
+> Prisma 스키마 재설계 — Money 모델 전면 개편 (2026-07-03)  
+> SettingHistory 추가, UserSetting memo 필드 추가 (2026-07-06)
 
 ```prisma
-// Better Auth 필수 테이블
+// ── Better Auth 필수 테이블 ──────────────────────────────────────
+
 model user {
   id            String   @id @default(cuid())
   name          String
+  nickname      String?
   email         String   @unique
   emailVerified Boolean  @default(false)
+  phone         String?
+  phoneVerified Boolean  @default(false)
   image         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  sessions session[]
-  accounts account[]
-
-  expenses Expense[]
-  stocks   Stock[]
-  setting  UserSetting?
+  sessions         session[]
+  accounts         account[]
+  setting          UserSetting?
+  settingHistories SettingHistory[]
+  expenses         Expense[]
+  stocks           StockHolding[]
+  reviews          Review[]
 }
 
-model session {
-  id        String   @id @default(cuid())
-  expiresAt DateTime
-  token     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  ipAddress String?
-  userAgent String?
-  userId    String
-  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
+model session { /* Better Auth 관리 */ }
+model account { /* Better Auth 관리 */ }
+model verification { /* Better Auth 관리 */ }
 
-model account {
-  id                    String    @id @default(cuid())
-  accountId             String
-  providerId            String
-  userId                String
-  user                  user      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken           String?
-  refreshToken          String?
-  idToken               String?
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  scope                 String?
-  password              String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-}
+// ── 앱 테이블 ──────────────────────────────────────────────────
 
-model verification {
-  id         String   @id @default(cuid())
-  identifier String
-  value      String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-// 앱 테이블
-model Expense {
-  id        String   @id @default(cuid())
-  userId    String
-  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount    Int
-  category  String
-  type      String   // "income" | "expense"
-  memo      String?
-  date      DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Stock {
-  id           String   @id @default(cuid())
-  userId       String
-  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ticker       String
-  name         String
-  currency     String   // "KRW" | "USD"
-  inputMode    String   // "shares" | "amount"
-  quantity     Float?
-  buyPrice     Float?
-  investAmount Float?
-  memo         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
+// savings/fixedExpenses: [{ id, name, amount, transferDate? }] JSON 배열
 model UserSetting {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  user         user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  salary       Int?
-  savings      Int?
-  fixedExpense Int?
-  salaryDate   Int?     // 1~31
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  salary            Int      @default(0)
+  salaryDate        Int      @default(25)
+  dailyLimit        Int      @default(0)
+  monthlySavingGoal Int      @default(0)
+  assetUpdateDate   Int      @default(1)
+  savings           Json     @default("[]")
+  fixedExpenses     Json     @default("[]")
+  memo              String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              user     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model SettingHistory {
+  id                String   @id @default(cuid())
+  userId            String
+  month             String   // "2026-07" 형식
+  title             String?
+  salary            Int      @default(0)
+  salaryDate        Int?
+  dailyLimit        Int      @default(0)
+  monthlySavingGoal Int      @default(0)
+  assetUpdateDate   Int?
+  savings           Json     @default("[]")
+  fixedExpenses     Json     @default("[]")
+  memo              String?
+  recordedAt        DateTime @default(now())
+  user              user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime
+  amount      Int
+  description String?
+  category    Category @default(ETC)
+  isWaste     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Category { FOOD / CAFE / TRANSPORT / SHOPPING / MEDICAL / CULTURE / SUBSCRIPTION / ETC }
+
+model StockHolding {
+  id             String    @id @default(cuid())
+  userId         String
+  market         Market    // KR | US
+  ticker         String?
+  name           String
+  inputMode      InputMode // QUANTITY | AMOUNT
+  quantity       Float?
+  averagePrice   Float?
+  investedAmount Float?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Market { KR / US }
+enum InputMode { QUANTITY / AMOUNT }
+
+model Review {
+  id        String     @id @default(cuid())
+  userId    String
+  type      ReviewType // WEEKLY | MONTHLY
+  year      Int
+  period    Int
+  rating    Int
+  text      String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      user       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, year, period])
+}
+
+enum ReviewType { WEEKLY / MONTHLY }
 ```
 
 ---
@@ -312,7 +337,7 @@ npm run test:cov      # 커버리지 리포트
 
 ## 현재 단계
 
-**Render 배포 완료** — Sentry 연결 다음 작업
+**내 자산 설정 히스토리 API 완료** — 대시보드 / 가계부 API 연동 다음 작업
 
 | 항목 | 상태 |
 |------|------|
@@ -320,11 +345,13 @@ npm run test:cov      # 커버리지 리포트
 | Swagger (`/api/docs`) | ✅ 완료 |
 | CORS / ValidationPipe | ✅ 완료 |
 | Prisma + Neon DB 연결 | ✅ 완료 |
-| DB 마이그레이션 (init) | ✅ 완료 |
+| DB 스키마 설계 (Money 모델 전면 개편) | ✅ 완료 |
 | Better Auth (Google OAuth) | ✅ 완료 |
 | DB 다이어그램 (dbdiagram.io) | ✅ 완료 |
 | Users 모듈 | ✅ 완료 |
 | Money 모듈 (Expenses/Stocks/Settings) | ✅ 완료 |
+| SettingHistory 모델 + API 5개 | ✅ 완료 |
+| UpsertSettingsDto 재설계 (배열 구조) | ✅ 완료 |
 | Render 배포 | ✅ 완료 (https://inote-server-5a63.onrender.com) |
 | Sentry 연결 | 🔜 예정 |
 
@@ -334,5 +361,6 @@ npm run test:cov      # 커버리지 리포트
 
 - [ ] 소셜 로그인 제공자 추가 여부 (Kakao 등)
 - [ ] Sentry 프로젝트 생성
-- [ ] Railway 프로젝트 생성 및 배포
 - [ ] 포인트 시스템 정책
+- [ ] Reviews API 구현 시점 (주간/월간 리뷰)
+- [ ] Expense API FE 연동
