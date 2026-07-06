@@ -68,4 +68,11 @@ export class SettingsService {
     if (item.userId !== userId) throw new ForbiddenException();
     return this.prisma.settingHistory.update({ where: { id }, data: { title } });
   }
+
+  async deleteHistory(userId: string, id: string) {
+    const item = await this.prisma.settingHistory.findUnique({ where: { id } });
+    if (!item) throw new NotFoundException('히스토리를 찾을 수 없습니다');
+    if (item.userId !== userId) throw new ForbiddenException();
+    return this.prisma.settingHistory.delete({ where: { id } });
+  }
 }

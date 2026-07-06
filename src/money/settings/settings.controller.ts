@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '../../auth/auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
@@ -58,5 +58,15 @@ export class SettingsController {
     @Body() dto: UpdateSettingHistoryDto,
   ) {
     return this.settingsService.updateHistoryTitle(user.id, id, dto.title ?? '');
+  }
+
+  @Delete('history/:id')
+  @HttpCode(204)
+  @ApiOperation({ summary: '자산 설정 히스토리 삭제' })
+  deleteHistory(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+  ) {
+    return this.settingsService.deleteHistory(user.id, id);
   }
 }
