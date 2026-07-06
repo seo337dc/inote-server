@@ -84,6 +84,7 @@ model UserSetting {
   assetUpdateDate   Int      @default(1)
   savings           Json     @default("[]")
   fixedExpenses     Json     @default("[]")
+  memo              String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   user              user     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -101,6 +102,7 @@ model SettingHistory {
   assetUpdateDate   Int?
   savings           Json     @default("[]")
   fixedExpenses     Json     @default("[]")
+  memo              String?
   recordedAt        DateTime @default(now())
   user              user     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

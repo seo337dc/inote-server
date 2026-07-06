@@ -77,4 +77,9 @@ export class UpsertSettingsDto {
   @ValidateNested({ each: true })
   @Type(() => SettingsItemDto)
   fixedExpenses?: SettingsItemDto[];
+
+  @ApiPropertyOptional({ description: '메모', example: '연봉 인상 후 재설정' })
+  @IsOptional()
+  @IsString()
+  memo?: string;
 }

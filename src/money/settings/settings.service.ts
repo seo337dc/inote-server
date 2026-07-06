@@ -43,6 +43,7 @@ export class SettingsService {
         assetUpdateDate: current.assetUpdateDate,
         savings: current.savings as Prisma.InputJsonValue,
         fixedExpenses: current.fixedExpenses as Prisma.InputJsonValue,
+        memo: current.memo ?? null,
       },
     });
   }
