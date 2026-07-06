@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpsertSettingsDto } from './dto/upsert-settings.dto';
@@ -27,7 +27,7 @@ export class SettingsService {
     });
   }
 
-  async createHistory(userId: string, month: string) {
+  async createHistory(userId: string, month: string, title?: string) {
     const current = await this.prisma.userSetting.findUnique({ where: { userId } });
     if (!current) throw new NotFoundException('저장된 자산 설정이 없습니다');
 
@@ -35,6 +35,7 @@ export class SettingsService {
       data: {
         userId,
         month,
+        title: title ?? null,
         salary: current.salary,
         salaryDate: current.salaryDate,
         dailyLimit: current.dailyLimit,
@@ -51,5 +52,19 @@ export class SettingsService {
       where: { userId },
       orderBy: { recordedAt: 'desc' },
     });
+  }
+
+  async getHistoryById(userId: string, id: string) {
+    const item = await this.prisma.settingHistory.findUnique({ where: { id } });
+    if (!item) throw new NotFoundException('히스토리를 찾을 수 없습니다');
+    if (item.userId !== userId) throw new ForbiddenException();
+    return item;
+  }
+
+  async updateHistoryTitle(userId: string, id: string, title: string) {
+    const item = await this.prisma.settingHistory.findUnique({ where: { id } });
+    if (!item) throw new NotFoundException('히스토리를 찾을 수 없습니다');
+    if (item.userId !== userId) throw new ForbiddenException();
+    return this.prisma.settingHistory.update({ where: { id }, data: { title } });
   }
 }

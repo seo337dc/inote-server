@@ -93,6 +93,7 @@ model SettingHistory {
   id                String   @id @default(cuid())
   userId            String
   month             String   // "2026-07"
+  title             String?
   salary            Int      @default(0)
   salaryDate        Int?
   dailyLimit        Int      @default(0)

@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '../../auth/auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { CreateSettingHistoryDto } from './dto/create-setting-history.dto';
+import { UpdateSettingHistoryDto } from './dto/update-setting-history.dto';
 import { UpsertSettingsDto } from './dto/upsert-settings.dto';
 import { SettingsService } from './settings.service';
 
@@ -25,18 +26,37 @@ export class SettingsController {
     return this.settingsService.upsert(user.id, dto);
   }
 
+  @Get('history')
+  @ApiOperation({ summary: '자산 설정 히스토리 목록 조회' })
+  getHistory(@CurrentUser() user: { id: string }) {
+    return this.settingsService.getHistory(user.id);
+  }
+
   @Post('history')
   @ApiOperation({ summary: '현재 자산 설정을 히스토리로 기록' })
   createHistory(
     @CurrentUser() user: { id: string },
     @Body() dto: CreateSettingHistoryDto,
   ) {
-    return this.settingsService.createHistory(user.id, dto.month);
+    return this.settingsService.createHistory(user.id, dto.month, dto.title);
   }
 
-  @Get('history')
-  @ApiOperation({ summary: '자산 설정 히스토리 목록 조회' })
-  getHistory(@CurrentUser() user: { id: string }) {
-    return this.settingsService.getHistory(user.id);
+  @Get('history/:id')
+  @ApiOperation({ summary: '자산 설정 히스토리 단건 조회' })
+  getHistoryById(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+  ) {
+    return this.settingsService.getHistoryById(user.id, id);
+  }
+
+  @Patch('history/:id')
+  @ApiOperation({ summary: '자산 설정 히스토리 제목 수정' })
+  updateHistoryTitle(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() dto: UpdateSettingHistoryDto,
+  ) {
+    return this.settingsService.updateHistoryTitle(user.id, id, dto.title ?? '');
   }
 }
