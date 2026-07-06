@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpsertSettingsDto } from './dto/upsert-settings.dto';
 
@@ -11,10 +12,12 @@ export class SettingsService {
   }
 
   async upsert(userId: string, dto: UpsertSettingsDto) {
+    const { savings, fixedExpenses, ...rest } = dto;
+
     const data = {
-      ...dto,
-      savings: dto.savings ?? undefined,
-      fixedExpenses: dto.fixedExpenses ?? undefined,
+      ...rest,
+      ...(savings !== undefined && { savings: savings as unknown as Prisma.InputJsonValue }),
+      ...(fixedExpenses !== undefined && { fixedExpenses: fixedExpenses as unknown as Prisma.InputJsonValue }),
     };
 
     return this.prisma.userSetting.upsert({
