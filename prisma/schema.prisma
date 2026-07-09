@@ -113,6 +113,7 @@ model Expense {
   date        DateTime
   amount      Int
   description String?
+  memo        String?
   category    Category @default(ETC)
   isWaste     Boolean  @default(false)
   createdAt   DateTime @default(now())

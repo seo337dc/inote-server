@@ -26,4 +26,9 @@ export class CreateExpenseDto {
   @IsOptional()
   @IsBoolean()
   isWaste?: boolean;
+
+  @ApiPropertyOptional({ description: '메모', example: '충동구매였음' })
+  @IsOptional()
+  @IsString()
+  memo?: string;
 }
