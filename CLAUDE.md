@@ -2,6 +2,9 @@
 
 > Claude Code 작업 시 이 파일을 기준으로 맥락을 유지합니다.
 > 기능/스키마 확정될 때마다 업데이트합니다.
+>
+> **새 세션 시작 시 필수:** `docs/handoff/HANDOFF.md`를 이 파일보다 먼저 읽는다.
+> (순서: `git pull` → `HANDOFF.md` → 이 파일 TODO/현재 단계)
 
 ---
 
@@ -47,8 +50,17 @@ API 문서      →  /api/docs (Swagger UI)
 
 ## 문서 관리
 
-- 노션: (추후 링크 추가)
+| 문서 | URL |
+|------|-----|
+| 프로젝트 홈 (본문) | [Inote-server](https://app.notion.com/p/Inote-server-37bb5151f22f80429433d1c1f0241bd8) |
+| DB / ERD | [DB-ERD](https://app.notion.com/p/DB-ERD-37cb5151f22f811ba7e1e23953a6d16e) |
+| API | [API](https://app.notion.com/p/API-37cb5151f22f81f28836db3c02004d97) |
+| 개발 일지 | [devlog](https://app.notion.com/p/devlog-37cb5151f22f80f7b2d6e03d56f710d2) |
+| 학습 노트 | [LEARNING](https://app.notion.com/p/LEARNING-37fb5151f22f812ba369cdceb333a9fa) |
+| 기획 | [planning](https://app.notion.com/p/planning-391b5151f22f808dbeeac31ec6c3e245) |
+
 - FE 레포: https://github.com/seo337dc/inote-money
+- Notion MCP: `.cursor/mcp.json` — Cursor Settings → Tools & MCP → `notion` → Connect
 
 ---
 

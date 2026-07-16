@@ -1,0 +1,17 @@
+---
+description: BE(inote-server) 컨텍스트 — 스택, 모듈, 문서 경로
+globs: src/**/*,prisma/**/*
+alwaysApply: false
+---
+
+# BE 컨텍스트
+
+- 스택: NestJS + Prisma + PostgreSQL (Neon)
+- 배포: Render (무료, cold start) · Health: `GET /api/v1/health`
+- 인증: Better Auth · API prefix: `/api/v1` · Swagger: `/api/docs`
+- 모듈: `src/auth/`, `src/users/`, `src/money/` (expenses, stocks, settings, reviews)
+- 스키마: `prisma/schema.prisma`
+- 스펙 문서: `CLAUDE.md`, `API.md`, `DATABASE.md`
+- 세션 맥락: `docs/handoff/HANDOFF.md` 필독
+- Notion (BE만): `CURSOR.md` Notion 표 · MCP `.cursor/mcp.json` (OAuth 필요)
+- FE Notion URL 사용 금지
