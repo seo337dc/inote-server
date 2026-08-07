@@ -30,6 +30,7 @@ model user {
   expenses         Expense[]
   stocks           StockHolding[]
   reviews          Review[]
+  miniGameResults  MiniGameResult[]
 }
 
 model session {
@@ -175,4 +176,38 @@ model Review {
 enum ReviewType {
   WEEKLY
   MONTHLY
+}
+
+// finalStocks: AssetStock[], finalRealEstates: AssetRealEstate[]
+// liabilitiesSnapshot: LiabilityItem[], gameLogs: GameLog[] (FE apps/web/src/app/demo/mini-game/types.ts)
+model MiniGameResult {
+  id     String     @id @default(cuid())
+  userId String
+  user   user       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  profession String
+  result     GameResult
+
+  turnCount            Int
+  finalCash            Int
+  finalPassiveIncome   Int
+  finalMonthlyExpenses Int
+  finalMonthlyCashflow Int
+  bankLoan             Int
+  totalLiabilities     Int
+  stocksCount          Int
+  realEstatesCount     Int
+  childrenCount        Int
+
+  finalStocks         Json
+  finalRealEstates    Json
+  liabilitiesSnapshot Json
+  gameLogs            Json
+
+  playedAt DateTime @default(now())
+}
+
+enum GameResult {
+  WON
+  GAVE_UP
 }

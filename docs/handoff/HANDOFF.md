@@ -72,46 +72,55 @@
 
 | 항목 | 값 |
 |------|-----|
-| 날짜 | 2026-07-16 |
-| 작성자 | Cursor |
-| 브랜치 | `main` (`a60df28` 푸시됨) |
-| 다음 수신자 | 사람 (다음 기능 Task 확정) |
+| 날짜 | 2026-08-07 |
+| 작성자 | Claude Code |
+| 브랜치 | `main` |
+| 다음 수신자 | Claude Code (inote-money) — FE에서 `/money/mini-game/results` 연동 |
 
 ### 완료된 단계
 
-- BE Cursor 지침·handoff·`.cursor/rules`·Notion MCP 세팅 커밋·푸시 (`a60df28`)
-- Notion OAuth 연결 확인 (`project-0-inote-server-notion`)
-- fetch 테스트 PASS: `self` + 본문 `🖥️ Inote-server`
-- Notion 본문「문서 관리」섹션을 CLAUDE.md와 동기화 (링크 표 + MCP/HANDOFF 안내)
+- **MiniGameResult 모델 + 결과 저장 API 구현** — `inote-money`의 `/demo/mini-game`(쥐경주 탈출 보드게임) 플레이 결과를 기록해, 추후 AI가 결과를 분석해 조언하는 기능의 기반 데이터로 사용할 목적
+  - Prisma: `MiniGameResult` 모델(요약 컬럼 + JSON 스냅샷 `finalStocks`/`finalRealEstates`/`liabilitiesSnapshot`/`gameLogs`) + `GameResult` enum(`WON`/`GAVE_UP`), 한 테이블에 정리(요약+상세 JSON) — row 단위 SQL 집계가 필요 없는 용도라 정규화 대신 이 방식 선택
+  - API 3개: `GET /money/mini-game/results`, `GET /money/mini-game/results/:id`, `POST /money/mini-game/results`
+  - `src/money/mini-game/` (controller/service/dto), `money.module.ts` 등록
+- **마이그레이션 drift 발생 → 안전하게 우회** — `prisma migrate dev`가 히스토리 drift 감지 후 `migrate reset`(전체 데이터 삭제)을 제안 → 실행하지 않음. `prisma db pull`로 읽기 전용 인트로스펙션 먼저 해서 실제 DB가 이미 schema.prisma와 일치함을 확인 후, `prisma db push`로 `MiniGameResult`만 안전하게 추가 (2026-07-06 SettingHistory 때와 동일 방식)
+- 타입체크·lint 통과, 로컬 서버 부팅 후 라우트 정상 등록·미인증 401 확인
 
 ### 진행 중 / 다음 Task
 
-1. (선택) Notion 본문 전체 ↔ CLAUDE.md 추가 동기화 — AI 역할·Reviews·현재 단계 등
-2. 이후 본업: `CLAUDE.md` 현재 단계 기준 다음 기능 Task — 사람 확정 후 Claude Code
+1. **Claude Code (inote-money):** `/demo/mini-game`에서 로그인 세션 체크 → 로그인 시에만 승리(`WON`)/중도포기(`GAVE_UP`) 시점에 `POST /money/mini-game/results` 호출
+2. FE 연동 후 사람이 실제 저장/조회 확인
 
 ### 이번 범위
 
 **해도 됨**
-- Notion 연결 검증·본문 fetch·문서 관리 동기화 ✅
+- BE 스키마·API 구현, `db push`로 안전한 스키마 반영
 
 **하지 말 것**
-- NestJS/API 기능 구현
-- FE 레포/FE Notion 수정
+- `prisma migrate reset` 등 데이터 삭제를 동반하는 작업 (drift 발생 시에도 금지)
+- FE 구현 (다음 Task)
 
 ### 변경·참고 파일
 
-- Notion: [Inote-server 본문](https://app.notion.com/p/Inote-server-37bb5151f22f80429433d1c1f0241bd8) (문서 관리 갱신)
-- `docs/handoff/HANDOFF.md` (이 섹션)
-- 레포 문서는 `a60df28`에 이미 반영
+```
+prisma/schema.prisma                              ← MiniGameResult 모델 + GameResult enum
+src/money/mini-game/
+├── mini-game.controller.ts
+├── mini-game.service.ts
+└── dto/create-mini-game-result.dto.ts            ← 중첩 DTO 4종 (GameLog/AssetStock/AssetRealEstate/LiabilityItem)
+src/money/money.module.ts                          ← 컨트롤러/서비스 등록
+```
 
 ### 알려진 이슈
 
-- Notion 본문은 아직 CLAUDE.md보다 구버전 구간 있음 (AI 역할 handoff, Reviews API 완료 여부, 미결정 항목의 Reviews 문구 등)
+- 마이그레이션 히스토리(`prisma/migrations/`)와 실제 DB 간 drift가 이미 존재함 (memo/nickname/phone/SettingHistory가 과거 `db push`로만 반영되고 마이그레이션 파일이 없음). 실제 스키마 구조는 서로 일치해서 당장 문제는 없지만, `migrate dev`를 쓰면 계속 이 경고가 뜸 — 근본 해결(베이스라인 마이그레이션 생성)은 이번 범위 밖이라 하지 않음.
 
 ### 다음 수신자에게 기대하는 것
 
-**사람:** 다음 기능 Task 범위 확정 (또는 Notion 전체 동기화 요청)
+**Claude Code (inote-money 세션):**
+- FE에서 위 API 연동, 승리/포기 시점 판단 로직 확인 필요
+- 연동 후 사람이 로그인해서 실제 저장/조회 테스트
 
 ### QA 판정
 
-**PASS** — Notion MCP 연결·본문 fetch 성공
+BE: 라우트 등록·401 응답 확인 (PASS). 로그인 후 실제 CRUD는 FE 연동 후 사람 확인 예정 — 미수행.

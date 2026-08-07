@@ -15,7 +15,7 @@
 | 서버 URL (dev) | `https://inote-server-5a63.onrender.com` |
 | Swagger 문서 (dev) | `https://inote-server-5a63.onrender.com/api/docs` |
 | 헬스체크 | `https://inote-server-5a63.onrender.com/api/v1/health` |
-| 현재 진행 단계 | SettingHistory API 완료 — 가계부/대시보드 API 연동 다음 |
+| 현재 진행 단계 | MiniGameResult 모델 + 결과 저장 API 완료 — FE 연동 다음 |
 
 ---
 
@@ -30,6 +30,38 @@ npm run start:dev
 ---
 
 ## 작업 로그
+
+### 2026-08-07
+
+#### ✅ MiniGameResult 모델 추가 — 미니게임(캐시플로우) 결과 저장 API
+
+`inote-money` `/demo/mini-game`(쥐경주 탈출 보드게임) 플레이 결과를 기록해두면, 나중에 AI가 그 결과를 분석해서 조언해주는 기능의 기반 데이터로 쓸 목적. 한 유저가 여러 번 플레이 가능하므로 결과마다 새 row가 쌓이는 1:N 구조.
+
+**Prisma 스키마**
+- `MiniGameResult` 모델 신규 — 요약 컬럼(직업, 결과, 턴 수, 최종 현금/패시브인컴/월지출/월잉여현금, 은행대출, 총부채, 보유주식·부동산 개수, 자녀 수) + JSON 스냅샷(`finalStocks`, `finalRealEstates`, `liabilitiesSnapshot`, `gameLogs` — 전체 턴별 행동 로그까지 포함, AI 분석 원본용)
+- `GameResult` enum: `WON` | `GAVE_UP`
+- 요약 컬럼과 JSON 스냅샷을 한 테이블에 함께 저장하기로 결정 — 목적이 "이 한 판을 AI에게 통째로 넘겨 리뷰받는 것"이라 row 단위 SQL 집계가 필요 없어, 로그/보유자산을 별도 테이블로 정규화할 실익이 적다고 판단 (`UserSetting.savings`/`fixedExpenses` JSON 저장 방식과 동일 컨벤션)
+
+**마이그레이션 이슈 — drift 발생**
+- `prisma migrate dev` 실행 시 마이그레이션 히스토리와 실제 DB 간 drift 감지, `migrate reset`(전체 데이터 삭제) 제안받음 → 절대 실행하지 않음
+- 임시 스키마 파일로 `prisma db pull` 읽기 전용 인트로스펙션 → 실제 DB가 이미 현재 `schema.prisma`와 필드 단위로 일치함을 확인 (과거 `memo`/`nickname`/`phone`/`SettingHistory`가 `db push`로만 반영되고 마이그레이션 파일이 안 남아서 생긴 히스토리 불일치, 실제 구조 문제는 아니었음)
+- `prisma db push`로 `MiniGameResult` 테이블만 안전하게 추가 (기존 테이블/데이터 무영향) — `SettingHistory` 추가 때와 동일한 방식(2026-07-06 로그 참고)
+
+**API**
+- `POST /money/mini-game/results` — 결과 저장
+- `GET /money/mini-game/results` — 이력 목록 (최신순)
+- `GET /money/mini-game/results/:id` — 단건 조회 (본인 소유 확인)
+
+**신규 파일**
+- `src/money/mini-game/mini-game.controller.ts`, `mini-game.service.ts`
+- `src/money/mini-game/dto/create-mini-game-result.dto.ts` — `GameLogDto`/`AssetStockDto`/`AssetRealEstateDto`/`LiabilityItemDto` 중첩 검증 포함
+- `src/money/money.module.ts`에 등록
+
+**검증**
+- 타입체크·lint 통과, 로컬 서버 부팅 후 라우트 3개 정상 등록 확인, 미인증 요청 시 401 정상 응답
+- 로그인 후 실제 저장/조회는 FE 연동 후 확인 예정
+
+---
 
 ### 2026-07-06
 
@@ -351,6 +383,7 @@ npm run start:dev
 - [x] Money 모듈 — Stocks(StockHolding) CRUD
 - [x] Money 모듈 — Settings 내 자산 설정 GET/PUT
 - [x] SettingHistory API 5개 + DTO 2개
+- [x] MiniGameResult 모델 + 결과 저장 API 3개
 - [x] Render 배포 완료
 - [ ] Sentry 프로젝트 생성 및 DSN 연결
 

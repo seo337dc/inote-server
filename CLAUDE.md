@@ -153,6 +153,11 @@ inote-server/
 - `PATCH /api/v1/money/stocks/:id`
 - `DELETE /api/v1/money/stocks/:id`
 
+#### 미니게임 결과
+- `GET /api/v1/money/mini-game/results` — 이력 목록 (최신순)
+- `GET /api/v1/money/mini-game/results/:id` — 단건 조회
+- `POST /api/v1/money/mini-game/results` — 결과 저장
+
 ---
 
 ## DB 스키마 (확정)
@@ -274,6 +279,36 @@ model Review {
 }
 
 enum ReviewType { WEEKLY / MONTHLY }
+
+// finalStocks/finalRealEstates/liabilitiesSnapshot/gameLogs: FE PlayerState 스냅샷 JSON
+model MiniGameResult {
+  id     String     @id @default(cuid())
+  userId String
+  user   user       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  profession String
+  result     GameResult
+
+  turnCount            Int
+  finalCash            Int
+  finalPassiveIncome   Int
+  finalMonthlyExpenses Int
+  finalMonthlyCashflow Int
+  bankLoan             Int
+  totalLiabilities     Int
+  stocksCount          Int
+  realEstatesCount     Int
+  childrenCount        Int
+
+  finalStocks         Json
+  finalRealEstates    Json
+  liabilitiesSnapshot Json
+  gameLogs            Json
+
+  playedAt DateTime @default(now())
+}
+
+enum GameResult { WON / GAVE_UP }
 ```
 
 ---
@@ -362,7 +397,7 @@ npm run test:cov      # 커버리지 리포트
 
 ## 현재 단계
 
-**내 자산 설정 히스토리 API 완료** — 대시보드 / 가계부 API 연동 다음 작업
+**MiniGameResult 모델 + 결과 저장 API 완료** — FE(`inote-money` `/demo/mini-game`) 연동 다음 작업
 
 | 항목 | 상태 |
 |------|------|
@@ -377,6 +412,7 @@ npm run test:cov      # 커버리지 리포트
 | Money 모듈 (Expenses/Stocks/Settings) | ✅ 완료 |
 | SettingHistory 모델 + API 5개 | ✅ 완료 |
 | UpsertSettingsDto 재설계 (배열 구조) | ✅ 완료 |
+| MiniGameResult 모델 + API 3개 | ✅ 완료 (FE 연동 대기) |
 | Render 배포 | ✅ 완료 (https://inote-server-5a63.onrender.com) |
 | Sentry 연결 | 🔜 예정 |
 
