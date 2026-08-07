@@ -397,7 +397,7 @@ npm run test:cov      # 커버리지 리포트
 
 ## 현재 단계
 
-**MiniGameResult 모델 + 결과 저장 API 완료** — FE(`inote-money` `/demo/mini-game`) 연동 다음 작업
+**MiniGameResult 모델 + 결과 저장 API + FE 연동 완료** — 로컬 로그인 쿠키(SameSite/Secure) 환경별 분기 픽스, 사람 로그인 재확인 대기
 
 | 항목 | 상태 |
 |------|------|

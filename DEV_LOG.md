@@ -63,6 +63,25 @@ npm run start:dev
 
 ---
 
+### 2026-08-07 (2차)
+
+#### 🐛 로컬 환경 Google 로그인 실패 — 쿠키 SameSite/Secure 설정 수정
+
+미니게임 API 연동 후 사람이 로컬(`localhost:3000` ↔ `localhost:3200`)에서 로그인 테스트 중 Google OAuth 팝업이 로딩 화면에서 멈추는 문제 발견.
+
+**원인 파악**
+- CORS(`main.ts`)와 Better Auth `trustedOrigins`(`auth.ts`) 둘 다 `http://localhost:3000`이 이미 허용되어 있어 화이트리스트 문제는 아님
+- `auth.ts`의 `defaultCookieAttributes`가 `sameSite: 'none', secure: true`로 고정 — `secure: true`는 HTTPS 전용 쿠키 속성인데, 프로덕션(Vercel↔Render, 서로 다른 도메인이라 `SameSite=None` 필수)에 맞춰 고정해둔 값이 로컬(`localhost:3000`↔`localhost:3200`, 포트만 다른 **같은 사이트**라 `SameSite=Lax`로 충분)에서는 브라우저별로 불안정하게 동작할 수 있음
+
+**수정**
+- `render.yaml`에 이미 설정된 `NODE_ENV=production`을 기준으로 `isProduction` 플래그 추가
+- `defaultCookieAttributes`를 환경별로 분기: 프로덕션은 `sameSite: 'none', secure: true` 유지, 로컬은 `sameSite: 'lax', secure: false`
+
+**검증**
+- 타입체크·lint 통과. 실제 로그인 재확인은 사람이 로컬 BE 재기동 후 직접 진행 예정.
+
+---
+
 ### 2026-07-06
 
 #### ✅ SettingHistory 모델 추가 — 자산 설정 히스토리 기능

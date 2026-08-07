@@ -75,7 +75,7 @@
 | 날짜 | 2026-08-07 |
 | 작성자 | Claude Code |
 | 브랜치 | `main` |
-| 다음 수신자 | Claude Code (inote-money) — FE에서 `/money/mini-game/results` 연동 |
+| 다음 수신자 | 사람 — 로컬 BE 재기동 후 Google 로그인 재확인 |
 
 ### 완료된 단계
 
@@ -85,11 +85,13 @@
   - `src/money/mini-game/` (controller/service/dto), `money.module.ts` 등록
 - **마이그레이션 drift 발생 → 안전하게 우회** — `prisma migrate dev`가 히스토리 drift 감지 후 `migrate reset`(전체 데이터 삭제)을 제안 → 실행하지 않음. `prisma db pull`로 읽기 전용 인트로스펙션 먼저 해서 실제 DB가 이미 schema.prisma와 일치함을 확인 후, `prisma db push`로 `MiniGameResult`만 안전하게 추가 (2026-07-06 SettingHistory 때와 동일 방식)
 - 타입체크·lint 통과, 로컬 서버 부팅 후 라우트 정상 등록·미인증 401 확인
+- **FE 연동 완료** (inote-money `/demo/mini-game`) — 로그인 세션 체크 후 승리(`WON`)/중도포기(`GAVE_UP`) 시점에 자동 저장. 타입체크 통과, 사람 실 테스트 대기.
+- **로컬 로그인 실패 버그 픽스** — `auth.ts`의 `defaultCookieAttributes`(`sameSite`/`secure`)를 `NODE_ENV` 기준으로 환경별 분기 (프로덕션: `none`/`true`, 로컬: `lax`/`false`). 로컬 BE↔FE가 서로 다른 포트라 `SameSite=None`(HTTPS 전용) 고정값이 로컬에서 불안정했던 문제.
 
 ### 진행 중 / 다음 Task
 
-1. **Claude Code (inote-money):** `/demo/mini-game`에서 로그인 세션 체크 → 로그인 시에만 승리(`WON`)/중도포기(`GAVE_UP`) 시점에 `POST /money/mini-game/results` 호출
-2. FE 연동 후 사람이 실제 저장/조회 확인
+1. **사람:** 로컬 BE 재기동 후 Google 로그인 재확인
+2. 로그인 확인되면 `/demo/mini-game`에서 실제 승리/포기 결과 저장·조회 테스트
 
 ### 이번 범위
 
@@ -109,6 +111,7 @@ src/money/mini-game/
 ├── mini-game.service.ts
 └── dto/create-mini-game-result.dto.ts            ← 중첩 DTO 4종 (GameLog/AssetStock/AssetRealEstate/LiabilityItem)
 src/money/money.module.ts                          ← 컨트롤러/서비스 등록
+src/auth/auth.ts                                    ← defaultCookieAttributes NODE_ENV 분기
 ```
 
 ### 알려진 이슈
@@ -123,4 +126,4 @@ src/money/money.module.ts                          ← 컨트롤러/서비스 �
 
 ### QA 판정
 
-BE: 라우트 등록·401 응답 확인 (PASS). 로그인 후 실제 CRUD는 FE 연동 후 사람 확인 예정 — 미수행.
+BE: 라우트 등록·401 응답 확인, FE 연동 타입체크 통과 (PASS). 로그인 후 실제 CRUD/로그인 자체는 사람 확인 예정 — 미수행.

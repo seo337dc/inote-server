@@ -4,6 +4,7 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
+const isProduction = process.env.NODE_ENV === 'production';
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -20,8 +21,8 @@ export const auth = betterAuth({
   ],
 
   session: {
-    expiresIn: 60 * 60 * 24,     // 1일
-    updateAge: 60 * 60 * 12,     // 12시간마다 자동 갱신
+    expiresIn: 60 * 60 * 24, // 1일
+    updateAge: 60 * 60 * 12, // 12시간마다 자동 갱신
   },
 
   socialProviders: {
@@ -36,8 +37,8 @@ export const auth = betterAuth({
       enabled: false,
     },
     defaultCookieAttributes: {
-      sameSite: 'none',
-      secure: true,
+      sameSite: isProduction ? 'none' : 'lax',
+      secure: isProduction,
     },
   },
 });
