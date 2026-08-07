@@ -15,7 +15,7 @@
 | 서버 URL (dev) | `https://inote-server-5a63.onrender.com` |
 | Swagger 문서 (dev) | `https://inote-server-5a63.onrender.com/api/docs` |
 | 헬스체크 | `https://inote-server-5a63.onrender.com/api/v1/health` |
-| 현재 진행 단계 | MiniGameResult 모델 + 결과 저장 API 완료 — FE 연동 다음 |
+| 현재 진행 단계 | 금융지식(Term/Book) BE API + 단위테스트 완료 — E2E는 ESM 인프라 이슈로 보류, FE는 사람 목업 대기 |
 
 ---
 
@@ -60,6 +60,40 @@ npm run start:dev
 **검증**
 - 타입체크·lint 통과, 로컬 서버 부팅 후 라우트 3개 정상 등록 확인, 미인증 요청 시 401 정상 응답
 - 로그인 후 실제 저장/조회는 FE 연동 후 확인 예정
+
+---
+
+### 2026-08-07 (3차) — 금융지식(용어사전+추천도서) BE 구현 + 테스트 학습
+
+실제 기업 사이클(기획→디자인→개발→인프라)을 흉내내며 진행. 기획은 Notion planning 문서에 반영 완료(용어/도서 CRUD, 카테고리, 공유 토글, 좋아요, 본인 게시물만 수정·삭제). 디자인은 사람이 Google AI Studio로 목업 제작 중 — FE 작업은 그거 나온 뒤 착수.
+
+**Prisma 스키마**
+- `Term`/`TermLike`, `Book`/`BookLike` 모델 + `FinanceCategory` enum(STOCK/REAL_ESTATE/TAX/SAVING/INSURANCE/ECONOMY/ETC) 공용
+- `isShared` 토글로 공개 범위 결정 (공유 or 본인 소유일 때만 조회 가능)
+- `prisma db push`로 Neon dev 브랜치 안전 반영 (순수 추가, 기존 테이블 무영향)
+
+**API — `src/money/terms/`, `src/money/books/`**
+- `GET/POST /money/terms`, `GET/PATCH/DELETE /money/terms/:id`, `POST /money/terms/:id/like`
+- `GET/POST /money/books`, `GET/PATCH/DELETE /money/books/:id`, `POST /money/books/:id/like`
+- 목록 조회 시 `likeCount`/`likedByMe`/`isOwner` 계산해서 응답에 포함
+- 좋아요는 토글 방식 (`TermLike`/`BookLike` 유니크 제약으로 중복 방지)
+- 로컬 서버 부팅 후 라우트 전체 등록 확인 + 미인증 401 curl 확인
+
+**단위 테스트 (TESTING_GUIDE.md 학습 계획 실전 적용)**
+- `terms.service.spec.ts`, `books.service.spec.ts` — 정상 케이스, 공유 필터링, 권한 체크(본인 아니면 수정/삭제/열람 불가), 좋아요 토글 로직까지 22개 테스트 작성, 전부 통과
+- 진행 중 발견한 lint 이슈: `@typescript-eslint/no-unsafe-assignment` 등 unsafe-* 규칙이 Jest mock 객체와 충돌 → `eslint.config.mjs`에 `**/*.spec.ts`, `test/**/*.ts` 전용 완화 규칙 추가 (프로덕션 코드는 그대로 엄격하게 유지)
+- 곁다리로 발견한 기존 버그: `app.controller.spec.ts`(NestJS 기본 생성 테스트)가 `AppController`에 `PrismaService`가 추가된 뒤로 계속 깨져 있었음(헬스체크 엔드포인트 추가 시 테스트 갱신 안 됨) → mock provider 추가해서 픽스. `npm run test` 전체 3 스위트 23개 테스트 통과.
+
+**E2E 테스트 — 인프라 이슈로 보류**
+- `test/financial-knowledge.e2e-spec.ts` 작성(미인증 401 검증) 자체는 완료
+- 그런데 `npm run test:e2e`가 `AppModule` import 시점에 실패 — `better-auth` 패키지가 ESM 전용(.mjs)으로 배포되어 있고, 그 의존성 트리(`better-auth` → `@better-auth/core` → `better-auth/node_modules/@noble/hashes` ...)가 전부 ESM이라 Jest 기본 CommonJS 트랜스폼이 파싱 불가
+- `transformIgnorePatterns`에 패키지를 하나씩 allowlist 추가해봤지만 계속 새로운 ESM 패키지가 나와서 밑빠진 독 — **이 프로젝트의 E2E 테스트는 better-auth 도입 이후 한 번도 정상 실행된 적이 없었던 것으로 보임** (기존 `test/app.e2e-spec.ts`도 동일하게 실패하는 것으로 확인)
+- 근본 해결책은 Jest를 ESM 모드로 전환(`ts-jest` `useESM`, `NODE_OPTIONS=--experimental-vm-modules`)하는 것인데, 범위가 커서 즉흥적으로 계속 파지 않고 **CI/CD 인프라 구성(다음 Task) 때 제대로 시간 잡고 해결하기로 결정**. `test/jest-e2e.json`은 시도했던 변경 원복해서 클린한 상태로 유지.
+
+**남은 작업**
+- FE 데모(`/demo/financial-knowledge`) — Google AI Studio 목업 대기
+- FE 실서비스(`/financial-knowledge`)
+- CI/CD 파이프라인 구성 시 Jest ESM 이슈 함께 해결
 
 ---
 

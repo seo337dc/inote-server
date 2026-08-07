@@ -31,6 +31,10 @@ model user {
   stocks           StockHolding[]
   reviews          Review[]
   miniGameResults  MiniGameResult[]
+  terms            Term[]
+  termLikes        TermLike[]
+  books            Book[]
+  bookLikes        BookLike[]
 }
 
 model session {
@@ -210,4 +214,65 @@ model MiniGameResult {
 enum GameResult {
   WON
   GAVE_UP
+}
+
+enum FinanceCategory {
+  STOCK
+  REAL_ESTATE
+  TAX
+  SAVING
+  INSURANCE
+  ECONOMY
+  ETC
+}
+
+model Term {
+  id          String          @id @default(cuid())
+  userId      String
+  user        user            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  term        String
+  description String
+  category    FinanceCategory @default(ETC)
+  isShared    Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  likes TermLike[]
+}
+
+model TermLike {
+  id        String   @id @default(cuid())
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  termId    String
+  term      Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, termId])
+}
+
+model Book {
+  id        String          @id @default(cuid())
+  userId    String
+  user      user            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  author    String
+  comment   String
+  category  FinanceCategory @default(ETC)
+  isShared  Boolean         @default(false)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  likes BookLike[]
+}
+
+model BookLike {
+  id        String   @id @default(cuid())
+  userId    String
+  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, bookId])
 }

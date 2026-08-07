@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { BooksController } from './books/books.controller';
+import { BooksService } from './books/books.service';
 import { ExpensesController } from './expenses/expenses.controller';
 import { ExpensesService } from './expenses/expenses.service';
 import { MiniGameController } from './mini-game/mini-game.controller';
@@ -9,6 +11,8 @@ import { SettingsController } from './settings/settings.controller';
 import { SettingsService } from './settings/settings.service';
 import { StocksController } from './stocks/stocks.controller';
 import { StocksService } from './stocks/stocks.service';
+import { TermsController } from './terms/terms.controller';
+import { TermsService } from './terms/terms.service';
 
 @Module({
   controllers: [
@@ -17,7 +21,17 @@ import { StocksService } from './stocks/stocks.service';
     SettingsController,
     ReviewsController,
     MiniGameController,
+    TermsController,
+    BooksController,
   ],
-  providers: [ExpensesService, StocksService, SettingsService, ReviewsService, MiniGameService],
+  providers: [
+    ExpensesService,
+    StocksService,
+    SettingsService,
+    ReviewsService,
+    MiniGameService,
+    TermsService,
+    BooksService,
+  ],
 })
 export class MoneyModule {}

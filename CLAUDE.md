@@ -397,7 +397,7 @@ npm run test:cov      # 커버리지 리포트
 
 ## 현재 단계
 
-**MiniGameResult 모델 + 결과 저장 API + FE 연동 완료** — 로컬 로그인 쿠키(SameSite/Secure) 환경별 분기 픽스, 사람 로그인 재확인 대기
+**금융 지식(Term/Book) BE API + 단위테스트 완료** — 스키마/CRUD/좋아요 API, 단위테스트 22개 통과. E2E는 better-auth ESM 이슈로 보류(Task #7에서 처리), FE는 사람 Google AI Studio 목업 대기. 상세: [`docs/handoff/HANDOFF.md`](docs/handoff/HANDOFF.md)
 
 | 항목 | 상태 |
 |------|------|
@@ -412,7 +412,10 @@ npm run test:cov      # 커버리지 리포트
 | Money 모듈 (Expenses/Stocks/Settings) | ✅ 완료 |
 | SettingHistory 모델 + API 5개 | ✅ 완료 |
 | UpsertSettingsDto 재설계 (배열 구조) | ✅ 완료 |
-| MiniGameResult 모델 + API 3개 | ✅ 완료 (FE 연동 대기) |
+| MiniGameResult 모델 + API 3개 | ✅ 완료 |
+| 금융 지식 (Term/Book) 스키마 + CRUD + 좋아요 API | ✅ 완료 (단위테스트 22개 통과) |
+| 금융 지식 E2E 테스트 | ⛔ 보류 (better-auth ESM 이슈, Task #7에서 처리) |
+| 금융 지식 FE (데모/실서비스) | 🔜 사람 목업 대기 |
 | Render 배포 | ✅ 완료 (https://inote-server-5a63.onrender.com) |
 | Sentry 연결 | 🔜 예정 |
 
@@ -423,5 +426,5 @@ npm run test:cov      # 커버리지 리포트
 - [ ] 소셜 로그인 제공자 추가 여부 (Kakao 등)
 - [ ] Sentry 프로젝트 생성
 - [ ] 포인트 시스템 정책
-- [ ] Reviews API 구현 시점 (주간/월간 리뷰)
 - [ ] Expense API FE 연동
+- [ ] Jest E2E ESM 전환 (better-auth 대응, Task #7 CI/CD 인프라에서 처리)
