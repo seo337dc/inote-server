@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { oneTimeToken } from 'better-auth/plugins';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -41,6 +42,9 @@ export const auth = betterAuth({
       secure: isProduction,
     },
   },
+
+  // RN(Expo) 네이티브 앱: 시스템 브라우저에서 받은 세션을 앱 WebView 쿠키로 교환하는 용도
+  plugins: [oneTimeToken({ expiresIn: 1 })],
 });
 
 export type Auth = typeof auth;
