@@ -3,8 +3,8 @@ services:
     name: inote-server
     runtime: node
     plan: free
-    buildCommand: npm install --include=dev && npx prisma generate && npm run build
-    startCommand: npm run start:prod
+    buildCommand: corepack enable && pnpm install --prod=false && pnpm exec prisma generate && pnpm run build
+    startCommand: corepack enable && pnpm run start:prod
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV

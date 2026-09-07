@@ -35,7 +35,7 @@
 ```bash
 git clone https://github.com/seo337dc/inote-server
 cd inote-server
-npm install
+pnpm install
 ```
 
 ### 2. 환경변수 설정
@@ -60,14 +60,14 @@ PORT=3200
 ### 3. DB 마이그레이션
 
 ```bash
-npx prisma migrate dev
-npx prisma generate
+pnpm exec prisma migrate dev
+pnpm exec prisma generate
 ```
 
 ### 4. 서버 실행
 
 ```bash
-npm run start:dev
+pnpm run start:dev
 ```
 
 | URL | 설명 |
