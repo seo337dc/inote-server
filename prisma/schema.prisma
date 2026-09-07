@@ -276,3 +276,15 @@ model BookLike {
 
   @@unique([userId, bookId])
 }
+
+// ── inote-blog ───────────────────────────────────────────────────
+// 1단계: 로그인 없이 CRUD만. 로그인 붙을 때 userId 컬럼 추가 예정.
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  excerpt   String?
+  category  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
