@@ -399,6 +399,15 @@ npm run test:cov      # 커버리지 리포트
   다 끝났어도 자동으로 커밋·푸시로 이어가지 않는다. 매번 사용자의 명시적 허락을 받은 뒤에만
   진행한다. (동일한 규칙이 `inote-blog`/`inote-money`에도 있음 — 2026-09-03 inote-blog에서
   이 규칙이 있었는데도 자동으로 커밋·푸시까지 진행해서 사용자가 정정한 사례가 있으니 특히 주의.)
+- **`schema.prisma` 등 DB 스키마 관련 수정·추가가 있으면, 커밋하기 전에 반드시 dbdiagram을
+  최신 상태로 업데이트한다** (2026-09-09 추가 — 예전에 만든 dbdiagram.io ERD가 그 이후 추가된
+  모델들을 반영 못 해서 오래 방치된 채 낡아있던 걸 발견함). `pnpm exec prisma generate`를 돌리면
+  `prisma-dbml-generator`가 `prisma/dbml/schema.dbml`을 최신 스키마 기준으로 자동 생성함.
+  **Claude Code는 dbdiagram.io에 직접 붙여넣지 않는다** — dbdiagram.io 로그인은 사용자 계정이라
+  Claude가 대신 로그인할 수 없음(비밀번호 대신 입력 금지). 대신 매번: (1) `prisma generate`로
+  `schema.dbml` 최신화 → (2) 그 파일을 열어서 내용을 보여줌 → (3) "이 내용을 dbdiagram.io
+  (https://dbdiagram.io/d/inote-6a39fc895c789b8acbdd5d39)에 복사해서 붙여넣어달라"고 사용자에게
+  명시적으로 안내 → (4) 사용자가 반영 완료했다고 확인하면 그때 커밋 진행.
 
 ## 개발 방식
 

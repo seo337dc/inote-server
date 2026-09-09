@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "inote-server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "start:dev"],
+      "port": 3200
+    }
+  ]
+}

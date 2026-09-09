@@ -1,0 +1,303 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table user {
+  id String [pk, note: '고유 ID']
+  name String [not null, note: '이름']
+  nickname String [note: '닉네임']
+  email String [unique, not null, note: '이메일']
+  emailVerified Boolean [not null, default: false, note: '이메일 인증 여부']
+  phone String [note: '전화번호']
+  phoneVerified Boolean [not null, default: false, note: '전화번호 인증 여부']
+  image String [note: '프로필 이미지 URL']
+  createdAt DateTime [default: `now()`, not null, note: '가입일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '사용자'
+}
+
+Table session {
+  id String [pk, note: '고유 ID']
+  expiresAt DateTime [not null, note: '세션 만료일']
+  token String [unique, not null, note: '세션 토큰 (쿠키에 저장되는 값)']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+  ipAddress String [note: '접속 IP']
+  userAgent String [note: '브라우저/기기 정보']
+  userId String [not null, note: '사용자 ID (FK)']
+
+  Note: '로그인 세션'
+}
+
+Table account {
+  id String [pk, note: '고유 ID']
+  accountId String [not null, note: '로그인 제공자가 발급한 계정 ID']
+  providerId String [not null, note: '로그인 제공자 (google, credential 등)']
+  issuer String [note: '발급 주체 (google 계정: local:oauth:google, 이메일 계정: local:credential)']
+  userId String [not null, note: '사용자 ID (FK)']
+  accessToken String [note: '액세스 토큰']
+  refreshToken String [note: '리프레시 토큰']
+  idToken String [note: 'ID 토큰']
+  accessTokenExpiresAt DateTime [note: '액세스 토큰 만료일']
+  refreshTokenExpiresAt DateTime [note: '리프레시 토큰 만료일']
+  scope String [note: '권한 범위']
+  password String [note: '비밀번호 해시 (이메일 로그인용)']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '로그인 계정 (소셜/이메일 등 로그인 수단별로 1개씩 생김)'
+}
+
+Table verification {
+  id String [pk, note: '고유 ID']
+  identifier String [not null, note: '인증 대상 (이메일 등)']
+  value String [not null, note: '인증 코드']
+  expiresAt DateTime [not null, note: '코드 만료일']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '이메일 인증 코드'
+}
+
+Table UserSetting {
+  id String [pk, note: '고유 ID']
+  userId String [unique, not null, note: '사용자 ID (FK, 1:1)']
+  salary Int [not null, default: 0, note: '월급 (원)']
+  salaryDate Int [not null, default: 25, note: '월급 입금일 (1~31)']
+  dailyLimit Int [not null, default: 0, note: '하루 지출 한도 (원)']
+  monthlySavingGoal Int [not null, default: 0, note: '월 저축 목표 (원)']
+  assetUpdateDate Int [not null, default: 1, note: '자산 갱신 기준일']
+  savings Json [not null, default: '[]', note: '적금 목록 (JSON 배열)']
+  fixedExpenses Json [not null, default: '[]', note: '고정 지출 목록 (JSON 배열)']
+  memo String [note: '메모']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '내 자산 설정 (최신 값 1개)'
+}
+
+Table SettingHistory {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '사용자 ID (FK)']
+  month String [not null, note: '대상 월 (예: "2026-07")']
+  title String [note: '제목']
+  salary Int [not null, default: 0, note: '월급 (원)']
+  salaryDate Int [note: '월급 입금일']
+  dailyLimit Int [not null, default: 0, note: '하루 지출 한도 (원)']
+  monthlySavingGoal Int [not null, default: 0, note: '월 저축 목표 (원)']
+  assetUpdateDate Int [note: '자산 갱신 기준일']
+  savings Json [not null, default: '[]', note: '적금 목록 (JSON 배열)']
+  fixedExpenses Json [not null, default: '[]', note: '고정 지출 목록 (JSON 배열)']
+  memo String [note: '메모']
+  recordedAt DateTime [default: `now()`, not null, note: '기록일']
+
+  Note: '자산 설정 히스토리 (월별 스냅샷)'
+}
+
+Table Expense {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '사용자 ID (FK)']
+  date DateTime [not null, note: '지출 날짜']
+  amount Int [not null, note: '금액 (원)']
+  description String [note: '설명']
+  memo String [note: '메모']
+  category Category [not null, default: 'ETC', note: '카테고리']
+  isWaste Boolean [not null, default: false, note: '낭비 지출 여부']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '가계부 — 수입/지출 내역'
+}
+
+Table StockHolding {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '사용자 ID (FK)']
+  market Market [not null, note: '시장 (국내/해외)']
+  ticker String [note: '종목 코드']
+  name String [not null, note: '종목명']
+  inputMode InputMode [not null, note: '입력 방식 (수량 | 금액)']
+  quantity Float [note: '보유 수량 (수량 모드)']
+  averagePrice Float [note: '평균 매입가 (수량 모드)']
+  investedAmount Float [note: '투자 총액 (금액 모드)']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '보유 주식'
+}
+
+Table Review {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '사용자 ID (FK)']
+  type ReviewType [not null, note: '리뷰 종류 (주간/월간)']
+  year Int [not null, note: '연도']
+  period Int [not null, note: '주차 또는 월']
+  rating Int [not null, note: '평점']
+  text String [note: '내용']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  indexes {
+    (userId, type, year, period) [unique]
+  }
+
+  Note: '주간/월간 리뷰'
+}
+
+Table MiniGameResult {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '사용자 ID (FK)']
+  profession String [not null, note: '선택한 직업']
+  result GameResult [not null, note: '결과 (승리/포기)']
+  turnCount Int [not null, note: '진행한 턴 수']
+  finalCash Int [not null, note: '최종 현금']
+  finalPassiveIncome Int [not null, note: '최종 비근로소득']
+  finalMonthlyExpenses Int [not null, note: '최종 월 지출']
+  finalMonthlyCashflow Int [not null, note: '최종 월 현금흐름']
+  bankLoan Int [not null, note: '은행 대출액']
+  totalLiabilities Int [not null, note: '총 부채']
+  stocksCount Int [not null, note: '보유 주식 종목 수']
+  realEstatesCount Int [not null, note: '보유 부동산 수']
+  childrenCount Int [not null, note: '자녀 수']
+  finalStocks Json [not null, note: '최종 보유 주식 목록 (JSON)']
+  finalRealEstates Json [not null, note: '최종 보유 부동산 목록 (JSON)']
+  liabilitiesSnapshot Json [not null, note: '부채 스냅샷 (JSON)']
+  gameLogs Json [not null, note: '게임 진행 로그 (JSON)']
+  playedAt DateTime [default: `now()`, not null, note: '플레이 일시']
+
+  Note: '미니게임(캐시플로우 보드게임) 플레이 결과'
+}
+
+Table Term {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '작성자 ID (FK)']
+  term String [not null, note: '용어']
+  description String [not null, note: '설명']
+  category FinanceCategory [not null, default: 'ETC', note: '카테고리']
+  isShared Boolean [not null, default: false, note: '공개 여부']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '금융 용어 (경제 용어 사전)'
+}
+
+Table TermLike {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '사용자 ID (FK)']
+  termId String [not null, note: '용어 ID (FK)']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+
+  indexes {
+    (userId, termId) [unique]
+  }
+
+  Note: '금융 용어 좋아요'
+}
+
+Table Book {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '작성자 ID (FK)']
+  title String [not null, note: '책 제목']
+  author String [not null, note: '저자']
+  comment String [not null, note: '한줄평/메모']
+  category FinanceCategory [not null, default: 'ETC', note: '카테고리']
+  isShared Boolean [not null, default: false, note: '공개 여부']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '경제 책 추천/기록'
+}
+
+Table BookLike {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '사용자 ID (FK)']
+  bookId String [not null, note: '책 ID (FK)']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+
+  indexes {
+    (userId, bookId) [unique]
+  }
+
+  Note: '경제 책 좋아요'
+}
+
+Table Post {
+  id String [pk, note: '고유 ID']
+  title String [not null, note: '제목']
+  content String [not null, note: '본문 (HTML)']
+  excerpt String [note: '요약']
+  category String [not null, note: '카테고리']
+  createdAt DateTime [default: `now()`, not null, note: '작성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '블로그 글 (inote-blog)'
+}
+
+Enum Category {
+  FOOD
+  CAFE
+  TRANSPORT
+  SHOPPING
+  MEDICAL
+  CULTURE
+  SUBSCRIPTION
+  ETC
+}
+
+Enum Market {
+  KR
+  US
+}
+
+Enum InputMode {
+  QUANTITY
+  AMOUNT
+}
+
+Enum ReviewType {
+  WEEKLY
+  MONTHLY
+}
+
+Enum GameResult {
+  WON
+  GAVE_UP
+}
+
+Enum FinanceCategory {
+  STOCK
+  REAL_ESTATE
+  TAX
+  SAVING
+  INSURANCE
+  ECONOMY
+  ETC
+}
+
+Ref: session.userId > user.id [delete: Cascade]
+
+Ref: account.userId > user.id [delete: Cascade]
+
+Ref: UserSetting.userId - user.id [delete: Cascade]
+
+Ref: SettingHistory.userId > user.id [delete: Cascade]
+
+Ref: Expense.userId > user.id [delete: Cascade]
+
+Ref: StockHolding.userId > user.id [delete: Cascade]
+
+Ref: Review.userId > user.id [delete: Cascade]
+
+Ref: MiniGameResult.userId > user.id [delete: Cascade]
+
+Ref: Term.userId > user.id [delete: Cascade]
+
+Ref: TermLike.userId > user.id [delete: Cascade]
+
+Ref: TermLike.termId > Term.id [delete: Cascade]
+
+Ref: Book.userId > user.id [delete: Cascade]
+
+Ref: BookLike.userId > user.id [delete: Cascade]
+
+Ref: BookLike.bookId > Book.id [delete: Cascade]

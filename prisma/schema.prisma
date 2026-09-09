@@ -3,6 +3,12 @@ generator client {
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
+generator dbml {
+  provider              = "prisma-dbml-generator"
+  output                = "./dbml"
+  includeRelationFields = false
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -10,16 +16,27 @@ datasource db {
 
 // ── Better Auth 필수 테이블 ──────────────────────────────────────
 
+/// 사용자
 model user {
+  /// 고유 ID
   id            String      @id @default(cuid())
+  /// 이름
   name          String
+  /// 닉네임
   nickname      String?
+  /// 이메일
   email         String      @unique
+  /// 이메일 인증 여부
   emailVerified Boolean     @default(false)
+  /// 전화번호
   phone         String?
+  /// 전화번호 인증 여부
   phoneVerified Boolean     @default(false)
+  /// 프로필 이미지 URL
   image         String?
+  /// 가입일
   createdAt     DateTime    @default(now())
+  /// 수정일
   updatedAt     DateTime    @updatedAt
 
   sessions      session[]
@@ -37,41 +54,73 @@ model user {
   bookLikes        BookLike[]
 }
 
+/// 로그인 세션
 model session {
+  /// 고유 ID
   id        String   @id @default(cuid())
+  /// 세션 만료일
   expiresAt DateTime
+  /// 세션 토큰 (쿠키에 저장되는 값)
   token     String   @unique
+  /// 생성일
   createdAt DateTime @default(now())
+  /// 수정일
   updatedAt DateTime @updatedAt
+  /// 접속 IP
   ipAddress String?
+  /// 브라우저/기기 정보
   userAgent String?
+  /// 사용자 ID (FK)
   userId    String
   user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// 로그인 계정 (소셜/이메일 등 로그인 수단별로 1개씩 생김)
 model account {
+  /// 고유 ID
   id                    String    @id @default(cuid())
+  /// 로그인 제공자가 발급한 계정 ID
   accountId             String
+  /// 로그인 제공자 (google, credential 등)
   providerId            String
+  /// 발급 주체 (google 계정: local:oauth:google, 이메일 계정: local:credential)
+  issuer                String?
+  /// 사용자 ID (FK)
   userId                String
   user                  user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 액세스 토큰
   accessToken           String?
+  /// 리프레시 토큰
   refreshToken          String?
+  /// ID 토큰
   idToken               String?
+  /// 액세스 토큰 만료일
   accessTokenExpiresAt  DateTime?
+  /// 리프레시 토큰 만료일
   refreshTokenExpiresAt DateTime?
+  /// 권한 범위
   scope                 String?
+  /// 비밀번호 해시 (이메일 로그인용)
   password              String?
+  /// 생성일
   createdAt             DateTime  @default(now())
+  /// 수정일
   updatedAt             DateTime  @updatedAt
 }
 
+/// 이메일 인증 코드
 model verification {
+  /// 고유 ID
   id         String   @id @default(cuid())
+  /// 인증 대상 (이메일 등)
   identifier String
+  /// 인증 코드
   value      String
+  /// 코드 만료일
   expiresAt  DateTime
+  /// 생성일
   createdAt  DateTime @default(now())
+  /// 수정일
   updatedAt  DateTime @updatedAt
 }
 
@@ -79,98 +128,170 @@ model verification {
 
 // savings: [{ id, name, amount, transferDate }]
 // fixedExpenses: [{ id, name, amount, transferDate }]
+/// 내 자산 설정 (최신 값 1개)
 model UserSetting {
+  /// 고유 ID
   id                String   @id @default(cuid())
+  /// 사용자 ID (FK, 1:1)
   userId            String   @unique
+  /// 월급 (원)
   salary            Int      @default(0)
+  /// 월급 입금일 (1~31)
   salaryDate        Int      @default(25)
+  /// 하루 지출 한도 (원)
   dailyLimit        Int      @default(0)
+  /// 월 저축 목표 (원)
   monthlySavingGoal Int      @default(0)
+  /// 자산 갱신 기준일
   assetUpdateDate   Int      @default(1)
+  /// 적금 목록 (JSON 배열)
   savings           Json     @default("[]")
+  /// 고정 지출 목록 (JSON 배열)
   fixedExpenses     Json     @default("[]")
+  /// 메모
   memo              String?
+  /// 생성일
   createdAt         DateTime @default(now())
+  /// 수정일
   updatedAt         DateTime @updatedAt
   user              user     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// 자산 설정 히스토리 (월별 스냅샷)
 model SettingHistory {
+  /// 고유 ID
   id                String   @id @default(cuid())
+  /// 사용자 ID (FK)
   userId            String
-  month             String   // "2026-07"
+  /// 대상 월 (예: "2026-07")
+  month             String
+  /// 제목
   title             String?
+  /// 월급 (원)
   salary            Int      @default(0)
+  /// 월급 입금일
   salaryDate        Int?
+  /// 하루 지출 한도 (원)
   dailyLimit        Int      @default(0)
+  /// 월 저축 목표 (원)
   monthlySavingGoal Int      @default(0)
+  /// 자산 갱신 기준일
   assetUpdateDate   Int?
+  /// 적금 목록 (JSON 배열)
   savings           Json     @default("[]")
+  /// 고정 지출 목록 (JSON 배열)
   fixedExpenses     Json     @default("[]")
+  /// 메모
   memo              String?
+  /// 기록일
   recordedAt        DateTime @default(now())
   user              user     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// 가계부 — 수입/지출 내역
 model Expense {
+  /// 고유 ID
   id          String   @id @default(cuid())
+  /// 사용자 ID (FK)
   userId      String
+  /// 지출 날짜
   date        DateTime
+  /// 금액 (원)
   amount      Int
+  /// 설명
   description String?
+  /// 메모
   memo        String?
+  /// 카테고리
   category    Category @default(ETC)
+  /// 낭비 지출 여부
   isWaste     Boolean  @default(false)
+  /// 생성일
   createdAt   DateTime @default(now())
+  /// 수정일
   updatedAt   DateTime @updatedAt
   user        user     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum Category {
+  /// 식비
   FOOD
+  /// 카페
   CAFE
+  /// 교통
   TRANSPORT
+  /// 쇼핑
   SHOPPING
+  /// 의료
   MEDICAL
+  /// 문화
   CULTURE
+  /// 구독
   SUBSCRIPTION
+  /// 기타
   ETC
 }
 
+/// 보유 주식
 model StockHolding {
+  /// 고유 ID
   id             String    @id @default(cuid())
+  /// 사용자 ID (FK)
   userId         String
+  /// 시장 (국내/해외)
   market         Market
+  /// 종목 코드
   ticker         String?
+  /// 종목명
   name           String
+  /// 입력 방식 (수량 | 금액)
   inputMode      InputMode
+  /// 보유 수량 (수량 모드)
   quantity       Float?
+  /// 평균 매입가 (수량 모드)
   averagePrice   Float?
+  /// 투자 총액 (금액 모드)
   investedAmount Float?
+  /// 생성일
   createdAt      DateTime  @default(now())
+  /// 수정일
   updatedAt      DateTime  @updatedAt
   user           user      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum Market {
+  /// 국내
   KR
+  /// 해외
   US
 }
 
 enum InputMode {
+  /// 수량으로 입력
   QUANTITY
+  /// 금액으로 입력
   AMOUNT
 }
 
+/// 주간/월간 리뷰
 model Review {
+  /// 고유 ID
   id        String     @id @default(cuid())
+  /// 사용자 ID (FK)
   userId    String
+  /// 리뷰 종류 (주간/월간)
   type      ReviewType
+  /// 연도
   year      Int
+  /// 주차 또는 월
   period    Int
+  /// 평점
   rating    Int
+  /// 내용
   text      String?
+  /// 생성일
   createdAt DateTime   @default(now())
+  /// 수정일
   updatedAt DateTime   @updatedAt
   user      user       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -178,100 +299,160 @@ model Review {
 }
 
 enum ReviewType {
+  /// 주간
   WEEKLY
+  /// 월간
   MONTHLY
 }
 
 // finalStocks: AssetStock[], finalRealEstates: AssetRealEstate[]
 // liabilitiesSnapshot: LiabilityItem[], gameLogs: GameLog[] (FE apps/web/src/app/demo/mini-game/types.ts)
+/// 미니게임(캐시플로우 보드게임) 플레이 결과
 model MiniGameResult {
+  /// 고유 ID
   id     String     @id @default(cuid())
+  /// 사용자 ID (FK)
   userId String
   user   user       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  /// 선택한 직업
   profession String
+  /// 결과 (승리/포기)
   result     GameResult
 
+  /// 진행한 턴 수
   turnCount            Int
+  /// 최종 현금
   finalCash            Int
+  /// 최종 비근로소득
   finalPassiveIncome   Int
+  /// 최종 월 지출
   finalMonthlyExpenses Int
+  /// 최종 월 현금흐름
   finalMonthlyCashflow Int
+  /// 은행 대출액
   bankLoan             Int
+  /// 총 부채
   totalLiabilities     Int
+  /// 보유 주식 종목 수
   stocksCount          Int
+  /// 보유 부동산 수
   realEstatesCount     Int
+  /// 자녀 수
   childrenCount        Int
 
+  /// 최종 보유 주식 목록 (JSON)
   finalStocks         Json
+  /// 최종 보유 부동산 목록 (JSON)
   finalRealEstates    Json
+  /// 부채 스냅샷 (JSON)
   liabilitiesSnapshot Json
+  /// 게임 진행 로그 (JSON)
   gameLogs            Json
 
+  /// 플레이 일시
   playedAt DateTime @default(now())
 }
 
 enum GameResult {
+  /// 승리
   WON
+  /// 포기
   GAVE_UP
 }
 
 enum FinanceCategory {
+  /// 주식
   STOCK
+  /// 부동산
   REAL_ESTATE
+  /// 세금
   TAX
+  /// 저축
   SAVING
+  /// 보험
   INSURANCE
+  /// 경제 일반
   ECONOMY
+  /// 기타
   ETC
 }
 
+/// 금융 용어 (경제 용어 사전)
 model Term {
+  /// 고유 ID
   id          String          @id @default(cuid())
+  /// 작성자 ID (FK)
   userId      String
   user        user            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 용어
   term        String
+  /// 설명
   description String
+  /// 카테고리
   category    FinanceCategory @default(ETC)
+  /// 공개 여부
   isShared    Boolean         @default(false)
+  /// 생성일
   createdAt   DateTime        @default(now())
+  /// 수정일
   updatedAt   DateTime        @updatedAt
 
   likes TermLike[]
 }
 
+/// 금융 용어 좋아요
 model TermLike {
+  /// 고유 ID
   id        String   @id @default(cuid())
+  /// 사용자 ID (FK)
   userId    String
   user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 용어 ID (FK)
   termId    String
   term      Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+  /// 생성일
   createdAt DateTime @default(now())
 
   @@unique([userId, termId])
 }
 
+/// 경제 책 추천/기록
 model Book {
+  /// 고유 ID
   id        String          @id @default(cuid())
+  /// 작성자 ID (FK)
   userId    String
   user      user            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 책 제목
   title     String
+  /// 저자
   author    String
+  /// 한줄평/메모
   comment   String
+  /// 카테고리
   category  FinanceCategory @default(ETC)
+  /// 공개 여부
   isShared  Boolean         @default(false)
+  /// 생성일
   createdAt DateTime        @default(now())
+  /// 수정일
   updatedAt DateTime        @updatedAt
 
   likes BookLike[]
 }
 
+/// 경제 책 좋아요
 model BookLike {
+  /// 고유 ID
   id        String   @id @default(cuid())
+  /// 사용자 ID (FK)
   userId    String
   user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 책 ID (FK)
   bookId    String
   book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  /// 생성일
   createdAt DateTime @default(now())
 
   @@unique([userId, bookId])
@@ -279,12 +460,20 @@ model BookLike {
 
 // ── inote-blog ───────────────────────────────────────────────────
 // 1단계: 로그인 없이 CRUD만. 로그인 붙을 때 userId 컬럼 추가 예정.
+/// 블로그 글 (inote-blog)
 model Post {
+  /// 고유 ID
   id        String   @id @default(cuid())
+  /// 제목
   title     String
+  /// 본문 (HTML)
   content   String
+  /// 요약
   excerpt   String?
+  /// 카테고리
   category  String
+  /// 작성일
   createdAt DateTime @default(now())
+  /// 수정일
   updatedAt DateTime @updatedAt
 }
