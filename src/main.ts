@@ -15,7 +15,7 @@ async function bootstrap() {
       'http://localhost:3100',
       'http://localhost:3011',
       'https://inote-money.vercel.app',
-      'https://inote-blog.vercel.app',
+      'https://inote-main.vercel.app',
     ],
     credentials: true,
   });

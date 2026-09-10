@@ -20,7 +20,7 @@ export const auth = betterAuth({
     'http://localhost:3100',
     'http://localhost:3011',
     'https://inote-money.vercel.app',
-    'https://inote-blog.vercel.app',
+    'https://inote-main.vercel.app',
   ],
 
   session: {
@@ -28,7 +28,7 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 12, // 12시간마다 자동 갱신
   },
 
-  // inote-blog: 이메일/비밀번호 가입 지원 (지금은 이메일 인증 없이 가입 즉시 로그인 —
+  // inote(웹): 이메일/비밀번호 가입 지원 (지금은 이메일 인증 없이 가입 즉시 로그인 —
   // 필요해지면 이메일 서비스(Resend 등) 붙이고 requireEmailVerification: true로 전환)
   emailAndPassword: {
     enabled: true,
