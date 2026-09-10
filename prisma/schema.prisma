@@ -52,6 +52,7 @@ model user {
   termLikes        TermLike[]
   books            Book[]
   bookLikes        BookLike[]
+  posts            Post[]
 }
 
 /// 로그인 세션
@@ -459,7 +460,7 @@ model BookLike {
 }
 
 // ── inote-blog ───────────────────────────────────────────────────
-// 1단계: 로그인 없이 CRUD만. 로그인 붙을 때 userId 컬럼 추가 예정.
+// 2단계: 로그인 필수로 전환 (2026-09-10). 로그인 전에 만들어진 글은 작성자 없음(null)으로 남음.
 /// 블로그 글 (inote-blog)
 model Post {
   /// 고유 ID
@@ -472,6 +473,9 @@ model Post {
   excerpt   String?
   /// 카테고리
   category  String
+  /// 작성자 ID (FK, nullable — 로그인 도입 전 글 + 작성자 탈퇴 시 null로 남음)
+  userId    String?
+  user      user?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   /// 작성일
   createdAt DateTime @default(now())
   /// 수정일

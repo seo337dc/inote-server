@@ -6,13 +6,16 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthGuard } from '../auth/auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { BlogService } from './blog.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 
-// 1단계: 로그인 없이 오픈된 CRUD. 로그인 붙을 때 AuthGuard + userId 추가 예정.
+// 2단계: 조회는 로그인 없이 공개, 작성/수정/삭제는 로그인 필수 (2026-09-10)
 @ApiTags('Blog')
 @Controller('blog/posts')
 export class BlogController {
@@ -31,20 +34,30 @@ export class BlogController {
   }
 
   @Post()
-  @ApiOperation({ summary: '글 작성' })
-  create(@Body() dto: CreatePostDto) {
-    return this.blogService.create(dto);
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: '글 작성 (로그인 필요)' })
+  create(@CurrentUser() user: { id: string }, @Body() dto: CreatePostDto) {
+    return this.blogService.create(user.id, dto);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: '글 수정' })
-  update(@Param('id') id: string, @Body() dto: UpdatePostDto) {
-    return this.blogService.update(id, dto);
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: '글 수정 (본인 글만)' })
+  update(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() dto: UpdatePostDto,
+  ) {
+    return this.blogService.update(user.id, id, dto);
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: '글 삭제' })
-  remove(@Param('id') id: string) {
-    return this.blogService.remove(id);
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: '글 삭제 (본인 글만)' })
+  remove(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+    return this.blogService.remove(user.id, id);
   }
 }
