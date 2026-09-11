@@ -480,4 +480,21 @@ model Post {
   createdAt DateTime @default(now())
   /// 수정일
   updatedAt DateTime @updatedAt
+  /// 발행 시각 (null = 아직 저장 안 한 draft, 목록에 노출 안 됨)
+  publishedAt DateTime?
+  /// AI 요약 (1:1, inote-ai가 생성)
+  aiSummary PostSummary?
+}
+
+/// 글의 AI 요약 — 저장할 때마다 inote-ai가 새로 생성해 덮어씀
+model PostSummary {
+  /// 고유 ID
+  id        String   @id @default(cuid())
+  /// 원본 글 ID (1:1, 글 삭제 시 같이 삭제)
+  postId    String   @unique
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  /// 요약 (불릿 목록)
+  summary   String[]
+  /// 생성/갱신 시각
+  updatedAt DateTime @updatedAt
 }

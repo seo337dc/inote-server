@@ -15,7 +15,7 @@
 | 서버 URL (dev) | `https://inote-server-5a63.onrender.com` |
 | Swagger 문서 (dev) | `https://inote-server-5a63.onrender.com/api/docs` |
 | 헬스체크 | `https://inote-server-5a63.onrender.com/api/v1/health` |
-| 현재 진행 단계 | 금융지식(Term/Book) BE API + 단위테스트 완료 — E2E는 ESM 인프라 이슈로 보류, FE는 사람 목업 대기 |
+| 현재 진행 단계 | 금융지식(Term/Book) BE API + 단위테스트 완료 — E2E는 ESM 인프라 이슈로 보류, FE는 사람 목업 대기. 블로그(inote) — draft/발행 모델, 자동저장, AI 자동 요약(PostSummary), 대화 기록 접근 제어용 내부 API까지 완료 (2026-09-11) |
 
 ---
 
@@ -30,6 +30,63 @@ npm run start:dev
 ---
 
 ## 작업 로그
+
+### 2026-09-11 — 블로그(inote) draft/발행 모델 + AI 자동 요약 + 대화 기록 접근 제어
+
+`inote`(구 inote-blog) 글쓰기 기능에 LLM 챗(`inote-ai`)을 붙이는 작업 중, 그 챗 세션을 글마다
+안정적으로 묶으려면 "저장 버튼 누르기 전"에도 고정된 postId가 있어야 한다는 문제에서 출발.
+draft 개념을 새로 도입하고, 그 위에 자동저장·AI 요약·대화 기록 접근 제어까지 이어붙임.
+
+#### ✅ draft/발행 모델 도입
+
+- `Post.publishedAt DateTime?` 추가 (null = 아직 저장 안 한 draft). 기존 글은 전부
+  `createdAt`으로 백필해서 계속 공개 목록에 남도록 처리 (`prisma db execute`로 안전하게 적용,
+  마이그레이션 히스토리 drift 위험 때문에 `migrate dev` 안 씀 — 기존 관례 그대로 유지)
+- `POST /blog/posts/draft`(로그인 필요) — 빈 글쓰기 화면 진입 시 호출, 즉시 빈 `Post` row 생성
+- `GET /blog/posts`(목록)는 `publishedAt IS NOT NULL`인 글만 노출
+- `GET /blog/posts/:id`(단건)는 draft면 요청자가 작성자 본인일 때만 보여주고, 그 외엔 404로
+  존재 자체를 숨김 — 이걸 위해 `OptionalAuthGuard` 신설(로그인 안 해도 통과시키되, 했으면
+  `request.user`를 채워줌 — 기존 `AuthGuard`는 비로그인 시 무조건 거부라 재사용 불가)
+- `GET /blog/posts/mine/drafts`(로그인 필요) — 내 draft 목록. FE의 "지금 작성 중인 글이
+  있습니다" 안내 모달 + 헤더 알림 벨 둘 다 이 엔드포인트를 공유해서 씀
+
+#### ✅ 저장/자동저장 분리 (`UpdatePostDto.publish`)
+
+- 처음엔 "저장(PATCH) = 곧 발행"이었는데, FE에서 실시간 자동저장(임시저장)을 붙이면서 이대로
+  두면 타이핑 멈출 때마다 글이 발행돼버리는 문제가 생김
+- `UpdatePostDto`에 `publish?: boolean` 추가 — `true`일 때만 `publishedAt` 채우고 `inote-ai`
+  요약 호출, 없으면(자동저장) 내용만 갱신하고 발행 상태·요약은 그대로 둠
+
+#### ✅ PostSummary — 저장 시 AI 자동 요약
+
+- `PostSummary` 모델 신규 (`Post`와 1:1, `onDelete: Cascade`, `summary String[]`)
+- `BlogService.update()`가 진짜 저장(`publish: true`) 성공 시 `inote-ai`의 `POST /summarize`를
+  내부 시크릿 헤더(`x-internal-secret`)로 호출해 불릿 3~4개를 받아 upsert. 실패해도 글 저장
+  자체는 막지 않도록 try/catch로 격리 (AI 서버 장애가 핵심 기능을 막으면 안 된다는 원칙)
+- 빈 내용(`""`/`<p></p>`) 저장 시엔 호출 자체를 스킵
+
+#### ✅ 대화 기록 접근 제어용 내부 API
+
+- `GET /blog/posts/:id/owner`(내부 전용, `InternalSecretGuard`) — 글 작성자 id만 반환.
+  `inote-ai`가 대화 기록 조회/저장 전에 "요청자가 진짜 이 글의 작성자인지" 확인하는 용도
+- 작성자가 아니면: 채팅 자체(LLM 응답)는 그대로 되고, 그 글에 대화를 저장/조회만 안 됨 —
+  "기능은 막지 않되 데이터만 격리"하는 패턴을 여기도 동일하게 적용
+
+#### 신규/변경 파일
+
+- `src/auth/optional-auth.guard.ts`, `src/auth/internal-secret.guard.ts` (신규)
+- `src/blog/blog.controller.ts`, `src/blog/blog.service.ts`, `src/blog/dto/update-post.dto.ts`
+- `prisma/schema.prisma` — `Post.publishedAt`, `PostSummary` 모델
+- `.env` — `INOTE_AI_URL`, `INTERNAL_SECRET` 추가
+
+#### 검증
+
+- curl로 owner/other 두 계정 시나리오 직접 검증 (draft 목록 미노출, 타인 조회 404, 대화 기록
+  조회 403, 타인이 보낸 채팅은 응답은 오되 저장 안 됨)
+- 브라우저로 실제 가입 → draft 생성 → 자동저장(발행 상태 유지 확인) → 저장(발행+요약 생성) →
+  상세 페이지 AI 개요 노출까지 전체 플로우 확인. 테스트 계정/글은 전부 정리함
+
+---
 
 ### 2026-08-07
 
