@@ -23,6 +23,8 @@
 | 서비스 | 레포 | 상태 |
 |--------|------|------|
 | inote-money | [seo337dc/inote-money](https://github.com/seo337dc/inote-money) | ✅ 개발 중 |
+| inote (블로그) | [seo337dc/inote](https://github.com/seo337dc/inote) | ✅ 개발 중 — `blog` 모듈 담당 |
+| inote-ai | [seo337dc/inote-ai](https://github.com/seo337dc/inote-ai) | ✅ 개발 중 — LLM 채팅/요약, `x-internal-secret`으로 이 서버와 통신 |
 | inote-daily | — | 🚧 예정 |
 | inote-goal | — | 🚧 예정 |
 
@@ -53,6 +55,8 @@ BETTER_AUTH_URL="http://localhost:3200"
 GOOGLE_CLIENT_ID="..."
 GOOGLE_CLIENT_SECRET="..."
 PORT=3200
+INOTE_AI_URL="http://localhost:8000"               # inote-ai 베이스 URL (blog 모듈 AI 요약 호출용)
+INTERNAL_SECRET="..."                              # inote-ai와 동일한 값이어야 함 (서비스 간 인증)
 ```
 
 > ⚠️ Neon DATABASE_URL에 `channel_binding=require` 옵션은 제거하세요. Prisma와 호환되지 않습니다.
@@ -91,6 +95,7 @@ src/
 │   ├── expenses/         ← 가계부 CRUD
 │   ├── stocks/           ← 주식 CRUD
 │   └── settings/         ← 내 정보 설정
+├── blog/                 ← inote 글쓰기 CRUD, draft/발행, AI 요약 연동
 └── points/               ← 포인트 (예정)
 ```
 
@@ -133,6 +138,17 @@ src/
 | GET | `/api/v1/money/settings` | 내 설정 조회 |
 | PUT | `/api/v1/money/settings` | 내 설정 저장 |
 
+### 블로그 (inote)
+| Method | URL | 설명 |
+|--------|-----|------|
+| GET | `/api/v1/blog/posts` | 공개 글 목록 (발행된 글만) |
+| GET | `/api/v1/blog/posts/:id` | 단건 조회 (draft면 작성자만) |
+| POST | `/api/v1/blog/posts/draft` | 빈 draft 글 생성 (글쓰기 진입 시) |
+| PATCH | `/api/v1/blog/posts/:id` | 수정 — `publish: true`일 때만 발행 + AI 요약 호출, 그 외엔 자동저장 |
+| DELETE | `/api/v1/blog/posts/:id` | 삭제 |
+| GET | `/api/v1/blog/posts/mine/drafts` | 내 draft 목록 |
+| GET | `/api/v1/blog/posts/:id/owner` | 작성자 id만 반환 (내부 전용, `x-internal-secret`) — `inote-ai`가 대화 기록 접근 제어에 사용 |
+
 ---
 
 ## 인프라
@@ -156,6 +172,7 @@ DB  →  Neon PostgreSQL
 | Better Auth Google 소셜 로그인 | ✅ 완료 |
 | Render 배포 | ✅ 완료 |
 | Money 모듈 (가계부/주식/설정) | ✅ 완료 |
+| Blog 모듈 (draft/발행, AI 요약 연동, 접근 제어) | ✅ 완료 |
 | Users 모듈 | 🔜 예정 |
 | Sentry 연결 | 🔜 예정 |
 

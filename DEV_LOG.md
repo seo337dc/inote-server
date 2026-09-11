@@ -86,6 +86,20 @@ draft 개념을 새로 도입하고, 그 위에 자동저장·AI 요약·대화 
 - 브라우저로 실제 가입 → draft 생성 → 자동저장(발행 상태 유지 확인) → 저장(발행+요약 생성) →
   상세 페이지 AI 개요 노출까지 전체 플로우 확인. 테스트 계정/글은 전부 정리함
 
+#### 🐛 추가 발견 — 자동저장 400 Bad Request (`UpdatePostDto`)
+
+`inote-ai`의 대화 세션 기능을 작업하다가 실제로 자동저장을 테스트하면서 발견한 버그.
+`UpdatePostDto`가 `PartialType(CreatePostDto)`를 상속하면서 `title`/`content`의
+`@MinLength(1)`도 그대로 물려받아, `publish` 없는 자동저장 요청에서 제목만 입력하고 본문이
+비어 있으면 400이 발생했음. `@ValidateIf((o) => o.publish === true)`로 감싸서 `publish`가
+`true`(진짜 저장)일 때만 최소 길이를 검증하도록 수정. curl로 401(인증 없음)만 나오고 400은
+더 이상 안 나오는 것, DB에 빈 본문이 그대로 저장되고 `publishedAt`은 null로 유지되는 것 확인.
+
+#### 📄 README 정리
+
+`inote`/`inote-ai` 연결을 반영해 README 업데이트 — `blog` 모듈 API 목록 추가, 연결 서비스
+표에 `inote`/`inote-ai` 추가, `INOTE_AI_URL`/`INTERNAL_SECRET` 환경변수 문서화.
+
 ---
 
 ### 2026-08-07
