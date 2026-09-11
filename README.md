@@ -159,6 +159,11 @@ BE  →  Render (이 서버) — https://inote-server-5a63.onrender.com
 DB  →  Neon PostgreSQL
 ```
 
+**Render 무료 플랜 콜드 스타트 방지**: [cron-job.org](https://cron-job.org)에서 10분마다
+`/api/v1/health`를 호출하도록 설정해둬서, 15분 무활동 시 슬립 상태로 들어가는 Render 무료
+플랜 특성에도 서버가 항상 깨어있음 (cron-job.org 자체 대시보드 설정이라 레포에는 별도 설정
+파일 없음).
+
 ---
 
 ## 구현 현황

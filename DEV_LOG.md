@@ -100,6 +100,12 @@ draft 개념을 새로 도입하고, 그 위에 자동저장·AI 요약·대화 
 `inote`/`inote-ai` 연결을 반영해 README 업데이트 — `blog` 모듈 API 목록 추가, 연결 서비스
 표에 `inote`/`inote-ai` 추가, `INOTE_AI_URL`/`INTERNAL_SECRET` 환경변수 문서화.
 
+#### 📄 콜드 스타트 방지 방식 기록
+
+Render 무료 플랜 슬립 문제를 [cron-job.org](https://cron-job.org)로 `/api/v1/health`를
+10분마다 호출해서 막고 있다는 걸 README 인프라 섹션에 명시 — 레포 안에는 관련 설정 파일이
+없고 cron-job.org 자체 대시보드에서 설정된 것이라, 문서화 안 해두면 나중에 잊기 쉬움.
+
 ---
 
 ### 2026-08-07
