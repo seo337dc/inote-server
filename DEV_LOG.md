@@ -31,6 +31,19 @@ npm run start:dev
 
 ## 작업 로그
 
+### 2026-09-14 — 회원 탈퇴 API 추가
+
+`DELETE /api/v1/users/me` 신규 (`UsersController`/`UsersService`). `prisma.user.delete()`
+호출 전에 `inote-ai`에 그 유저의 대화 세션/기록 삭제를 먼저 요청(내부 시크릿 헤더) —
+실패해도 탈퇴 자체는 막지 않도록 try/catch로 격리(다른 서비스 장애로 탈퇴가 막히면
+안 됨, 기존 요약 호출 실패 처리와 동일한 패턴).
+
+스키마상 `session`/`account`/`UserSetting` 등은 전부 `onDelete: Cascade`라 유저 삭제 시
+같이 정리되고, `Post.userId`만 `SetNull`이라 작성한 글은 삭제되지 않고 작성자 없음으로
+남음(기존에 이미 그렇게 설계돼 있던 부분, 이번에 실제로 검증). 실제 계정으로 글 작성 →
+inote-ai 대화 세션 생성 → 탈퇴 → BE(user/session/account 삭제, Post는 userId null로 유지)
++ AI(세션 삭제) 양쪽 다 curl/DB 직접 조회로 확인.
+
 ### 2026-09-11 — 블로그(inote) draft/발행 모델 + AI 자동 요약 + 대화 기록 접근 제어
 
 `inote`(구 inote-blog) 글쓰기 기능에 LLM 챗(`inote-ai`)을 붙이는 작업 중, 그 챗 세션을 글마다

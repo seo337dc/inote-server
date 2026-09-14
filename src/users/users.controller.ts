@@ -1,4 +1,11 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -22,5 +29,11 @@ export class UsersController {
   @ApiOperation({ summary: '내 프로필 수정' })
   updateMe(@CurrentUser() user: { id: string }, @Body() dto: UpdateUserDto) {
     return this.usersService.updateMe(user.id, dto);
+  }
+
+  @Delete('me')
+  @ApiOperation({ summary: '회원 탈퇴' })
+  deleteMe(@CurrentUser() user: { id: string }) {
+    return this.usersService.deleteMe(user.id);
   }
 }
