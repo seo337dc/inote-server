@@ -97,7 +97,29 @@ export class BlogService {
     if (post.userId !== userId) {
       throw new ForbiddenException('본인이 작성한 글만 삭제할 수 있습니다.');
     }
-    return this.prisma.post.delete({ where: { id } });
+    const deleted = await this.prisma.post.delete({ where: { id } });
+    await this.deleteAiSession(id);
+    return deleted;
+  }
+
+  // 글쓰기 세션의 id는 post_id를 그대로 쓰므로, 글이 삭제되면 그 세션(+대화 기록)도 같이
+  // 지워달라고 inote-ai에 요청. 실패해도 글 삭제 자체는 이미 끝난 뒤라 막지 않는다
+  // (요약 호출 실패 처리와 동일한 fail-open 패턴).
+  private async deleteAiSession(postId: string) {
+    try {
+      const res = await fetch(
+        `${process.env.INOTE_AI_URL}/sessions/${postId}`,
+        {
+          method: 'DELETE',
+          headers: { 'x-internal-secret': process.env.INTERNAL_SECRET ?? '' },
+        },
+      );
+      if (!res.ok) throw new Error(`inote-ai responded ${res.status}`);
+    } catch (e) {
+      this.logger.warn(
+        `failed to delete inote-ai session for post ${postId}: ${e}`,
+      );
+    }
   }
 
   // 저장 직후 inote-ai에 요약을 요청해 PostSummary에 반영.
