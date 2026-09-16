@@ -498,3 +498,26 @@ model PostSummary {
   /// 생성/갱신 시각
   updatedAt DateTime @updatedAt
 }
+
+/// 만다르트 로드맵 아이템 — 9개 축(t1~t9) 아래 각 항목의 진행 상태 + 정리 내용.
+/// 조회는 공개, 수정은 소유자(MANDALART_OWNER_USER_ID)만 가능.
+model MandalartItem {
+  /// 고유 ID
+  id        String   @id @default(cuid())
+  /// 축 (t1~t9)
+  theme     String
+  /// 축 이름 (예: "기능 고도화") — 조회 편의를 위한 중복 저장
+  themeName String
+  /// 항목 제목
+  title     String
+  /// 완료 여부
+  done      Boolean  @default(false)
+  /// 정리 내용 (마크다운)
+  content   String   @default("")
+  /// 그리드 내 표시 순서 (같은 축 안에서의 순번)
+  position  Int
+  /// 생성일
+  createdAt DateTime @default(now())
+  /// 수정일
+  updatedAt DateTime @updatedAt
+}

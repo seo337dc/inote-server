@@ -244,6 +244,21 @@ Table PostSummary {
   Note: '글의 AI 요약 — 저장할 때마다 inote-ai가 새로 생성해 덮어씀'
 }
 
+Table MandalartItem {
+  id String [pk, note: '고유 ID']
+  theme String [not null, note: '축 (t1~t9)']
+  themeName String [not null, note: '축 이름 (예: "기능 고도화") — 조회 편의를 위한 중복 저장']
+  title String [not null, note: '항목 제목']
+  done Boolean [not null, default: false, note: '완료 여부']
+  content String [not null, default: '', note: '정리 내용 (마크다운)']
+  position Int [not null, note: '그리드 내 표시 순서 (같은 축 안에서의 순번)']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '만다르트 로드맵 아이템 — 9개 축(t1~t9) 아래 각 항목의 진행 상태 + 정리 내용.
+조회는 공개, 수정은 소유자(MANDALART_OWNER_USER_ID)만 가능.'
+}
+
 Enum Category {
   FOOD
   CAFE

@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
 import { MoneyModule } from './money/money.module';
 import { BlogModule } from './blog/blog.module';
+import { MandalartModule } from './mandalart/mandalart.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { BlogModule } from './blog/blog.module';
     UsersModule,
     MoneyModule,
     BlogModule,
+    MandalartModule,
   ],
   controllers: [AppController],
   providers: [AppService],
