@@ -35,6 +35,15 @@ export const auth = betterAuth({
     requireEmailVerification: false,
   },
 
+  user: {
+    additionalFields: {
+      role: {
+        type: 'string',
+        input: false, // 가입 요청 바디로 임의 지정 못 하게 막음 — DB에서 직접 관리
+      },
+    },
+  },
+
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,

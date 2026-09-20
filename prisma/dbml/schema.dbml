@@ -11,6 +11,7 @@ Table user {
   phone String [note: '전화번호']
   phoneVerified Boolean [not null, default: false, note: '전화번호 인증 여부']
   image String [note: '프로필 이미지 URL']
+  role Role [not null, default: 'USER', note: '권한']
   createdAt DateTime [default: `now()`, not null, note: '가입일']
   updatedAt DateTime [not null, note: '수정일']
 
@@ -257,6 +258,11 @@ Table MandalartItem {
 
   Note: '만다르트 로드맵 아이템 — 9개 축(t1~t9) 아래 각 항목의 진행 상태 + 정리 내용.
 조회는 공개, 수정은 소유자(MANDALART_OWNER_USER_ID)만 가능.'
+}
+
+Enum Role {
+  ADMIN
+  USER
 }
 
 Enum Category {

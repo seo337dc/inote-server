@@ -34,6 +34,8 @@ model user {
   phoneVerified Boolean     @default(false)
   /// 프로필 이미지 URL
   image         String?
+  /// 권한
+  role          Role        @default(USER)
   /// 가입일
   createdAt     DateTime    @default(now())
   /// 수정일
@@ -53,6 +55,11 @@ model user {
   books            Book[]
   bookLikes        BookLike[]
   posts            Post[]
+}
+
+enum Role {
+  ADMIN
+  USER
 }
 
 /// 로그인 세션
