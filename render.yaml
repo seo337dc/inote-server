@@ -15,6 +15,8 @@ services:
         value: https://inote-ai.onrender.com
       - key: INTERNAL_SECRET
         sync: false
+      - key: AUTH_ERROR_FALLBACK_URL
+        value: https://inote-main.vercel.app/login
       - key: DATABASE_URL
         sync: false
       - key: BETTER_AUTH_SECRET
