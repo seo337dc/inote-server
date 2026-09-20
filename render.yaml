@@ -9,6 +9,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: BETTER_AUTH_URL
+        value: https://inote-server-5a63.onrender.com
       - key: DATABASE_URL
         sync: false
       - key: BETTER_AUTH_SECRET
