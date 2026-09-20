@@ -11,6 +11,10 @@ services:
         value: production
       - key: BETTER_AUTH_URL
         value: https://inote-server-5a63.onrender.com
+      - key: INOTE_AI_URL
+        value: https://inote-ai.onrender.com
+      - key: INTERNAL_SECRET
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: BETTER_AUTH_SECRET
