@@ -1,6 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Category } from '@prisma/client';
-import { IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class CreateExpenseDto {
   @ApiProperty({ description: '금액 (원)', example: 15000 })
@@ -17,7 +25,11 @@ export class CreateExpenseDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: '카테고리', enum: Category, default: Category.ETC })
+  @ApiPropertyOptional({
+    description: '카테고리',
+    enum: Category,
+    default: Category.ETC,
+  })
   @IsOptional()
   @IsEnum(Category)
   category?: Category;

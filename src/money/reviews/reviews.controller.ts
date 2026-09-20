@@ -1,5 +1,10 @@
 import { Body, Controller, Get, Put, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ReviewType } from '@prisma/client';
 import { AuthGuard } from '../../auth/auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
@@ -17,14 +22,23 @@ export class ReviewsController {
   @ApiOperation({ summary: '리뷰 단건 조회' })
   @ApiQuery({ name: 'type', enum: ReviewType })
   @ApiQuery({ name: 'year', example: 2026 })
-  @ApiQuery({ name: 'period', description: 'WEEKLY: ISO 주차, MONTHLY: 월(1-12)', example: 28 })
+  @ApiQuery({
+    name: 'period',
+    description: 'WEEKLY: ISO 주차, MONTHLY: 월(1-12)',
+    example: 28,
+  })
   findOne(
     @CurrentUser() user: { id: string },
     @Query('type') type: ReviewType,
     @Query('year') year: string,
     @Query('period') period: string,
   ) {
-    return this.reviewsService.findOne(user.id, type, parseInt(year), parseInt(period));
+    return this.reviewsService.findOne(
+      user.id,
+      type,
+      parseInt(year),
+      parseInt(period),
+    );
   }
 
   @Put()

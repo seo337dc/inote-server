@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
@@ -54,6 +58,7 @@ export class ExpensesService {
   private async verifyOwner(userId: string, id: string) {
     const expense = await this.prisma.expense.findUnique({ where: { id } });
     if (!expense) throw new NotFoundException('내역을 찾을 수 없습니다.');
-    if (expense.userId !== userId) throw new ForbiddenException('권한이 없습니다.');
+    if (expense.userId !== userId)
+      throw new ForbiddenException('권한이 없습니다.');
   }
 }

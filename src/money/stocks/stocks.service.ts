@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateStockDto } from './dto/create-stock.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
@@ -31,6 +35,7 @@ export class StocksService {
   private async verifyOwner(userId: string, id: string) {
     const stock = await this.prisma.stockHolding.findUnique({ where: { id } });
     if (!stock) throw new NotFoundException('종목을 찾을 수 없습니다.');
-    if (stock.userId !== userId) throw new ForbiddenException('권한이 없습니다.');
+    if (stock.userId !== userId)
+      throw new ForbiddenException('권한이 없습니다.');
   }
 }

@@ -11,7 +11,10 @@ export class UpsertReviewDto {
   @IsInt()
   year: number;
 
-  @ApiProperty({ description: 'WEEKLY: ISO 주차(1-53), MONTHLY: 월(1-12)', example: 28 })
+  @ApiProperty({
+    description: 'WEEKLY: ISO 주차(1-53), MONTHLY: 월(1-12)',
+    example: 28,
+  })
   @IsInt()
   @Min(1)
   @Max(53)
