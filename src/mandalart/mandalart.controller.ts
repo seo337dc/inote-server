@@ -1,8 +1,17 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { MandalartService } from './mandalart.service';
+import { CreateMandalartItemDto } from './dto/create-mandalart-item.dto';
 import { UpdateMandalartItemDto } from './dto/update-mandalart-item.dto';
 
 @ApiTags('Mandalart')
@@ -22,15 +31,26 @@ export class MandalartController {
     return this.mandalartService.findOne(id);
   }
 
+  @Post()
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: '만다르트 항목 추가 (관리자만)' })
+  create(
+    @CurrentUser() user: { role?: string },
+    @Body() dto: CreateMandalartItemDto,
+  ) {
+    return this.mandalartService.create(user.role, dto);
+  }
+
   @Patch(':id')
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: '만다르트 항목 수정 (소유자만)' })
+  @ApiOperation({ summary: '만다르트 항목 수정 (관리자만)' })
   update(
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: { role?: string },
     @Param('id') id: string,
     @Body() dto: UpdateMandalartItemDto,
   ) {
-    return this.mandalartService.update(user.id, id, dto);
+    return this.mandalartService.update(user.role, id, dto);
   }
 }

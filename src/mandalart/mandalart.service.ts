@@ -4,10 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateMandalartItemDto } from './dto/create-mandalart-item.dto';
 import { UpdateMandalartItemDto } from './dto/update-mandalart-item.dto';
 
-// 만다르트 로드맵 — 조회는 누구나, 수정은 소유자(MANDALART_OWNER_USER_ID)만.
-// 별도 role 체계가 없는 개인 로드맵이라, INTERNAL_SECRET처럼 고정 env값과 대조하는 방식으로 간단히 처리.
+// 만다르트 로드맵 — 조회는 누구나(비회원 포함), 수정·추가는 관리자(role: ADMIN)만.
 @Injectable()
 export class MandalartService {
   constructor(private readonly prisma: PrismaService) {}
@@ -24,15 +24,39 @@ export class MandalartService {
     return item;
   }
 
-  async update(userId: string, id: string, dto: UpdateMandalartItemDto) {
-    this.assertOwner(userId);
+  async create(role: string | undefined, dto: CreateMandalartItemDto) {
+    this.assertAdmin(role);
+
+    const position = dto.position ?? (await this.nextPosition(dto.theme));
+
+    return this.prisma.mandalartItem.create({
+      data: {
+        theme: dto.theme,
+        themeName: dto.themeName,
+        title: dto.title,
+        position,
+      },
+    });
+  }
+
+  async update(
+    role: string | undefined,
+    id: string,
+    dto: UpdateMandalartItemDto,
+  ) {
+    this.assertAdmin(role);
     await this.findOne(id);
     return this.prisma.mandalartItem.update({ where: { id }, data: dto });
   }
 
-  private assertOwner(userId: string) {
-    if (userId !== process.env.MANDALART_OWNER_USER_ID) {
-      throw new ForbiddenException('본인만 수정할 수 있습니다.');
+  private async nextPosition(theme: string) {
+    const count = await this.prisma.mandalartItem.count({ where: { theme } });
+    return count;
+  }
+
+  private assertAdmin(role: string | undefined) {
+    if (role !== 'ADMIN') {
+      throw new ForbiddenException('관리자만 수정·추가할 수 있습니다.');
     }
   }
 }
