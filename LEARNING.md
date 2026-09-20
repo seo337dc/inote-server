@@ -1589,6 +1589,162 @@ rootDir = "src" 설정하면:
 
 ---
 
+## Chapter 26 — 실제로 세팅한 테스트: 단위 vs E2E, 그리고 better-auth ESM 삽질기
+
+> 2026-09-20. 위 11번 챕터는 개념 설명용 예시 코드였고, 여기서는 **실제로 이 레포에 있는 파일
+> 기준**으로 "지금 테스트가 어떻게 굴러가는지"를 정리한다.
+
+### 왜 설정 파일이 2개로 나뉘어 있나
+
+```
+package.json의 "jest" 필드   → 단위 테스트 (pnpm test)
+test/jest-e2e.json          → E2E 테스트 (pnpm test:e2e)
+```
+
+같은 Jest인데 왜 설정을 나눴을까? **테스트 대상 범위가 다르기 때문**이다.
+
+- 단위 테스트(`src/**/*.spec.ts`) — 서비스 로직 하나만 격리해서 테스트. `PrismaService` 등은
+  가짜(mock)로 주입하니까 실제 앱을 통째로 부팅할 필요가 없다. 그래서 `better-auth`처럼 무거운
+  라이브러리를 아예 안 건드리는 파일도 많다 (예: `terms.service.spec.ts`).
+- E2E 테스트(`test/**/*.e2e-spec.ts`) — `AppModule` 전체를 실제로 부팅한다
+  (`Test.createTestingModule({ imports: [AppModule] })`). `AppModule` → `UsersModule` →
+  `UsersController` → `AuthGuard` → `auth.guard.ts`로 이어지는 import 체인을 따라가면서
+  `better-auth`까지 전부 로드된다. 즉 **E2E는 앱을 통째로 켜기 때문에 단위 테스트에서는 안
+  드러나던 문제(라이브러리 로딩 문제 등)가 여기서만 터진다.**
+
+이번에 겪은 문제가 정확히 그런 케이스였다.
+
+### 문제: better-auth가 순수 ESM이라 Jest가 못 불러온다
+
+`pnpm test:e2e`를 돌렸더니 이런 에러가 났다.
+
+```
+Must use import to load ES Module: .../better-auth/dist/integrations/node.mjs
+The file contains ESM syntax (import/export) that could not be executed as CommonJS.
+```
+
+**CommonJS와 ESM이 뭔지부터.** 자바스크립트 모듈 시스템은 크게 두 가지다.
+
+```js
+// CommonJS (구식, Node.js 기본값이었음) — require()로 동기적으로 불러옴
+const { betterAuth } = require('better-auth');
+module.exports = { auth };
+
+// ESM (표준, 최신) — import/export 문법, 원래는 비동기 로딩 전제
+import { betterAuth } from 'better-auth';
+export { auth };
+```
+
+Jest는 기본적으로 CommonJS 방식(`require`)으로 모든 걸 불러온다. TypeScript로 `import`라고 써도
+`ts-jest`가 컴파일할 때 내부적으로 `require()` 호출로 바꿔주기 때문에 평소엔 문제가 없다.
+**문제는 우리 코드가 아니라 `better-auth` 라이브러리 자체가 `.mjs`(순수 ESM)로만 배포된다는
+것.** `.mjs` 확장자는 Node.js와 Jest 둘 다 "이건 무조건 ESM"이라고 못박아두는 규칙이라서,
+`require('better-auth')`로 불러오려는 순간 "너 이거 `import`로 불러와야 돼"라고 막아버린다.
+
+### 시도 1 — transformIgnorePatterns + babel (실패)
+
+Jest는 기본적으로 `node_modules` 안의 파일은 변환(transform)하지 않는다. "그럼 변환하게
+허용해주면 되지 않나?" 싶어서 `babel-jest`를 설치하고 `better-auth`만 예외로 변환하도록
+`transformIgnorePatterns`를 조정해봤다. **결과: 안 됨.**
+
+이유: `.mjs` 확장자는 Jest 입장에서 "transform 여부와 무관하게 무조건 진짜 ESM 로더로 읽어야
+하는 파일"이다. 변환(transform)은 **문법을 바꾸는 것**이고, ESM이냐 CJS냐는 **어떤 방식으로
+로딩하느냐**의 문제라서, 변환을 허용한다고 로딩 방식이 안 바뀐다. 이 둘은 서로 다른 축이라는 걸
+직접 삽질하고 나서야 이해했다.
+
+### 시도 2 — moduleNameMapper로 해당 함수만 가짜로 대체 (부분 성공, 확장 안 됨)
+
+`better-auth/node`가 export하는 `fromNodeHeaders`는 사실 몇 줄 안 되는 간단한 함수다
+(Node.js 헤더 객체를 웹 표준 `Headers` 객체로 바꿔주는 것뿐). 그래서 이 함수만 똑같이 동작하는
+CommonJS 버전으로 직접 만들어서, Jest의 `moduleNameMapper`로 "이 경로를 요청하면 진짜 파일 대신
+내가 만든 파일을 줘라"고 우회를 시도했다. **이건 성공했다.**
+
+문제는 그 다음 — `auth.guard.ts`가 `better-auth/node`만 쓰는 게 아니라 `./auth`를 통해
+**`better-auth` 메인 패키지 자체**(`betterAuth()` 함수)도 불러오는데, 이것도 `.mjs`였다.
+`betterAuth()`는 세션 검증, DB 어댑터 연결 등 진짜 인증 로직 전체를 담당하는 핵심 함수라서,
+이걸 가짜로 바꿔치기하면 "진짜로 인증이 되는지" 검증하는 E2E 테스트의 의미가 없어진다.
+→ **한두 개 함수를 우회하는 방식은 안 통했다.**
+
+### 시도 3 — Jest ESM 모드 (import는 되지만 NestJS가 깨짐)
+
+근본적으로 better-auth가 ESM이라면, Jest도 ESM으로 읽게 만들면 되지 않을까 — 이게 Jest 공식
+문서가 권장하는 방법이다.
+
+```json
+{
+  "extensionsToTreatAsEsm": [".ts"],
+  "transform": { "^.+\\.ts$": ["ts-jest", { "useESM": true }] }
+}
+```
+
+그리고 `NODE_OPTIONS=--experimental-vm-modules`(Node.js의 실험적 ESM 지원 플래그)를 켜고
+실행. **import 에러는 사라졌다.** 그런데 새로운 에러가 떴다.
+
+```
+ReferenceError: exports is not defined
+```
+
+**원인 — NestJS의 데코레이터 메타데이터와 `isolatedModules`의 충돌.** NestJS는
+`@Module()`, `@Injectable()` 같은 데코레이터를 보고 "이 클래스가 어떤 걸 의존하는지"를
+자동으로 조립한다(의존성 주입, DI). 이게 가능한 이유는 TypeScript 컴파일러가
+`emitDecoratorMetadata` 옵션으로 클래스마다 "생성자 파라미터 타입이 뭔지" 같은 정보를 코드에
+몰래 심어주기 때문이다. 그런데 이 기능은 **파일 하나만 보고는 안 되고, 프로젝트 전체의 타입
+정보(다른 파일에 정의된 타입까지)를 알아야** 정확히 동작한다.
+
+`ts-jest`의 `useESM: true`는 속도를 위해 `isolatedModules`(파일 하나씩 따로따로, 다른 파일
+안 보고 빠르게 변환)를 강제로 켜버린다. 그러면 `emitDecoratorMetadata`가 필요한 정보를 못
+얻어서 이상하게 깨진 코드를 만들어내고, 그 결과가 "exports is not defined" 같은 알 수 없는
+에러로 나타난 것. **NestJS(데코레이터 메타데이터 필요) vs ts-jest ESM 모드(isolatedModules
+강제)는 근본적으로 상성이 안 좋다** — 이건 NestJS 커뮤니티에서도 잘 알려진 문제였다.
+
+### 최종 해결 — SWC로 컴파일러 교체
+
+`ts-jest` 대신 `@swc/jest`(Rust로 만들어진 SWC 컴파일러의 Jest 버전)를 썼다. SWC는
+`isolatedModules` 같은 제약 없이 자체적으로 `decoratorMetadata: true` 옵션 하나로 NestJS가
+필요로 하는 메타데이터를 정확히 만들어낼 수 있다. (`.swcrc` 참고)
+
+```json
+// .swcrc 핵심 부분
+{
+  "module": { "type": "es6" },          // ESM으로 출력 (Jest ESM 모드와 맞춤)
+  "jsc": {
+    "parser": { "syntax": "typescript", "decorators": true },
+    "transform": {
+      "legacyDecorator": true,
+      "decoratorMetadata": true          // 이게 NestJS DI를 살려주는 핵심 옵션
+    }
+  }
+}
+```
+
+```json
+// test/jest-e2e.json 핵심 부분
+{
+  "extensionsToTreatAsEsm": [".ts"],
+  "transform": { "^.+\\.ts$": ["@swc/jest"] }
+}
+```
+
+이 조합으로 실제 `better-auth`를 그대로 불러오면서도 NestJS DI가 정상 동작해서, E2E 테스트가
+진짜로 인증 흐름까지 검증할 수 있게 됐다. **단위 테스트 설정(`package.json`의 `jest` 필드)은
+그대로 `ts-jest` + CommonJS를 쓰고 전혀 안 건드렸다** — 두 설정 파일이 완전히 분리되어 있어서
+서로한테 영향이 없다.
+
+### 오늘 배운 것 정리
+
+1. **CommonJS(require) vs ESM(import)**은 문법이 아니라 **로딩 방식**의 차이다. `.mjs`
+   확장자는 무조건 ESM이라는 강제 규칙.
+2. **transform(문법 변환)과 module loading(로딩 방식)은 서로 다른 축**이다 —
+   `transformIgnorePatterns`로 변환을 허용해도 `.mjs`의 로딩 방식 자체는 안 바뀐다.
+3. **`isolatedModules`(파일 단위 독립 컴파일)는 빠르지만, 다른 파일의 타입 정보가 필요한
+   기능(NestJS의 `emitDecoratorMetadata`)과는 상성이 안 좋다.**
+4. **SWC의 `decoratorMetadata` 옵션은 `isolatedModules` 제약 없이 이 문제를 해결**해준다 —
+   그래서 NestJS 공식 문서도 SWC를 CLI 빌더 옵션 중 하나로 소개한다.
+5. 단위 테스트와 E2E 테스트의 Jest 설정을 **일부러 분리**해두면, 이런 라이브러리 문제가
+   생겨도 한쪽(E2E)만 고치면 되고 다른 쪽(단위 테스트)은 영향을 안 받는다.
+
+---
+
 ## 참고 자료
 
 | 주제 | 링크 |
@@ -1603,3 +1759,6 @@ rootDir = "src" 설정하면:
 | React Testing Library | https://testing-library.com/docs/react-testing-library/intro |
 | MSW 공식 문서 | https://mswjs.io/docs |
 | Playwright 공식 문서 | https://playwright.dev/docs/intro |
+| Jest ECMAScript Modules 가이드 | https://jestjs.io/docs/ecmascript-modules |
+| SWC 공식 문서 | https://swc.rs/docs/getting-started |
+| NestJS — SWC로 빌드하기 | https://docs.nestjs.com/recipes/swc |

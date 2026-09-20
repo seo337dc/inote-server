@@ -336,6 +336,11 @@ PORT=3200
 | **Jest** | 단위 테스트 (NestJS 기본 내장) |
 | **supertest** | E2E 테스트 HTTP 요청 시뮬레이션 |
 | **@nestjs/testing** | NestJS 테스트 모듈 생성 |
+| **@swc/jest** | E2E 전용 트랜스파일러 — Jest ESM 모드(`extensionsToTreatAsEsm`)와 함께 써서
+  better-auth(순수 ESM 배포) import 문제 해결. ts-jest의 ESM 모드는 `isolatedModules`를 강제해서
+  NestJS `emitDecoratorMetadata`(DI에 필수)가 깨지는 반면, SWC는 `decoratorMetadata: true` 옵션으로
+  이 문제가 없음 (`.swcrc`, `test/jest-e2e.json` 참고). 단위 테스트는 기존 ts-jest 그대로 유지 —
+  설정이 분리돼 있어 서로 영향 없음. |
 
 ### 테스트 종류별 적용 범위
 
@@ -425,7 +430,7 @@ npm run test:cov      # 커버리지 리포트
 
 ## 현재 단계
 
-**금융 지식(Term/Book) BE API + 단위테스트 완료** — 스키마/CRUD/좋아요 API, 단위테스트 22개 통과. E2E는 better-auth ESM 이슈로 보류(Task #7에서 처리), FE는 사람 Google AI Studio 목업 대기. 상세: [`docs/handoff/HANDOFF.md`](docs/handoff/HANDOFF.md)
+**금융 지식(Term/Book) BE API + 단위테스트 완료** — 스키마/CRUD/좋아요 API, 단위테스트 22개 통과. E2E도 2026-09-20에 `@swc/jest`로 better-auth ESM 이슈 해결해서 정상 통과, FE는 사람 Google AI Studio 목업 대기. 상세: [`docs/handoff/HANDOFF.md`](docs/handoff/HANDOFF.md)
 
 | 항목 | 상태 |
 |------|------|
@@ -442,7 +447,7 @@ npm run test:cov      # 커버리지 리포트
 | UpsertSettingsDto 재설계 (배열 구조) | ✅ 완료 |
 | MiniGameResult 모델 + API 3개 | ✅ 완료 |
 | 금융 지식 (Term/Book) 스키마 + CRUD + 좋아요 API | ✅ 완료 (단위테스트 22개 통과) |
-| 금융 지식 E2E 테스트 | ⛔ 보류 (better-auth ESM 이슈, Task #7에서 처리) |
+| 금융 지식 E2E 테스트 | ✅ 완료 (2026-09-20, `@swc/jest`+Jest ESM 모드로 better-auth ESM 이슈 해결) |
 | 금융 지식 FE (데모/실서비스) | 🔜 사람 목업 대기 |
 | Render 배포 | ✅ 완료 (https://inote-server-5a63.onrender.com) |
 | Sentry 연결 | 🔜 예정 |
@@ -455,7 +460,6 @@ npm run test:cov      # 커버리지 리포트
 - [ ] Sentry 프로젝트 생성
 - [ ] 포인트 시스템 정책
 - [ ] Expense API FE 연동
-- [ ] Jest E2E ESM 전환 (better-auth 대응, Task #7 CI/CD 인프라에서 처리)
 - [ ] **(고도화, 지금 착수 안 함) Kafka 도입 검토** — 서비스가 여러 개로 쪼개지고 "이벤트 하나가
       여러 곳에 영향을 줘야 하는" 상황이 될 때 고려. 예: `inote-blog` "글 발행" 이벤트 하나로
       검색 인덱싱·LLM 임베딩 생성·알림 발송이 서로 독립적으로 반응하게 만들기. 지금 규모(개인
