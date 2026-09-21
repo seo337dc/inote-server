@@ -4,6 +4,7 @@ import { AuthActionError, setPasswordForSession } from '../auth/auth-actions';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { SetPasswordDto } from './dto/set-password.dto';
+import { deleteInoteAiData } from './inote-ai-client';
 
 @Injectable()
 export class UsersService {
@@ -66,25 +67,8 @@ export class UsersService {
   // inote-ai는 별도 DB라 여기서 직접 지워달라고 호출 — 실패해도 탈퇴 자체는 막지 않음
   // (내 계정을 지우려는데 다른 서비스 장애로 막히면 안 됨).
   async deleteMe(userId: string) {
-    await this.deleteAiData(userId);
+    await deleteInoteAiData(userId, this.logger);
     await this.prisma.user.delete({ where: { id: userId } });
     return { success: true };
-  }
-
-  private async deleteAiData(userId: string) {
-    try {
-      const res = await fetch(
-        `${process.env.INOTE_AI_URL}/sessions?user_id=${encodeURIComponent(userId)}`,
-        {
-          method: 'DELETE',
-          headers: { 'x-internal-secret': process.env.INTERNAL_SECRET ?? '' },
-        },
-      );
-      if (!res.ok) throw new Error(`inote-ai responded ${res.status}`);
-    } catch (e) {
-      this.logger.warn(
-        `failed to delete inote-ai data for user ${userId}: ${e}`,
-      );
-    }
   }
 }
