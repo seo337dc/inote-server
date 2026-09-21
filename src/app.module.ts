@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { MoneyModule } from './money/money.module';
 import { BlogModule } from './blog/blog.module';
 import { MandalartModule } from './mandalart/mandalart.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { MandalartModule } from './mandalart/mandalart.module';
     MoneyModule,
     BlogModule,
     MandalartModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
