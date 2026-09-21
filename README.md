@@ -188,3 +188,4 @@ DB  →  Neon PostgreSQL
 - [CLAUDE.md](./CLAUDE.md) — AI 작업 컨텍스트 기준 문서
 - [DEV_LOG.md](./DEV_LOG.md) — 세션별 작업 기록
 - [LEARNING.md](./LEARNING.md) — NestJS / Prisma 개념 학습
+- [AUTH_POLICY.md](./AUTH_POLICY.md) — 회원(가입/로그인/프로필/비밀번호) 관련 정책
