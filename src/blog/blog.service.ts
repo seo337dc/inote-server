@@ -62,6 +62,15 @@ export class BlogService {
     });
   }
 
+  // 나의 글 목록 — 발행 여부 상관없이 내가 쓴 글 전부 (/my-posts에서 사용)
+  findMine(userId: string) {
+    return this.prisma.post.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: AUTHOR_SELECT,
+    });
+  }
+
   createDraft(userId: string) {
     return this.prisma.post.create({
       data: { title: '', content: '', category: '', userId },

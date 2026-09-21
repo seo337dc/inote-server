@@ -51,6 +51,20 @@ describe('BlogService', () => {
     });
   });
 
+  describe('findMine', () => {
+    it('발행 여부 상관없이 내가 쓴 글 전체를 최신순으로 조회한다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+
+      await service.findMine('user-1');
+
+      expect(mockPrisma.post.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { name: true, email: true } } },
+      });
+    });
+  });
+
   describe('findOne', () => {
     it('존재하지 않으면 NotFoundException', async () => {
       mockPrisma.post.findUnique.mockResolvedValue(null);

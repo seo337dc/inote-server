@@ -39,6 +39,14 @@ export class BlogController {
     return this.blogService.findMyDrafts(user.id);
   }
 
+  @Get('mine')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @ApiOperation({ summary: '내가 쓴 글 전체 (로그인 필요, 발행+draft 전부)' })
+  findMine(@CurrentUser() user: { id: string }) {
+    return this.blogService.findMine(user.id);
+  }
+
   @Get(':id')
   @UseGuards(OptionalAuthGuard)
   @ApiOperation({ summary: '글 단건 조회 (draft는 작성자만)' })
