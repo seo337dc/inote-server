@@ -46,6 +46,18 @@ export const auth = betterAuth({
     requireEmailVerification: false,
   },
 
+  // 이메일/비밀번호 가입 계정과 구글 가입 계정은 이메일이 같아도 자동으로 합쳐지지 않음
+  // (AUTH_POLICY.md 2번). disableImplicitLinking으로 명시해서, 나중에 이메일 인증
+  // (requireEmailVerification: true)을 도입해도 이 분리 정책이 우연이 아니라 항상
+  // 유지되도록 고정. enabled는 true로 둬서 향후 "로그인된 상태에서 구글 계정 연결하기"
+  // 같은 명시적 연동 기능은 막지 않음 — 지금 막는 건 로그인 시점의 암묵적(자동) 연결뿐.
+  account: {
+    accountLinking: {
+      enabled: true,
+      disableImplicitLinking: true,
+    },
+  },
+
   user: {
     additionalFields: {
       role: {
