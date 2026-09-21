@@ -511,8 +511,7 @@ model PostSummary {
   updatedAt DateTime @updatedAt
 }
 
-/// 만다르트 로드맵 아이템 — 9개 축(t1~t9) 아래 각 항목의 진행 상태 + 정리 내용.
-/// 조회는 공개, 수정은 소유자(MANDALART_OWNER_USER_ID)만 가능.
+/// 만다르트 로드맵 아이템 — 9개 축(t1~t9) 아래 각 항목의 진행 상태 + 정리 내용. 조회는 공개, 수정·추가는 관리자(role: ADMIN)만 가능.
 model MandalartItem {
   /// 고유 ID
   id        String   @id @default(cuid())
