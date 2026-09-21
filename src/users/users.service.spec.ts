@@ -1,7 +1,21 @@
 import { Test } from '@nestjs/testing';
-import { Logger } from '@nestjs/common';
+import { HttpException, Logger } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthActionError, setPasswordForSession } from '../auth/auth-actions';
+
+jest.mock('../auth/auth-actions', () => {
+  class AuthActionError extends Error {
+    constructor(statusCode: number, body: Record<string, unknown>) {
+      super(typeof body.message === 'string' ? body.message : 'Auth action failed');
+      this.statusCode = statusCode;
+      this.body = body;
+    }
+    statusCode: number;
+    body: Record<string, unknown>;
+  }
+  return { AuthActionError, setPasswordForSession: jest.fn() };
+});
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -88,6 +102,36 @@ describe('UsersService', () => {
         data: { nickname: '닉네임', phone: '010-1234-5678' },
         select: USER_SELECT,
       });
+    });
+  });
+
+  describe('setPassword', () => {
+    it('better-auth에 새 비밀번호 설정을 위임한다', async () => {
+      (setPasswordForSession as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await service.setPassword(
+        { cookie: 'session=abc' },
+        { newPassword: 'newpassword123' },
+      );
+
+      expect(setPasswordForSession).toHaveBeenCalledWith(
+        { cookie: 'session=abc' },
+        'newpassword123',
+      );
+      expect(result).toEqual({ success: true });
+    });
+
+    it('이미 비밀번호가 있으면 AuthActionError를 HttpException으로 변환한다', async () => {
+      (setPasswordForSession as jest.Mock).mockRejectedValue(
+        new AuthActionError(400, {
+          message: 'User already has a password set',
+          code: 'PASSWORD_ALREADY_SET',
+        }),
+      );
+
+      await expect(
+        service.setPassword({}, { newPassword: 'newpassword123' }),
+      ).rejects.toThrow(HttpException);
     });
   });
 

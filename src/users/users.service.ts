@@ -1,6 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpException, Injectable, Logger } from '@nestjs/common';
+import type { IncomingHttpHeaders } from 'http';
+import { AuthActionError, setPasswordForSession } from '../auth/auth-actions';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
 
 @Injectable()
 export class UsersService {
@@ -41,6 +44,21 @@ export class UsersService {
         updatedAt: true,
       },
     });
+  }
+
+  // 소셜 로그인만으로 가입해서 credential 계정이 없는 유저용 — 비밀번호를 새로 생성함.
+  // 이미 credential 계정에 비밀번호가 있으면 better-auth가 PASSWORD_ALREADY_SET으로 막음
+  // (변경은 이 API 범위 밖, changePassword는 별도로 다룰 예정).
+  async setPassword(headers: IncomingHttpHeaders, dto: SetPasswordDto) {
+    try {
+      await setPasswordForSession(headers, dto.newPassword);
+      return { success: true };
+    } catch (e) {
+      if (e instanceof AuthActionError) {
+        throw new HttpException(e.body, e.statusCode);
+      }
+      throw e;
+    }
   }
 
   // 회원 탈퇴. Post.userId는 스키마상 SetNull이라 작성한 글은 작성자만 익명으로 남고 그대로
