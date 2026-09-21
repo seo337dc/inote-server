@@ -14,8 +14,10 @@ export class UsersService {
       select: {
         id: true,
         name: true,
+        nickname: true,
         email: true,
         emailVerified: true,
+        phone: true,
         image: true,
         createdAt: true,
         updatedAt: true,
@@ -30,8 +32,10 @@ export class UsersService {
       select: {
         id: true,
         name: true,
+        nickname: true,
         email: true,
         emailVerified: true,
+        phone: true,
         image: true,
         createdAt: true,
         updatedAt: true,

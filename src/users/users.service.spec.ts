@@ -17,8 +17,10 @@ describe('UsersService', () => {
   const USER_SELECT = {
     id: true,
     name: true,
+    nickname: true,
     email: true,
     emailVerified: true,
+    phone: true,
     image: true,
     createdAt: true,
     updatedAt: true,
@@ -67,6 +69,25 @@ describe('UsersService', () => {
         select: USER_SELECT,
       });
       expect(result).toEqual({ id: 'user-1', name: '수정됨' });
+    });
+
+    it('nickname/phone도 수정할 수 있다', async () => {
+      mockPrisma.user.update.mockResolvedValue({
+        id: 'user-1',
+        nickname: '닉네임',
+        phone: '010-1234-5678',
+      });
+
+      await service.updateMe('user-1', {
+        nickname: '닉네임',
+        phone: '010-1234-5678',
+      });
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { nickname: '닉네임', phone: '010-1234-5678' },
+        select: USER_SELECT,
+      });
     });
   });
 
