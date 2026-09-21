@@ -19,30 +19,35 @@ datasource db {
 /// 사용자
 model user {
   /// 고유 ID
-  id            String      @id @default(cuid())
+  id             String   @id @default(cuid())
   /// 이름
-  name          String
+  name           String
   /// 닉네임
-  nickname      String?
+  nickname       String?
   /// 이메일
-  email         String      @unique
+  email          String   @unique
   /// 이메일 인증 여부
-  emailVerified Boolean     @default(false)
+  emailVerified  Boolean  @default(false)
   /// 전화번호
-  phone         String?
+  phone          String?
   /// 전화번호 인증 여부
-  phoneVerified Boolean     @default(false)
+  phoneVerified  Boolean  @default(false)
   /// 프로필 이미지 URL
-  image         String?
+  image          String?
   /// 권한
-  role          Role        @default(USER)
+  role           Role     @default(USER)
+  /// inote 서비스 이용 확인 여부 (다른 서비스에서 먼저 가입한 계정이 inote에 처음
+  /// 접속했을 때 "연동하시겠어요?" 확인 후 true로 설정됨 — AUTH_POLICY.md 3번 참고)
+  usesInote      Boolean  @default(false)
+  /// inote-money 서비스 이용 확인 여부 (위와 동일한 목적)
+  usesInoteMoney Boolean  @default(false)
   /// 가입일
-  createdAt     DateTime    @default(now())
+  createdAt      DateTime @default(now())
   /// 수정일
-  updatedAt     DateTime    @updatedAt
+  updatedAt      DateTime @updatedAt
 
-  sessions      session[]
-  accounts      account[]
+  sessions session[]
+  accounts account[]
 
   setting          UserSetting?
   settingHistories SettingHistory[]
@@ -318,10 +323,10 @@ enum ReviewType {
 /// 미니게임(캐시플로우 보드게임) 플레이 결과
 model MiniGameResult {
   /// 고유 ID
-  id     String     @id @default(cuid())
+  id     String @id @default(cuid())
   /// 사용자 ID (FK)
   userId String
-  user   user       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   user   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// 선택한 직업
   profession String
@@ -471,26 +476,26 @@ model BookLike {
 /// 블로그 글 (inote-blog)
 model Post {
   /// 고유 ID
-  id        String   @id @default(cuid())
+  id          String       @id @default(cuid())
   /// 제목
-  title     String
+  title       String
   /// 본문 (HTML)
-  content   String
+  content     String
   /// 요약
-  excerpt   String?
+  excerpt     String?
   /// 카테고리
-  category  String
+  category    String
   /// 작성자 ID (FK, nullable — 로그인 도입 전 글 + 작성자 탈퇴 시 null로 남음)
-  userId    String?
-  user      user?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId      String?
+  user        user?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   /// 작성일
-  createdAt DateTime @default(now())
+  createdAt   DateTime     @default(now())
   /// 수정일
-  updatedAt DateTime @updatedAt
+  updatedAt   DateTime     @updatedAt
   /// 발행 시각 (null = 아직 저장 안 한 draft, 목록에 노출 안 됨)
   publishedAt DateTime?
   /// AI 요약 (1:1, inote-ai가 생성)
-  aiSummary PostSummary?
+  aiSummary   PostSummary?
 }
 
 /// 글의 AI 요약 — 저장할 때마다 inote-ai가 새로 생성해 덮어씀

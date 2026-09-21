@@ -12,6 +12,9 @@ Table user {
   phoneVerified Boolean [not null, default: false, note: '전화번호 인증 여부']
   image String [note: '프로필 이미지 URL']
   role Role [not null, default: 'USER', note: '권한']
+  usesInote Boolean [not null, default: false, note: 'inote 서비스 이용 확인 여부 (다른 서비스에서 먼저 가입한 계정이 inote에 처음
+접속했을 때 "연동하시겠어요?" 확인 후 true로 설정됨 — AUTH_POLICY.md 3번 참고)']
+  usesInoteMoney Boolean [not null, default: false, note: 'inote-money 서비스 이용 확인 여부 (위와 동일한 목적)']
   createdAt DateTime [default: `now()`, not null, note: '가입일']
   updatedAt DateTime [not null, note: '수정일']
 
@@ -256,7 +259,7 @@ Table MandalartItem {
   createdAt DateTime [default: `now()`, not null, note: '생성일']
   updatedAt DateTime [not null, note: '수정일']
 
-  Note: '만다르트 로드맵 아이템 — 9개 축(t1~t9) 아래 각 항목의 진행 상태 + 정리 내용.
+  Note: '만다르트 ��드맵 아이템 — 9개 축(t1~t9) 아래 각 항목의 진행 상태 + 정리 내용.
 조회는 공개, 수정은 소유자(MANDALART_OWNER_USER_ID)만 가능.'
 }
 
