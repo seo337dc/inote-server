@@ -103,6 +103,21 @@ describe('UsersService', () => {
         select: USER_SELECT,
       });
     });
+
+    it('usesInote도 수정할 수 있다', async () => {
+      mockPrisma.user.update.mockResolvedValue({
+        id: 'user-1',
+        usesInote: true,
+      });
+
+      await service.updateMe('user-1', { usesInote: true });
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { usesInote: true },
+        select: USER_SELECT,
+      });
+    });
   });
 
   describe('setPassword', () => {

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class UpdateUserDto {
   @ApiPropertyOptional({ description: '이름' })
@@ -21,4 +21,12 @@ export class UpdateUserDto {
   @IsOptional()
   @IsUrl()
   image?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'inote 서비스 이용 확인 — 로그인/가입 시 프론트에서 true로 세팅 (AUTH_POLICY.md 3번)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  usesInote?: boolean;
 }
