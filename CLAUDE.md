@@ -14,9 +14,10 @@ iNote 시리즈 서비스의 공통 백엔드 서버.
 인증, 유저 관리, 포인트 시스템 등 공통 기능과 각 서비스별 API를 통합 관리.
 
 **연결된 서비스**
+- `inote` — 개인 기록 앱 (글쓰기, 만다르트, 회원 관리자 페이지 — 지금 가장 활발히 개발 중)
 - `inote-money` — 자산관리
-- `inote-daily` — 데일리 (예정)
-- `inote-goal` — 목표 (예정)
+- `inote-daily` — 데일리 (예정, 미착수)
+- `inote-goal` — 목표 (예정, 미착수)
 
 ---
 
@@ -27,7 +28,7 @@ iNote 시리즈 서비스의 공통 백엔드 서버.
 | 언어 | TypeScript | strict mode |
 | 프레임워크 | NestJS | 모듈/컨트롤러/서비스 구조 |
 | ORM | Prisma | 타입 자동생성, 마이그레이션 관리 |
-| 인증 | Better Auth | 소셜 로그인, JWT 세션 |
+| 인증 | Better Auth | Google OAuth + 이메일/비밀번호, 쿠키 기반 세션 |
 | DB | PostgreSQL (Neon) | 영구 무료, dev/prod 브랜치 분리 |
 | BE 배포 | Render | 영구 무료 (슬립 있음), GitHub 연동 자동 배포 |
 | FE 배포 | Vercel | Next.js 무료 배포 |
@@ -59,7 +60,7 @@ API 문서      →  /api/docs (Swagger UI)
 | 학습 노트 | [LEARNING](https://app.notion.com/p/LEARNING-37fb5151f22f812ba369cdceb333a9fa) |
 | 기획 | [planning](https://app.notion.com/p/planning-391b5151f22f808dbeeac31ec6c3e245) |
 
-- FE 레포: https://github.com/seo337dc/inote-money
+- FE 레포: https://github.com/seo337dc/inote (글쓰기/만다르트/관리자), https://github.com/seo337dc/inote-money (자산관리)
 - Notion MCP: `.cursor/mcp.json` — Cursor Settings → Tools & MCP → `notion` → Connect
 
 ---
@@ -69,45 +70,55 @@ API 문서      →  /api/docs (Swagger UI)
 ```
 inote-server/
 ├── CLAUDE.md
-├── DEV_LOG.md
-├── NESTJS_GUIDE.md
+├── AUTH_POLICY.md            ← 회원(가입/로그인/프로필/비밀번호) 정책
+├── API.md / DATABASE.md / TESTING_GUIDE.md / DEV_LOG.md / NESTJS_GUIDE.md
 ├── README.md
 ├── src/
 │   ├── main.ts               ← 앱 진입점 (포트 3200, CORS, Swagger)
 │   ├── app.module.ts         ← 루트 모듈
 │   ├── prisma/
 │   │   └── prisma.service.ts ← PrismaClient 래퍼
-│   ├── auth/                 ← Better Auth 인증
-│   ├── users/                ← 유저 관리
-│   ├── points/               ← 포인트 시스템 (추후)
-│   ├── money/                ← inote-money API
-│   │   ├── expenses/         ← 가계부 CRUD
-│   │   ├── stocks/           ← 주식(StockHolding) CRUD
-│   │   ├── settings/         ← 내 자산 설정 + 히스토리
-│   │   │   └── dto/          ← upsert-settings, create/update-setting-history
-│   │   └── money.module.ts
-│   ├── daily/                ← inote-daily API (예정)
-│   └── goal/                 ← inote-goal API (예정)
+│   ├── auth/                 ← Better Auth 설정, AuthGuard/AdminGuard, setPassword 래퍼
+│   ├── users/                ← 내 프로필 조회/수정, 비밀번호 생성, 회원 탈퇴
+│   ├── admin/
+│   │   └── users/            ← 관리자 전용 회원 목록/상세/삭제
+│   ├── blog/                 ← inote 글쓰기 CRUD, draft/발행, AI 요약 연동
+│   ├── mandalart/            ← 만다르트 로드맵 (공개 조회, 관리자만 수정)
+│   └── money/                ← inote-money API
+│       ├── expenses/         ← 가계부 CRUD
+│       ├── stocks/           ← 주식(StockHolding) CRUD
+│       ├── settings/         ← 내 자산 설정 + 히스토리
+│       ├── reviews/          ← 주간/월간 리뷰
+│       ├── mini-game/        ← 캐시플로우 미니게임 결과
+│       ├── terms/            ← 금융 용어 + 좋아요
+│       └── books/            ← 금융 책 추천 + 좋아요
 ├── prisma/
-│   └── schema.prisma
+│   ├── schema.prisma
+│   └── dbml/schema.dbml      ← `prisma generate`로 자동 생성, dbdiagram.io에 붙여넣는 용도
 ├── .env                      ← 로컬 환경변수 (git 제외)
 ├── .env.example              ← 환경변수 템플릿
 └── package.json
 ```
+
+> `points/`(포인트 시스템), `daily/`, `goal/`은 아직 폴더 자체가 없음 — 전부 미착수 상태의
+> 계획일 뿐, 실제 코드는 없음.
 
 ---
 
 ## 모듈 구조
 
 ### 공통 (모든 서비스 공유)
-- **Auth** — 소셜 로그인, 토큰 관리 (Better Auth)
-- **Users** — 유저 프로필, 계정 관리
-- **Points** — 포인트 적립/사용 (추후)
+- **Auth** — Better Auth 설정(Google OAuth + 이메일/비밀번호), AuthGuard/AdminGuard
+- **Users** — 내 프로필 조회/수정, 비밀번호 생성, 회원 탈퇴
+- **Admin** — 관리자 전용 회원 목록/상세/삭제
+- **Points** — 포인트 적립/사용 (추후, 미착수)
 
 ### 서비스별
-- **Money** — 가계부, 주식, 내 정보 설정
-- **Daily** — 데일리 기록 (예정)
-- **Goal** — 목표 관리 (예정)
+- **Blog** (`inote`) — 글쓰기 CRUD, draft/발행, AI 요약 연동
+- **Mandalart** (`inote`) — 로드맵 항목, 공개 조회·관리자만 수정
+- **Money** (`inote-money`) — 가계부, 주식, 내 정보 설정, 리뷰, 미니게임, 금융 용어/책
+- **Daily** — 데일리 기록 (예정, 미착수)
+- **Goal** — 목표 관리 (예정, 미착수)
 
 ---
 
@@ -115,201 +126,41 @@ inote-server/
 
 - 방식: REST API
 - 기본 prefix: `/api/v1`
-- 인증: Bearer Token (Better Auth JWT)
-- 문서: `GET /api/docs` (Swagger UI)
+- 인증: Better Auth 세션 쿠키 (`AuthGuard`/`AdminGuard`)
+- **정확한 엔드포인트 목록은 여기 손으로 안 옮겨 적음** — `GET /api/docs`(Swagger)가 코드에서
+  자동 생성되는 진짜 소스. (예전엔 여기 손으로 옮겨 적었는데 몇 달 지나며 실제와 절반 넘게
+  달라져 있었음 — 2026-09-22, 손으로 유지하는 방식 폐기)
 
-### 엔드포인트 목록
+### 모듈별 라우트 prefix
 
-#### 인증
-- `POST /api/v1/auth/signup`
-- `POST /api/v1/auth/signin`
-- `POST /api/v1/auth/signout`
-- `POST /api/v1/auth/social/:provider`
-
-#### 유저
-- `GET /api/v1/users/me`
-- `PATCH /api/v1/users/me`
-
-#### 가계부
-- `GET /api/v1/money/expenses?year=&month=`
-- `POST /api/v1/money/expenses`
-- `PATCH /api/v1/money/expenses/:id`
-- `DELETE /api/v1/money/expenses/:id`
-
-#### 자산 설정
-- `GET /api/v1/money/settings`
-- `PUT /api/v1/money/settings`
-
-#### 자산 설정 히스토리
-- `GET /api/v1/money/settings/history` — 목록 (최신순)
-- `POST /api/v1/money/settings/history` — 현재 설정 스냅샷 저장
-- `GET /api/v1/money/settings/history/:id` — 단건 조회
-- `PATCH /api/v1/money/settings/history/:id` — 제목 수정
-- `DELETE /api/v1/money/settings/history/:id` — 삭제
-
-#### 주식
-- `GET /api/v1/money/stocks`
-- `POST /api/v1/money/stocks`
-- `PATCH /api/v1/money/stocks/:id`
-- `DELETE /api/v1/money/stocks/:id`
-
-#### 미니게임 결과
-- `GET /api/v1/money/mini-game/results` — 이력 목록 (최신순)
-- `GET /api/v1/money/mini-game/results/:id` — 단건 조회
-- `POST /api/v1/money/mini-game/results` — 결과 저장
+| 모듈 | prefix | 비고 |
+|------|--------|------|
+| Auth | `/api/v1/auth/*` | better-auth가 직접 라우트 등록 (세션, 소셜 로그인 등) |
+| Users | `/api/v1/users` | 내 프로필, `/set-password`, 회원 탈퇴 |
+| Admin | `/api/v1/admin/users` | 관리자 전용 |
+| Blog | `/api/v1/blog/posts` | `inote` 글쓰기 |
+| Mandalart | `/api/v1/mandalart` | |
+| Money | `/api/v1/money/*` | expenses, stocks, settings, reviews, mini-game, terms, books |
 
 ---
 
-## DB 스키마 (확정)
+## DB 스키마
 
-> Better Auth 적용으로 테이블명 및 컬럼 변경됨 (2026-06-10)  
-> Prisma 스키마 재설계 — Money 모델 전면 개편 (2026-07-03)  
-> SettingHistory 추가, UserSetting memo 필드 추가 (2026-07-06)
+> **여기다 Prisma 스키마를 통째로 복붙해서 유지하던 방식은 폐기** (2026-09-22) — 스키마 바뀔
+> 때마다 여기도 같이 고쳐야 하는데 계속 놓쳐서, 몇 달째 실제 스키마와 다른 채로 방치돼
+> 있었음(예: `user.role`/`usesInote`/`usesInoteMoney`, `Post`/`MandalartItem`/`Term`/`Book`
+> 등 모델 자체가 안 적혀 있었음). **정확한 스키마는 항상 [`prisma/schema.prisma`](prisma/schema.prisma)
+> 직접 확인.** ERD: https://dbdiagram.io/d/inote-6a39fc895c789b8acbdd5d39 (스키마 바뀔 때마다
+> `prisma generate`로 `prisma/dbml/schema.dbml` 갱신 후 수동으로 붙여넣어야 함, 아래 작업
+> 진행 원칙 참고).
 
-```prisma
-// ── Better Auth 필수 테이블 ──────────────────────────────────────
+### 모델 목록 (이름만 — 필드 상세는 schema.prisma 참고)
 
-model user {
-  id            String   @id @default(cuid())
-  name          String
-  nickname      String?
-  email         String   @unique
-  emailVerified Boolean  @default(false)
-  phone         String?
-  phoneVerified Boolean  @default(false)
-  image         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  sessions         session[]
-  accounts         account[]
-  setting          UserSetting?
-  settingHistories SettingHistory[]
-  expenses         Expense[]
-  stocks           StockHolding[]
-  reviews          Review[]
-}
-
-model session { /* Better Auth 관리 */ }
-model account { /* Better Auth 관리 */ }
-model verification { /* Better Auth 관리 */ }
-
-// ── 앱 테이블 ──────────────────────────────────────────────────
-
-// savings/fixedExpenses: [{ id, name, amount, transferDate? }] JSON 배열
-model UserSetting {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  salary            Int      @default(0)
-  salaryDate        Int      @default(25)
-  dailyLimit        Int      @default(0)
-  monthlySavingGoal Int      @default(0)
-  assetUpdateDate   Int      @default(1)
-  savings           Json     @default("[]")
-  fixedExpenses     Json     @default("[]")
-  memo              String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  user              user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model SettingHistory {
-  id                String   @id @default(cuid())
-  userId            String
-  month             String   // "2026-07" 형식
-  title             String?
-  salary            Int      @default(0)
-  salaryDate        Int?
-  dailyLimit        Int      @default(0)
-  monthlySavingGoal Int      @default(0)
-  assetUpdateDate   Int?
-  savings           Json     @default("[]")
-  fixedExpenses     Json     @default("[]")
-  memo              String?
-  recordedAt        DateTime @default(now())
-  user              user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Expense {
-  id          String   @id @default(cuid())
-  userId      String
-  date        DateTime
-  amount      Int
-  description String?
-  category    Category @default(ETC)
-  isWaste     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-enum Category { FOOD / CAFE / TRANSPORT / SHOPPING / MEDICAL / CULTURE / SUBSCRIPTION / ETC }
-
-model StockHolding {
-  id             String    @id @default(cuid())
-  userId         String
-  market         Market    // KR | US
-  ticker         String?
-  name           String
-  inputMode      InputMode // QUANTITY | AMOUNT
-  quantity       Float?
-  averagePrice   Float?
-  investedAmount Float?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  user           user      @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-enum Market { KR / US }
-enum InputMode { QUANTITY / AMOUNT }
-
-model Review {
-  id        String     @id @default(cuid())
-  userId    String
-  type      ReviewType // WEEKLY | MONTHLY
-  year      Int
-  period    Int
-  rating    Int
-  text      String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  user      user       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, type, year, period])
-}
-
-enum ReviewType { WEEKLY / MONTHLY }
-
-// finalStocks/finalRealEstates/liabilitiesSnapshot/gameLogs: FE PlayerState 스냅샷 JSON
-model MiniGameResult {
-  id     String     @id @default(cuid())
-  userId String
-  user   user       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  profession String
-  result     GameResult
-
-  turnCount            Int
-  finalCash            Int
-  finalPassiveIncome   Int
-  finalMonthlyExpenses Int
-  finalMonthlyCashflow Int
-  bankLoan             Int
-  totalLiabilities     Int
-  stocksCount          Int
-  realEstatesCount     Int
-  childrenCount        Int
-
-  finalStocks         Json
-  finalRealEstates    Json
-  liabilitiesSnapshot Json
-  gameLogs            Json
-
-  playedAt DateTime @default(now())
-}
-
-enum GameResult { WON / GAVE_UP }
-```
+| 구분 | 모델 |
+|------|------|
+| Better Auth 관리 | `user`, `session`, `account`, `verification` |
+| 공통 | `Post`, `PostSummary`, `MandalartItem` |
+| Money (`inote-money`) | `UserSetting`, `SettingHistory`, `Expense`, `StockHolding`, `Review`, `MiniGameResult`, `Term`, `TermLike`, `Book`, `BookLike` |
 
 ---
 
@@ -317,11 +168,15 @@ enum GameResult { WON / GAVE_UP }
 
 ```bash
 # .env
-DATABASE_URL="postgresql://..."        # Neon 연결 문자열
-BETTER_AUTH_SECRET="..."               # 랜덤 시크릿 키
+DATABASE_URL="postgresql://..."           # Neon 연결 문자열
+BETTER_AUTH_SECRET="..."                  # 랜덤 시크릿 키
+BETTER_AUTH_URL="http://localhost:3200"   # 로컬은 3200, 배포는 실제 도메인
 GOOGLE_CLIENT_ID="..."
 GOOGLE_CLIENT_SECRET="..."
-SENTRY_DSN="..."
+INOTE_AI_URL="..."                        # inote-ai 베이스 URL (blog AI 요약 호출용)
+INTERNAL_SECRET="..."                     # inote-ai와 동일한 값이어야 함 (서비스 간 인증)
+AUTH_ERROR_FALLBACK_URL="..."             # OAuth state 재사용 등 에러 시 최종 fallback (inote 로그인 페이지)
+SENTRY_DSN="..."                          # 아직 미연결
 PORT=3200
 ```
 
@@ -376,6 +231,23 @@ npm run test:e2e      # E2E 테스트 실행
 npm run test:cov      # 커버리지 리포트
 ```
 
+### ✅ 커밋 전 체크리스트 (매번 이 순서 그대로)
+
+기능/모듈 하나를 완성했을 때 — 커밋하기 직전, 예외 없이:
+
+- [ ] **단위 테스트** — 새로 만들거나 수정한 서비스 로직에 `*.service.spec.ts` 작성/보강 후 `pnpm test` 전체 통과
+- [ ] **빌드** — `pnpm run build`로 타입 에러 없는지 확인
+- [ ] **E2E 테스트** — `pnpm test:e2e`로 실제 DB까지 거치는 흐름이 안 깨졌는지 확인
+- [ ] **CLAUDE.md 문서 최신화** — 이번 작업으로 레포 구조/모듈 구조/환경변수/현재 단계/미결정
+      항목 등 이 파일에 적힌 사실 정보가 바뀌었다면, 커밋 전에 해당 섹션을 그 자리에서 갱신한다
+      (2026-09-22 추가 — 나중으로 미루면 다음 세션에서 낡은 정보를 사실로 믿고 작업하게 됨)
+- [ ] 네 가지 다 통과한 뒤에만 커밋 (커밋/푸시 자체는 사용자가 명시적으로 요청했을 때만)
+
+> 실무에서는 이 순서를 CI(GitHub Actions 등)가 자동으로 강제해서 사람이 깜빡해도 머지가
+> 막히는데, 지금은 CI가 없어서 사람이 직접 챙겨야 함. **AI도 매 기능 단위로 이 체크리스트를
+> 빠짐없이 실제로 실행하고 결과를 보여줄 것** — "작업 진행 원칙"에 있던 규칙을 여기로 옮겨
+> 체크리스트 형태로 명확히 함 (2026-09-22, 산문 속에 묻혀서 계속 빠뜨려지길래 형태를 바꿈).
+
 ---
 
 ## AI 역할 분담
@@ -395,9 +267,8 @@ npm run test:cov      # 커버리지 리포트
 
 - **한 번에 여러 작업을 몰아서 하지 않는다.** 기능/API/모듈 하나 단위로 끊어서 진행한다. 여러 개를
   한꺼번에 구현하고 나중에 몰아서 보고하지 않는다.
-- **테스트는 작업 단위마다, 커밋 전에는 e2e까지 돌린다** (2026-09-20 추가). 기능/모듈 하나가
-  끝나면 그 범위의 단위 테스트·통합 테스트를 실행해서 통과 확인 후 다음으로 넘어간다. 커밋하기
-  직전에는 반드시 e2e 테스트까지 실행해서 통과를 확인한 뒤 커밋한다.
+- **테스트는 작업 단위마다, 커밋 전에는 e2e까지 돌린다** (2026-09-20 추가) — 상세 체크리스트는
+  위 "테스트 전략 → 커밋 전 체크리스트" 참고.
 - **착수 전에 먼저 의논하고 확인받는다.** 무엇을, 어떻게 할지 — 스키마 변경, API 설계, 구현 방식
   등 — 코드를 쓰기 전에 사용자와 상의하고 승인받은 뒤에만 작업한다. "구현해줘" 한 마디를 받았다고
   이후 세부 결정까지 임의로 밀어붙이지 않는다.
@@ -430,7 +301,11 @@ npm run test:cov      # 커버리지 리포트
 
 ## 현재 단계
 
-**금융 지식(Term/Book) BE API + 단위테스트 완료** — 스키마/CRUD/좋아요 API, 단위테스트 22개 통과. E2E도 2026-09-20에 `@swc/jest`로 better-auth ESM 이슈 해결해서 정상 통과, FE는 사람 Google AI Studio 목업 대기. 상세: [`docs/handoff/HANDOFF.md`](docs/handoff/HANDOFF.md)
+**회원 관리자 페이지(목록/상세/삭제) + AUTH_POLICY 1~6번 구현 완료** (2026-09-22 기준) —
+role 기반 권한, `usesInote`/`usesInoteMoney` 컬럼, 이메일/구글 계정 분리(accountLinking),
+계정 연결 실패 안내 메시지, 프로필 수정 API(닉네임/전화번호/이미지), 소셜 전용 계정 비밀번호
+생성 API까지. 단위테스트 108개, e2e 5개 통과. AUTH_POLICY 7번(`inote`↔`inote-money` 연동
+확인 화면)은 `inote-money` 쪽 회원 기능이 먼저 필요해서 보류 중. 상세: [`AUTH_POLICY.md`](AUTH_POLICY.md)
 
 | 항목 | 상태 |
 |------|------|
@@ -438,17 +313,17 @@ npm run test:cov      # 커버리지 리포트
 | Swagger (`/api/docs`) | ✅ 완료 |
 | CORS / ValidationPipe | ✅ 완료 |
 | Prisma + Neon DB 연결 | ✅ 완료 |
-| DB 스키마 설계 (Money 모델 전면 개편) | ✅ 완료 |
-| Better Auth (Google OAuth) | ✅ 완료 |
-| DB 다이어그램 (dbdiagram.io) | ✅ 완료 |
-| Users 모듈 | ✅ 완료 |
-| Money 모듈 (Expenses/Stocks/Settings) | ✅ 완료 |
-| SettingHistory 모델 + API 5개 | ✅ 완료 |
-| UpsertSettingsDto 재설계 (배열 구조) | ✅ 완료 |
-| MiniGameResult 모델 + API 3개 | ✅ 완료 |
-| 금융 지식 (Term/Book) 스키마 + CRUD + 좋아요 API | ✅ 완료 (단위테스트 22개 통과) |
-| 금융 지식 E2E 테스트 | ✅ 완료 (2026-09-20, `@swc/jest`+Jest ESM 모드로 better-auth ESM 이슈 해결) |
-| 금융 지식 FE (데모/실서비스) | 🔜 사람 목업 대기 |
+| Better Auth (Google OAuth + 이메일/비밀번호) | ✅ 완료 |
+| DB 다이어그램 (dbdiagram.io) | ✅ 완료 (스키마 바뀔 때마다 수동 갱신 필요) |
+| Users 모듈 (프로필/비밀번호 생성/탈퇴) | ✅ 완료 |
+| Money 모듈 (Expenses/Stocks/Settings/Reviews/MiniGame/Terms/Books) | ✅ 완료 (단위테스트 포함) |
+| Blog 모듈 (`inote` 글쓰기, AI 요약 연동) | ✅ 완료 |
+| Mandalart 모듈 (role 기반 권한) | ✅ 완료 |
+| Admin 모듈 (회원 목록/상세/삭제) | ✅ 완료 |
+| AUTH_POLICY 1~6번 | ✅ 완료 |
+| AUTH_POLICY 7번 (타 서비스 연동 확인 화면) | 🔜 `inote-money` 회원 기능 대기 |
+| 단위테스트 | ✅ 108개 통과 |
+| E2E 테스트 | ✅ 5개 통과 |
 | Render 배포 | ✅ 완료 (https://inote-server-5a63.onrender.com) |
 | Sentry 연결 | 🔜 예정 |
 
@@ -459,7 +334,10 @@ npm run test:cov      # 커버리지 리포트
 - [ ] 소셜 로그인 제공자 추가 여부 (Kakao 등)
 - [ ] Sentry 프로젝트 생성
 - [ ] 포인트 시스템 정책
-- [ ] Expense API FE 연동
+- [ ] Expense API FE 연동 — `inote-money` 쪽에서 이미 붙었을 수도 있음, 실제 상태 재확인 필요
+- [ ] **`API.md`/`DATABASE.md`/`TESTING_GUIDE.md`도 이 파일과 같은 이유로 몇 달째 낡아있음**
+      (blog/mandalart/admin/terms/books 등 반영 안 됨) — 2026-09-22에 CLAUDE.md만 먼저
+      정리하고 이건 별도 작업으로 미룸.
 - [ ] **(고도화, 지금 착수 안 함) Kafka 도입 검토** — 서비스가 여러 개로 쪼개지고 "이벤트 하나가
       여러 곳에 영향을 줘야 하는" 상황이 될 때 고려. 예: `inote-blog` "글 발행" 이벤트 하나로
       검색 인덱싱·LLM 임베딩 생성·알림 발송이 서로 독립적으로 반응하게 만들기. 지금 규모(개인
