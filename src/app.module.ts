@@ -10,6 +10,7 @@ import { MandalartModule } from './mandalart/mandalart.module';
 import { AdminModule } from './admin/admin.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { ReadingLogsModule } from './reading-logs/reading-logs.module';
+import { TodosModule } from './todos/todos.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ReadingLogsModule } from './reading-logs/reading-logs.module';
     AdminModule,
     UploadsModule,
     ReadingLogsModule,
+    TodosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

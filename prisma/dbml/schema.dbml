@@ -275,6 +275,18 @@ Table ReadingLogSummary {
   Note: '독서 기록의 AI 생성 책 정보 — 저장할 때마다 inote-ai가 새로 생성해 덮어씀'
 }
 
+Table Todo {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '작성자 ID (FK)']
+  title String [not null, note: '할 일 제목']
+  dueDate DateTime [note: '마감일 (선택)']
+  done Boolean [not null, default: false, note: '완료 여부']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '할 일 — 심플 체크리스트 항목 (draft/발행 개념 없이 CRUD만). 전부 비공개(본인만 조회 가능).'
+}
+
 Table MandalartItem {
   id String [pk, note: '고유 ID']
   theme String [not null, note: '축 (t1~t9)']
@@ -370,3 +382,5 @@ Ref: PostSummary.postId - Post.id [delete: Cascade]
 Ref: ReadingLog.userId > user.id [delete: Cascade]
 
 Ref: ReadingLogSummary.readingLogId - ReadingLog.id [delete: Cascade]
+
+Ref: Todo.userId > user.id [delete: Cascade]
