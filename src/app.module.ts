@@ -8,6 +8,7 @@ import { MoneyModule } from './money/money.module';
 import { BlogModule } from './blog/blog.module';
 import { MandalartModule } from './mandalart/mandalart.module';
 import { AdminModule } from './admin/admin.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AdminModule } from './admin/admin.module';
     BlogModule,
     MandalartModule,
     AdminModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
