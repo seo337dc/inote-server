@@ -9,6 +9,7 @@ import { BlogModule } from './blog/blog.module';
 import { MandalartModule } from './mandalart/mandalart.module';
 import { AdminModule } from './admin/admin.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { ReadingLogsModule } from './reading-logs/reading-logs.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { UploadsModule } from './uploads/uploads.module';
     MandalartModule,
     AdminModule,
     UploadsModule,
+    ReadingLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -60,6 +60,7 @@ model user {
   books            Book[]
   bookLikes        BookLike[]
   posts            Post[]
+  readingLogs      ReadingLog[]
 }
 
 enum Role {
@@ -509,6 +510,52 @@ model PostSummary {
   summary   String[]
   /// 생성/갱신 시각
   updatedAt DateTime @updatedAt
+}
+
+/// 독서 기록 — 책 한 권에 대한 기록 + 자유 독후감
+model ReadingLog {
+  /// 고유 ID
+  id            String    @id @default(cuid())
+  /// 작성자 ID (FK)
+  userId        String
+  user          user      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 책 제목
+  title         String
+  /// 작가
+  author        String?
+  /// 책 표지 이미지 URL (R2 업로드)
+  coverImageUrl String?
+  /// 읽기 시작일
+  startedAt     DateTime?
+  /// 읽기 완료일
+  finishedAt    DateTime?
+  /// 독후감 (자유글, HTML)
+  content       String    @default("")
+  /// 생성일
+  createdAt     DateTime  @default(now())
+  /// 수정일
+  updatedAt     DateTime  @updatedAt
+  /// 발행 시각 (null = 아직 저장 안 한 draft, 목록에 노출 안 됨)
+  publishedAt   DateTime?
+  /// AI 생성 책 정보 (1:1, inote-ai가 생성)
+  aiSummary     ReadingLogSummary?
+}
+
+/// 독서 기록의 AI 생성 책 정보 — 저장할 때마다 inote-ai가 새로 생성해 덮어씀
+model ReadingLogSummary {
+  /// 고유 ID
+  id           String     @id @default(cuid())
+  /// 원본 독서 기록 ID (1:1, 삭제 시 같이 삭제)
+  readingLogId String     @unique
+  readingLog   ReadingLog @relation(fields: [readingLogId], references: [id], onDelete: Cascade)
+  /// 장르
+  genre        String?
+  /// 줄거리
+  synopsis     String?
+  /// 작가 소개
+  authorBio    String?
+  /// 생성/갱신 시각
+  updatedAt    DateTime   @updatedAt
 }
 
 /// 만다르트 로드맵 아이템 — 9개 축(t1~t9) 아래 각 항목의 진행 상태 + 정리 내용. 조회는 공개, 수정·추가는 관리자(role: ADMIN)만 가능.

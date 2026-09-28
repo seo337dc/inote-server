@@ -321,6 +321,7 @@ role 기반 권한, `usesInote`/`usesInoteMoney` 컬럼, 이메일/구글 계정
 | Mandalart 모듈 (role 기반 권한) | ✅ 완료 |
 | Admin 모듈 (회원 목록/상세/삭제) | ✅ 완료 |
 | Uploads 모듈 (Cloudflare R2 이미지 업로드) | ✅ 완료 (2026-09-28, `POST /uploads/image`) |
+| ReadingLogs 모듈 (독서 기록 CRUD + AI 책 정보) | ✅ 완료 (2026-09-28, draft/발행 패턴 + 발행 시 inote-ai `/book-info` 연동) |
 | AUTH_POLICY 1~6번 | ✅ 완료 |
 | AUTH_POLICY 7번 (타 서비스 연동 확인 화면) | 🔜 `inote-money` 회원 기능 대기 |
 | 단위테스트 | ✅ 108개 통과 |

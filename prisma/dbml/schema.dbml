@@ -248,6 +248,33 @@ Table PostSummary {
   Note: '글의 AI 요약 — 저장할 때마다 inote-ai가 새로 생성해 덮어씀'
 }
 
+Table ReadingLog {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '작성자 ID (FK)']
+  title String [not null, note: '책 제목']
+  author String [note: '작가']
+  coverImageUrl String [note: '책 표지 이미지 URL (R2 업로드)']
+  startedAt DateTime [note: '읽기 시작일']
+  finishedAt DateTime [note: '읽기 완료일']
+  content String [not null, default: '', note: '독후감 (자유글, HTML)']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+  publishedAt DateTime [note: '발행 시각 (null = 아직 저장 안 한 draft, 목록에 노출 안 됨)']
+
+  Note: '독서 기록 — 책 한 권에 대한 기록 + 자유 독후감'
+}
+
+Table ReadingLogSummary {
+  id String [pk, note: '고유 ID']
+  readingLogId String [unique, not null, note: '원본 독서 기록 ID (1:1, 삭제 시 같이 삭제)']
+  genre String [note: '장르']
+  synopsis String [note: '줄거리']
+  authorBio String [note: '작가 소개']
+  updatedAt DateTime [not null, note: '생성/갱신 시각']
+
+  Note: '독서 기록의 AI 생성 책 정보 — 저장할 때마다 inote-ai가 새로 생성해 덮어씀'
+}
+
 Table MandalartItem {
   id String [pk, note: '고유 ID']
   theme String [not null, note: '축 (t1~t9)']
@@ -339,3 +366,7 @@ Ref: BookLike.bookId > Book.id [delete: Cascade]
 Ref: Post.userId > user.id [delete: Set Null]
 
 Ref: PostSummary.postId - Post.id [delete: Cascade]
+
+Ref: ReadingLog.userId > user.id [delete: Cascade]
+
+Ref: ReadingLogSummary.readingLogId - ReadingLog.id [delete: Cascade]
