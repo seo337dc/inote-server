@@ -3,6 +3,13 @@ import { ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
 import { BlogService } from './blog.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+// 서비스의 EMPTY_DRAFT와 같은 조건 — 제목·본문이 모두 빈 발행 전 글
+const EMPTY_DRAFT = {
+  publishedAt: null,
+  title: '',
+  content: { in: ['', '<p></p>'] },
+};
+
 describe('BlogService', () => {
   let service: BlogService;
 
@@ -12,6 +19,7 @@ describe('BlogService', () => {
       count: jest.fn(),
       groupBy: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
@@ -138,12 +146,12 @@ describe('BlogService', () => {
       expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({
-          where: { userId: 'user-1', pinned: true },
+          where: { userId: 'user-1', NOT: EMPTY_DRAFT, pinned: true },
         }),
       );
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith({
         by: ['category'],
-        where: { userId: 'user-1' },
+        where: { userId: 'user-1', NOT: EMPTY_DRAFT },
         _count: { _all: true },
       });
       expect(result.categoryCounts).toEqual({ 학습: 3, 이직: 1 });
@@ -158,7 +166,9 @@ describe('BlogService', () => {
       await service.findMine('user-1', { category: '학습' });
 
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId: 'user-1' } }),
+        expect.objectContaining({
+          where: { userId: 'user-1', NOT: EMPTY_DRAFT },
+        }),
       );
     });
   });
@@ -244,15 +254,42 @@ describe('BlogService', () => {
     });
   });
 
+  describe('findMyDrafts', () => {
+    it('제목도 본문도 없는 빈 draft는 제외하고 최근 수정순으로 조회한다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+
+      await service.findMyDrafts('user-1');
+
+      expect(mockPrisma.post.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1', publishedAt: null, NOT: EMPTY_DRAFT },
+        orderBy: { updatedAt: 'desc' },
+      });
+    });
+  });
+
   describe('createDraft', () => {
-    it('빈 값으로 draft 글을 생성한다', async () => {
+    it('비어 있는 draft가 없으면 빈 값으로 새로 생성한다', async () => {
+      mockPrisma.post.findFirst.mockResolvedValue(null);
       mockPrisma.post.create.mockResolvedValue({ id: 'p1' });
 
       await service.createDraft('user-1');
 
+      expect(mockPrisma.post.findFirst).toHaveBeenCalledWith({
+        where: { userId: 'user-1', ...EMPTY_DRAFT },
+        orderBy: { updatedAt: 'desc' },
+      });
       expect(mockPrisma.post.create).toHaveBeenCalledWith({
         data: { title: '', content: '', category: '', userId: 'user-1' },
       });
+    });
+
+    it('이미 비어 있는 draft가 있으면 새로 만들지 않고 그걸 재사용한다', async () => {
+      mockPrisma.post.findFirst.mockResolvedValue({ id: 'empty-1' });
+
+      const result = await service.createDraft('user-1');
+
+      expect(result).toEqual({ id: 'empty-1' });
+      expect(mockPrisma.post.create).not.toHaveBeenCalled();
     });
   });
 
@@ -385,6 +422,31 @@ describe('BlogService', () => {
       });
 
       expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('AI가 빈 요약을 돌려주면 기존 요약을 덮어쓰지 않는다', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'user-1',
+        publishedAt: new Date('2026-09-01'),
+      });
+      mockPrisma.post.update.mockResolvedValue({
+        id: 'p1',
+        title: '제목',
+        content: '본문',
+      });
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ summary: [] }),
+      } as Response);
+
+      await service.update('user-1', 'p1', {
+        title: '제목',
+        content: '본문',
+        publish: true,
+      });
+
+      expect(mockPrisma.postSummary.upsert).not.toHaveBeenCalled();
     });
 
     it('요약 API 호출이 실패해도 update 자체는 성공한다 (fail-open)', async () => {

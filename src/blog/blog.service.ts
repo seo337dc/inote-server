@@ -18,6 +18,14 @@ const DETAIL_INCLUDE = {
 const EMPTY_CONTENT = ['', '<p></p>'];
 const PINNED_LIMIT = 3;
 
+// 제목도 본문도 없는 발행 전 글 — 글쓰기 화면에 들어오기만 해도 생기는 빈 draft라서
+// 목록·알림에는 draft로 취급하지 않는다 (사용자가 뭐라도 쓰면 그때부터 draft).
+const EMPTY_DRAFT: Prisma.PostWhereInput = {
+  publishedAt: null,
+  title: '',
+  content: { in: EMPTY_CONTENT },
+};
+
 @Injectable()
 export class BlogService {
   private readonly logger = new Logger(BlogService.name);
@@ -103,7 +111,7 @@ export class BlogService {
 
   findMyDrafts(userId: string) {
     return this.prisma.post.findMany({
-      where: { userId, publishedAt: null },
+      where: { userId, publishedAt: null, NOT: EMPTY_DRAFT },
       orderBy: { updatedAt: 'desc' },
     });
   }
@@ -113,12 +121,16 @@ export class BlogService {
   async findMine(userId: string, query: ListPostsQueryDto) {
     const [page, grouped] = await Promise.all([
       this.listPage(
-        { userId, ...(query.category ? { category: query.category } : {}) },
+        {
+          userId,
+          NOT: EMPTY_DRAFT,
+          ...(query.category ? { category: query.category } : {}),
+        },
         query,
       ),
       this.prisma.post.groupBy({
         by: ['category'],
-        where: { userId },
+        where: { userId, NOT: EMPTY_DRAFT },
         _count: { _all: true },
       }),
     ]);
@@ -128,7 +140,14 @@ export class BlogService {
     return { ...page, categoryCounts };
   }
 
-  createDraft(userId: string) {
+  // 글쓰기 화면에 들어올 때마다 새 행이 쌓이지 않도록, 이미 비어 있는 draft가 있으면 그걸 재사용.
+  async createDraft(userId: string) {
+    const emptyDraft = await this.prisma.post.findFirst({
+      where: { userId, ...EMPTY_DRAFT },
+      orderBy: { updatedAt: 'desc' },
+    });
+    if (emptyDraft) return emptyDraft;
+
     return this.prisma.post.create({
       data: { title: '', content: '', category: '', userId },
     });
@@ -205,6 +224,10 @@ export class BlogService {
       if (!res.ok) throw new Error(`inote-ai responded ${res.status}`);
 
       const { summary } = (await res.json()) as { summary: string[] };
+      // AI가 빈 요약을 주면 기존 요약을 빈 값으로 덮어쓰지 않고 그대로 둔다.
+      if (!Array.isArray(summary) || summary.length === 0) {
+        throw new Error('inote-ai returned an empty summary');
+      }
       await this.prisma.postSummary.upsert({
         where: { postId },
         create: { postId, summary },
