@@ -11,6 +11,7 @@ import { AdminModule } from './admin/admin.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { ReadingLogsModule } from './reading-logs/reading-logs.module';
 import { TodosModule } from './todos/todos.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { TodosModule } from './todos/todos.module';
     UploadsModule,
     ReadingLogsModule,
     TodosModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

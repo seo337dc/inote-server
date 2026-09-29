@@ -287,6 +287,18 @@ Table Todo {
   Note: '할 일 — 심플 체크리스트 항목 (draft/발행 개념 없이 CRUD만). 전부 비공개(본인만 조회 가능).'
 }
 
+Table PostCategory {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '소유자 ID (FK)']
+  name String [not null, note: '카테고리 이름']
+  parentId String [note: '상위 카테고리 ID (없으면 최상위)']
+  depth Int [not null, default: 1, note: '트리 깊이 (1~3, 상위 없으면 1)']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '글 카테고리 — 유저별 개인 트리(최대 3단계, self-referential). 다른 유저와 공유 안 됨.'
+}
+
 Table MandalartItem {
   id String [pk, note: '고유 ID']
   theme String [not null, note: '축 (t1~t9)']
@@ -384,3 +396,7 @@ Ref: ReadingLog.userId > user.id [delete: Cascade]
 Ref: ReadingLogSummary.readingLogId - ReadingLog.id [delete: Cascade]
 
 Ref: Todo.userId > user.id [delete: Cascade]
+
+Ref: PostCategory.userId > user.id [delete: Cascade]
+
+Ref: PostCategory.parentId - PostCategory.id [delete: Cascade]
