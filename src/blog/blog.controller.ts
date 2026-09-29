@@ -34,6 +34,16 @@ export class BlogController {
     return this.blogService.findAll(query);
   }
 
+  @Get('outline')
+  @UseGuards(OptionalAuthGuard)
+  @ApiOperation({
+    summary:
+      '카테고리 트리용 글 목록 (제목·카테고리만) — 공개 글 + 로그인 시 내 비공개 글',
+  })
+  findOutline(@CurrentUser() user: { id: string } | undefined) {
+    return this.blogService.findOutline(user?.id);
+  }
+
   @Get('mine/drafts')
   @ApiBearerAuth()
   @UseGuards(AuthGuard)

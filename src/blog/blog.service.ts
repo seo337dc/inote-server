@@ -17,6 +17,7 @@ const DETAIL_INCLUDE = {
 
 const EMPTY_CONTENT = ['', '<p></p>'];
 const PINNED_LIMIT = 3;
+const OUTLINE_LIMIT = 500;
 
 // 제목도 본문도 없는 발행 전 글 — 글쓰기 화면에 들어오기만 해도 생기는 빈 draft라서
 // 목록·알림에는 draft로 취급하지 않는다 (사용자가 뭐라도 쓰면 그때부터 draft).
@@ -79,6 +80,29 @@ export class BlogService {
       },
       query,
     );
+  }
+
+  // 글 상세 왼쪽 카테고리 트리용 — 본문 없이 제목·카테고리만 가볍게 전부 내려준다.
+  // 발행된 공개 글 + (로그인했다면) 내 비공개 글. draft는 제외.
+  findOutline(requesterUserId?: string) {
+    return this.prisma.post.findMany({
+      where: {
+        publishedAt: { not: null },
+        OR: [
+          { isPrivate: false },
+          ...(requesterUserId ? [{ userId: requesterUserId }] : []),
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        isPrivate: true,
+        pinned: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: OUTLINE_LIMIT,
+    });
   }
 
   // 글 조회 없이 존재만 확인 — update/remove가 소유권 체크 전에 씀.

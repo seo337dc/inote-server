@@ -127,6 +127,45 @@ describe('BlogService', () => {
     });
   });
 
+  describe('findOutline', () => {
+    const SELECT = {
+      id: true,
+      title: true,
+      category: true,
+      isPrivate: true,
+      pinned: true,
+    };
+
+    it('비로그인이면 발행된 공개 글만 제목·카테고리만 골라 최신순으로 조회한다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([{ id: 'a' }]);
+
+      const result = await service.findOutline();
+
+      expect(mockPrisma.post.findMany).toHaveBeenCalledWith({
+        where: { publishedAt: { not: null }, OR: [{ isPrivate: false }] },
+        select: SELECT,
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      });
+      expect(result).toEqual([{ id: 'a' }]);
+    });
+
+    it('로그인했으면 공개 글에 더해 내 글(비공개 포함)도 조회한다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+
+      await service.findOutline('u1');
+
+      expect(mockPrisma.post.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            publishedAt: { not: null },
+            OR: [{ isPrivate: false }, { userId: 'u1' }],
+          },
+        }),
+      );
+    });
+  });
+
   describe('findMine', () => {
     it('내 글 전체(발행·비공개 무관)를 같은 방식으로 조회하고 카테고리별 개수를 함께 준다', async () => {
       mockPrisma.post.findMany
