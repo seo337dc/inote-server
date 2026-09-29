@@ -1,4 +1,6 @@
 import {
+  BadGatewayException,
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -233,32 +235,66 @@ export class BlogService {
 
   // 저장 직후 inote-ai에 요약을 요청해 PostSummary에 반영.
   // AI 서버 장애가 글 저장 자체를 막으면 안 되므로 실패해도 예외를 던지지 않는다.
+  // inote-ai에 요약을 요청하고 결과를 저장해 돌려준다 — 실패하면 예외를 던진다.
+  private async requestSummary(
+    postId: string,
+    title: string,
+    content: string,
+  ): Promise<string[]> {
+    const res = await fetch(`${process.env.INOTE_AI_URL}/summarize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': process.env.INTERNAL_SECRET ?? '',
+      },
+      body: JSON.stringify({ title, content }),
+    });
+    if (!res.ok) throw new Error(`inote-ai responded ${res.status}`);
+
+    const { summary } = (await res.json()) as { summary: string[] };
+    // AI가 빈 요약을 주면 기존 요약을 빈 값으로 덮어쓰지 않고 그대로 둔다.
+    if (!Array.isArray(summary) || summary.length === 0) {
+      throw new Error('inote-ai returned an empty summary');
+    }
+    await this.prisma.postSummary.upsert({
+      where: { postId },
+      create: { postId, summary },
+      update: { summary },
+    });
+    return summary;
+  }
+
+  // 저장/발행 때 자동으로 도는 요약 — 실패해도 저장 자체는 성공해야 하므로 fail-open.
   private async summarize(postId: string, title: string, content: string) {
     if (EMPTY_CONTENT.includes(content)) return;
 
     try {
-      const res = await fetch(`${process.env.INOTE_AI_URL}/summarize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-internal-secret': process.env.INTERNAL_SECRET ?? '',
-        },
-        body: JSON.stringify({ title, content }),
-      });
-      if (!res.ok) throw new Error(`inote-ai responded ${res.status}`);
-
-      const { summary } = (await res.json()) as { summary: string[] };
-      // AI가 빈 요약을 주면 기존 요약을 빈 값으로 덮어쓰지 않고 그대로 둔다.
-      if (!Array.isArray(summary) || summary.length === 0) {
-        throw new Error('inote-ai returned an empty summary');
-      }
-      await this.prisma.postSummary.upsert({
-        where: { postId },
-        create: { postId, summary },
-        update: { summary },
-      });
+      await this.requestSummary(postId, title, content);
     } catch (e) {
       this.logger.warn(`failed to summarize post ${postId}: ${e}`);
+    }
+  }
+
+  // 작성자가 직접 누르는 "AI 다시 요약하기" — 저장된 본문 기준. 자동 요약과 달리 실패를 그대로 알려준다.
+  async resummarize(userId: string, id: string) {
+    const post = await this.findRaw(id);
+    if (post.userId !== userId) {
+      throw new ForbiddenException(
+        '본인이 작성한 글만 다시 요약할 수 있습니다.',
+      );
+    }
+    if (EMPTY_CONTENT.includes(post.content)) {
+      throw new BadRequestException('본문이 비어 있어 요약할 수 없습니다.');
+    }
+
+    try {
+      const summary = await this.requestSummary(id, post.title, post.content);
+      return { summary };
+    } catch (e) {
+      this.logger.warn(`failed to re-summarize post ${id}: ${e}`);
+      throw new BadGatewayException(
+        'AI 요약에 실패했어요. 잠시 후 다시 시도해 주세요.',
+      );
     }
   }
 }

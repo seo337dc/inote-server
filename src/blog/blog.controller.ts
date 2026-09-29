@@ -109,6 +109,17 @@ export class BlogController {
     return this.blogService.update(user.id, id, dto);
   }
 
+  @Post(':id/summarize')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      'AI 다시 요약하기 (본인 글만) — 저장된 본문 기준으로 요약을 새로 만든다',
+  })
+  resummarize(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+    return this.blogService.resummarize(user.id, id);
+  }
+
   @Delete(':id')
   @ApiBearerAuth()
   @UseGuards(AuthGuard)

@@ -1,5 +1,11 @@
 import { Test } from '@nestjs/testing';
-import { ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  ForbiddenException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { BlogService } from './blog.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -508,6 +514,76 @@ describe('BlogService', () => {
       });
 
       expect(result).toEqual({ id: 'p1', title: '제목', content: '본문' });
+    });
+  });
+
+  describe('resummarize', () => {
+    it('본인 글이 아니면 ForbiddenException', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'owner',
+        content: '본문',
+      });
+
+      await expect(service.resummarize('other', 'p1')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('본문이 비어 있으면 BadRequestException', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'u1',
+        content: '<p></p>',
+      });
+
+      await expect(service.resummarize('u1', 'p1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('저장된 제목·본문으로 요약을 새로 만들어 저장하고 돌려준다', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'u1',
+        title: '제목',
+        content: '<p>본문</p>',
+      });
+      mockPrisma.postSummary.upsert.mockResolvedValue({});
+
+      const result = await service.resummarize('u1', 'p1');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/summarize'),
+        expect.objectContaining({
+          body: JSON.stringify({ title: '제목', content: '<p>본문</p>' }),
+        }),
+      );
+      expect(mockPrisma.postSummary.upsert).toHaveBeenCalledWith({
+        where: { postId: 'p1' },
+        create: { postId: 'p1', summary: ['요약1'] },
+        update: { summary: ['요약1'] },
+      });
+      expect(result).toEqual({ summary: ['요약1'] });
+    });
+
+    it('AI 호출이 실패하면 저장된 요약은 건드리지 않고 BadGatewayException', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'u1',
+        title: '제목',
+        content: '<p>본문</p>',
+      });
+      jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue({ ok: false, status: 500 } as Response);
+
+      await expect(service.resummarize('u1', 'p1')).rejects.toThrow(
+        BadGatewayException,
+      );
+      expect(mockPrisma.postSummary.upsert).not.toHaveBeenCalled();
     });
   });
 
