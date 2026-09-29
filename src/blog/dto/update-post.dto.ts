@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
   ValidateIf,
 } from 'class-validator';
@@ -47,4 +48,13 @@ export class UpdatePostDto extends PartialType(CreatePostDto) {
   @IsOptional()
   @IsBoolean()
   pinned?: boolean;
+
+  @ApiPropertyOptional({
+    description: '썸네일 이미지 URL — null을 보내면 썸네일 제거',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  thumbnailUrl?: string | null;
 }

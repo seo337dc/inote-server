@@ -195,7 +195,7 @@ Table TermLike {
     (userId, termId) [unique]
   }
 
-  Note: '금융 용��� 좋아요'
+  Note: '금융 용어 좋아요'
 }
 
 Table Book {
@@ -237,6 +237,7 @@ Table Post {
   publishedAt DateTime [note: '발행 시각 (null = 아직 저장 안 한 draft, 목록에 노출 안 됨)']
   isPrivate Boolean [not null, default: false, note: '비공개 여부 — true면 홈/전체 목록에서 빠지고, 작성자 본인 외엔 상세 조회도 막힘']
   pinned Boolean [not null, default: false, note: '고정 여부 — true면 홈/나의 글 목록 맨 위에 노출']
+  thumbnailUrl String [note: '썸네일 이미지 URL (R2 업로드) — 출간 화면에서 지정, 없으면 null']
 
   Note: '블로그 글 (inote-blog)'
 }

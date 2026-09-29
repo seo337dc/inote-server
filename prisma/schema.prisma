@@ -479,30 +479,32 @@ model BookLike {
 /// 블로그 글 (inote-blog)
 model Post {
   /// 고유 ID
-  id          String       @id @default(cuid())
+  id           String       @id @default(cuid())
   /// 제목
-  title       String
+  title        String
   /// 본문 (HTML)
-  content     String
+  content      String
   /// 요약
-  excerpt     String?
+  excerpt      String?
   /// 카테고리
-  category    String
+  category     String
   /// 작성자 ID (FK, nullable — 로그인 도입 전 글 + 작성자 탈퇴 시 null로 남음)
-  userId      String?
-  user        user?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId       String?
+  user         user?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   /// 작성일
-  createdAt   DateTime     @default(now())
+  createdAt    DateTime     @default(now())
   /// 수정일
-  updatedAt   DateTime     @updatedAt
+  updatedAt    DateTime     @updatedAt
   /// 발행 시각 (null = 아직 저장 안 한 draft, 목록에 노출 안 됨)
-  publishedAt DateTime?
+  publishedAt  DateTime?
   /// 비공개 여부 — true면 홈/전체 목록에서 빠지고, 작성자 본인 외엔 상세 조회도 막힘
-  isPrivate   Boolean      @default(false)
+  isPrivate    Boolean      @default(false)
   /// 고정 여부 — true면 홈/나의 글 목록 맨 위에 노출
-  pinned      Boolean      @default(false)
+  pinned       Boolean      @default(false)
+  /// 썸네일 이미지 URL (R2 업로드) — 출간 화면에서 지정, 없으면 null
+  thumbnailUrl String?
   /// AI 요약 (1:1, inote-ai가 생성)
-  aiSummary   PostSummary?
+  aiSummary    PostSummary?
 }
 
 /// 글의 AI 요약 — 저장할 때마다 inote-ai가 새로 생성해 덮어씀

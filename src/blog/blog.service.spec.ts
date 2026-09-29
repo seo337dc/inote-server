@@ -372,6 +372,31 @@ describe('BlogService', () => {
     it('isPrivate/pinned만 보내면 그 필드만 갱신한다', async () => {
       mockPrisma.post.findUnique.mockResolvedValue({
         id: 'p1',
+    it('thumbnailUrl을 보내면 저장하고, null을 보내면 썸네일을 제거한다', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'user-1',
+        publishedAt: null,
+      });
+      mockPrisma.post.update.mockResolvedValue({ id: 'p1' });
+
+      await service.update('user-1', 'p1', {
+        thumbnailUrl: 'https://r2/a.png',
+      });
+      await service.update('user-1', 'p1', { thumbnailUrl: null });
+
+      expect(mockPrisma.post.update).toHaveBeenNthCalledWith(1, {
+        where: { id: 'p1' },
+        data: { thumbnailUrl: 'https://r2/a.png' },
+        include: expect.any(Object),
+      });
+      expect(mockPrisma.post.update).toHaveBeenNthCalledWith(2, {
+        where: { id: 'p1' },
+        data: { thumbnailUrl: null },
+        include: expect.any(Object),
+      });
+    });
+
         userId: 'user-1',
         publishedAt: new Date('2026-09-01'),
       });
