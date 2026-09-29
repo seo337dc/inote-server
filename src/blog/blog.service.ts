@@ -18,7 +18,7 @@ const DETAIL_INCLUDE = {
 };
 
 const EMPTY_CONTENT = ['', '<p></p>'];
-const PINNED_LIMIT = 3;
+const PINNED_PAGE_SIZE = 3;
 const OUTLINE_LIMIT = 500;
 
 // 제목도 본문도 없는 발행 전 글 — 글쓰기 화면에 들어오기만 해도 생기는 빈 draft라서
@@ -35,24 +35,27 @@ export class BlogService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  // 상단엔 고정 글을 최대 PINNED_LIMIT개(최신순) 따로 내려주고, 나머지는 최신순 페이지네이션.
-  // 상단에 뜬 글은 목록에서 빼서 중복·페이지 어긋남을 막는다 (4번째 이후 고정 글은 일반 목록에 섞임).
-  // 고정 글은 1페이지에서만 내려주고, total은 상단 포함 전체 개수.
+  // 고정 글과 일반 글을 각각 따로 페이지네이션한다.
+  // - 고정 글: PINNED_PAGE_SIZE(3)개씩, pinnedPage 페이지 (기본 1)
+  // - 일반 글: 고정 글을 모두 뺀 나머지를 pageSize개씩, page 페이지 (기본 1)
+  // 쿼리에 아무것도 없으면 두 영역 모두 1페이지. total은 고정 + 일반 전체 개수.
   private async listPage(
     baseWhere: Prisma.PostWhereInput,
-    { page = 1, pageSize = 10 }: ListPostsQueryDto,
+    { page = 1, pageSize = 10, pinnedPage = 1 }: ListPostsQueryDto,
   ) {
-    const pinnedTop = await this.prisma.post.findMany({
-      where: { ...baseWhere, pinned: true },
-      orderBy: { createdAt: 'desc' },
-      take: PINNED_LIMIT,
-      include: AUTHOR_SELECT,
-    });
-    const listWhere: Prisma.PostWhereInput = {
-      ...baseWhere,
-      id: { notIn: pinnedTop.map((p) => p.id) },
-    };
-    const [items, listTotal] = await Promise.all([
+    const pinnedWhere: Prisma.PostWhereInput = { ...baseWhere, pinned: true };
+    const listWhere: Prisma.PostWhereInput = { ...baseWhere, pinned: false };
+
+    // findMany 호출 순서: 1) 고정 글 2) 일반 글 / count 호출 순서: 1) 고정 글 2) 일반 글
+    const [pinned, pinnedTotal, items, listTotal] = await Promise.all([
+      this.prisma.post.findMany({
+        where: pinnedWhere,
+        orderBy: { createdAt: 'desc' },
+        skip: (pinnedPage - 1) * PINNED_PAGE_SIZE,
+        take: PINNED_PAGE_SIZE,
+        include: AUTHOR_SELECT,
+      }),
+      this.prisma.post.count({ where: pinnedWhere }),
       this.prisma.post.findMany({
         where: listWhere,
         orderBy: { createdAt: 'desc' },
@@ -64,9 +67,12 @@ export class BlogService {
     ]);
 
     return {
-      pinned: page === 1 ? pinnedTop : [],
+      pinned,
+      pinnedPage,
+      pinnedTotal,
+      pinnedTotalPages: Math.max(1, Math.ceil(pinnedTotal / PINNED_PAGE_SIZE)),
       items,
-      total: listTotal + pinnedTop.length,
+      total: pinnedTotal + listTotal,
       page,
       pageSize,
       totalPages: Math.max(1, Math.ceil(listTotal / pageSize)),

@@ -54,57 +54,42 @@ describe('BlogService', () => {
   });
 
   describe('findAll', () => {
-    const AUTHOR = { user: { select: { name: true, email: true } } };
-
-    it('고정 글 최대 3개를 따로 조회하고, 목록에서는 그 글들을 뺀 채 페이지네이션한다', async () => {
-      mockPrisma.post.findMany
-        .mockResolvedValueOnce([{ id: 'pin1' }, { id: 'pin2' }])
-        .mockResolvedValueOnce([{ id: 'a' }]);
-      mockPrisma.post.count.mockResolvedValue(11);
-
-      const result = await service.findAll({ page: 1, pageSize: 10 });
-
-      const base = { publishedAt: { not: null }, isPrivate: false };
-      expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(1, {
-        where: { ...base, pinned: true },
-        orderBy: { createdAt: 'desc' },
-        take: 3,
-        include: AUTHOR,
-      });
-      expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(2, {
-        where: { ...base, id: { notIn: ['pin1', 'pin2'] } },
-        orderBy: { createdAt: 'desc' },
-        skip: 0,
-        take: 10,
-        include: AUTHOR,
-      });
-      expect(result).toEqual({
-        pinned: [{ id: 'pin1' }, { id: 'pin2' }],
-        items: [{ id: 'a' }],
-        total: 13,
-        page: 1,
-        pageSize: 10,
-        totalPages: 2,
-      });
-    });
-
-    it('2페이지부터는 고정 글을 내려주지 않지만 목록에서는 계속 제외한다', async () => {
-      mockPrisma.post.findMany
-        .mockResolvedValueOnce([{ id: 'pin1' }])
-        .mockResolvedValueOnce([{ id: 'b' }]);
-      mockPrisma.post.count.mockResolvedValue(11);
-
-      const result = await service.findAll({ page: 2, pageSize: 10 });
-
-      expect(result.pinned).toEqual([]);
-      expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          where: expect.objectContaining({ id: { notIn: ['pin1'] } }),
-          skip: 10,
-        }),
-      );
-    });
+    // ─────────────────────────────────────────────────────────────────
+    // TODO(직접 작성): 고정 글 별도 페이지네이션 — 아래 케이스를 하나씩 채워 넣을 것.
+    //
+    // mock 순서 힌트 (listPage는 Promise.all로 이 순서대로 호출한다):
+    //   mockPrisma.post.findMany → 1번째 = 고정 글, 2번째 = 일반 글
+    //   mockPrisma.post.count    → 1번째 = 고정 글 개수, 2번째 = 일반 글 개수
+    //
+    // findMany 호출 인자의 include는 { user: { select: { name: true, email: true } } } 이다.
+    //
+    // 골격 예시:
+    //   it('...', async () => {
+    //     // Arrange: findMany/count에 mockResolvedValueOnce를 호출 순서대로
+    //     // Act:     const result = await service.findAll({ ... });
+    //     // Assert:  findMany 호출 인자(where/skip/take)와 result 필드 확인
+    //   });
+    // ─────────────────────────────────────────────────────────────────
+    it.todo(
+      '쿼리가 아무것도 없으면 일반 글 page=1, 고정 글 pinnedPage=1로 조회한다 (기본값)',
+    );
+    it.todo(
+      '고정 글은 pinned: true 조건으로 3개씩 — pinnedPage에 맞게 skip/take를 계산한다',
+    );
+    it.todo(
+      '일반 글은 pinned: false 조건이라 고정 글이 모두(4번째 이후 포함) 빠진다',
+    );
+    it.todo(
+      '응답에 pinnedPage · pinnedTotal · pinnedTotalPages(3개 기준 올림)를 담는다',
+    );
+    it.todo('total은 고정 글 개수 + 일반 글 개수다');
+    it.todo(
+      'pinnedPage가 범위를 넘으면 pinned는 빈 배열이고 pinnedTotalPages는 그대로다',
+    );
+    it.todo('고정 글이 하나도 없어도 pinnedTotalPages는 최소 1이다');
+    it.todo(
+      'page를 넘겨도 pinned 조회의 skip은 변하지 않는다 (두 영역이 독립적)',
+    );
 
     it('category가 있으면 고정 조회·목록 모두 그 카테고리로 거른다', async () => {
       mockPrisma.post.findMany.mockResolvedValue([]);
@@ -372,6 +357,21 @@ describe('BlogService', () => {
     it('isPrivate/pinned만 보내면 그 필드만 갱신한다', async () => {
       mockPrisma.post.findUnique.mockResolvedValue({
         id: 'p1',
+        userId: 'user-1',
+        publishedAt: new Date('2026-09-01'),
+      });
+      mockPrisma.post.update.mockResolvedValue({ id: 'p1', isPrivate: true });
+
+      await service.update('user-1', 'p1', { isPrivate: true, pinned: true });
+
+      expect(mockPrisma.post.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { isPrivate: true, pinned: true },
+        include: expect.any(Object),
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
     it('thumbnailUrl을 보내면 저장하고, null을 보내면 썸네일을 제거한다', async () => {
       mockPrisma.post.findUnique.mockResolvedValue({
         id: 'p1',
@@ -395,21 +395,6 @@ describe('BlogService', () => {
         data: { thumbnailUrl: null },
         include: expect.any(Object),
       });
-    });
-
-        userId: 'user-1',
-        publishedAt: new Date('2026-09-01'),
-      });
-      mockPrisma.post.update.mockResolvedValue({ id: 'p1', isPrivate: true });
-
-      await service.update('user-1', 'p1', { isPrivate: true, pinned: true });
-
-      expect(mockPrisma.post.update).toHaveBeenCalledWith({
-        where: { id: 'p1' },
-        data: { isPrivate: true, pinned: true },
-        include: expect.any(Object),
-      });
-      expect(global.fetch).not.toHaveBeenCalled();
     });
 
     it('publish: true + 처음 발행이면 publishedAt을 새로 설정하고 요약을 요청한다', async () => {
