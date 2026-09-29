@@ -23,8 +23,8 @@ export class BlogService {
 
   findAll() {
     return this.prisma.post.findMany({
-      where: { publishedAt: { not: null } },
-      orderBy: { createdAt: 'desc' },
+      where: { publishedAt: { not: null }, isPrivate: false },
+      orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
       include: AUTHOR_SELECT,
     });
   }
@@ -40,10 +40,12 @@ export class BlogService {
     return post;
   }
 
-  // 공개 조회 — 발행된 글은 누구나, draft는 작성자 본인만 (그 외엔 404로 존재 자체를 숨김)
+  // 공개 조회 — 발행+ 비공개 아닌 글은 누구나, draft·비공개 글은 작성자 본인만
+  // (그 외엔 404로 존재 자체를 숨김)
   async findOne(id: string, requesterUserId?: string) {
     const post = await this.findRaw(id);
-    if (!post.publishedAt && post.userId !== requesterUserId) {
+    const hiddenFromOthers = !post.publishedAt || post.isPrivate;
+    if (hiddenFromOthers && post.userId !== requesterUserId) {
       throw new NotFoundException('글을 찾을 수 없습니다.');
     }
     return post;
@@ -62,11 +64,11 @@ export class BlogService {
     });
   }
 
-  // 나의 글 목록 — 발행 여부 상관없이 내가 쓴 글 전부 (/my-posts에서 사용)
+  // 나의 글 목록 — 발행 여부·비공개 여부 상관없이 내가 쓴 글 전부 (/my-posts에서 사용)
   findMine(userId: string) {
     return this.prisma.post.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
       include: AUTHOR_SELECT,
     });
   }

@@ -34,4 +34,17 @@ export class UpdatePostDto extends PartialType(CreatePostDto) {
   @ValidateIf((o: UpdatePostDto) => o.publish === true)
   @MinLength(1)
   content?: string;
+
+  @ApiPropertyOptional({
+    description:
+      '비공개 여부 — true면 홈/전체 목록에서 빠지고 작성자 본인만 조회 가능',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isPrivate?: boolean;
+
+  @ApiPropertyOptional({ description: '고정 여부 — true면 목록 맨 위에 노출' })
+  @IsOptional()
+  @IsBoolean()
+  pinned?: boolean;
 }

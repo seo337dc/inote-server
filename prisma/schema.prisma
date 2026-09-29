@@ -497,6 +497,10 @@ model Post {
   updatedAt   DateTime     @updatedAt
   /// 발행 시각 (null = 아직 저장 안 한 draft, 목록에 노출 안 됨)
   publishedAt DateTime?
+  /// 비공개 여부 — true면 홈/전체 목록에서 빠지고, 작성자 본인 외엔 상세 조회도 막힘
+  isPrivate   Boolean      @default(false)
+  /// 고정 여부 — true면 홈/나의 글 목록 맨 위에 노출
+  pinned      Boolean      @default(false)
   /// AI 요약 (1:1, inote-ai가 생성)
   aiSummary   PostSummary?
 }

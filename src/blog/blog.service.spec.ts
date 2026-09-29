@@ -38,28 +38,28 @@ describe('BlogService', () => {
   });
 
   describe('findAll', () => {
-    it('발행된 글만 최신순으로 조회한다', async () => {
+    it('발행되고 비공개가 아닌 글만 고정 우선·최신순으로 조회한다', async () => {
       mockPrisma.post.findMany.mockResolvedValue([]);
 
       await service.findAll();
 
       expect(mockPrisma.post.findMany).toHaveBeenCalledWith({
-        where: { publishedAt: { not: null } },
-        orderBy: { createdAt: 'desc' },
+        where: { publishedAt: { not: null }, isPrivate: false },
+        orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
         include: { user: { select: { name: true, email: true } } },
       });
     });
   });
 
   describe('findMine', () => {
-    it('발행 여부 상관없이 내가 쓴 글 전체를 최신순으로 조회한다', async () => {
+    it('발행·비공개 여부 상관없이 내가 쓴 글 전체를 고정 우선·최신순으로 조회한다', async () => {
       mockPrisma.post.findMany.mockResolvedValue([]);
 
       await service.findMine('user-1');
 
       expect(mockPrisma.post.findMany).toHaveBeenCalledWith({
         where: { userId: 'user-1' },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
         include: { user: { select: { name: true, email: true } } },
       });
     });
@@ -100,6 +100,31 @@ describe('BlogService', () => {
         id: 'p1',
         userId: 'owner',
         publishedAt: null,
+      });
+
+      const result = await service.findOne('p1', 'owner');
+      expect(result.id).toBe('p1');
+    });
+
+    it('비공개 글은 작성자 본인이 아니면 NotFoundException (404로 존재 자체를 숨김)', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'owner',
+        publishedAt: new Date('2026-09-01'),
+        isPrivate: true,
+      });
+
+      await expect(service.findOne('p1', 'other-user')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('비공개 글도 작성자 본인이면 조회 가능하다', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'owner',
+        publishedAt: new Date('2026-09-01'),
+        isPrivate: true,
       });
 
       const result = await service.findOne('p1', 'owner');
@@ -159,6 +184,24 @@ describe('BlogService', () => {
       expect(mockPrisma.post.update).toHaveBeenCalledWith({
         where: { id: 'p1' },
         data: { title: '임시저장' },
+        include: expect.any(Object),
+      });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('isPrivate/pinned만 보내면 그 필드만 갱신한다', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'user-1',
+        publishedAt: new Date('2026-09-01'),
+      });
+      mockPrisma.post.update.mockResolvedValue({ id: 'p1', isPrivate: true });
+
+      await service.update('user-1', 'p1', { isPrivate: true, pinned: true });
+
+      expect(mockPrisma.post.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { isPrivate: true, pinned: true },
         include: expect.any(Object),
       });
       expect(global.fetch).not.toHaveBeenCalled();
