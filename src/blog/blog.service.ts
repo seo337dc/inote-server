@@ -4,8 +4,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { ListPostsQueryDto } from './dto/list-posts-query.dto';
 
 const AUTHOR_SELECT = { user: { select: { name: true, email: true } } };
 const DETAIL_INCLUDE = {
@@ -14,6 +16,7 @@ const DETAIL_INCLUDE = {
 };
 
 const EMPTY_CONTENT = ['', '<p></p>'];
+const PINNED_LIMIT = 3;
 
 @Injectable()
 export class BlogService {
@@ -21,12 +24,53 @@ export class BlogService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.post.findMany({
-      where: { publishedAt: { not: null }, isPrivate: false },
-      orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
+  // 상단엔 고정 글을 최대 PINNED_LIMIT개(최신순) 따로 내려주고, 나머지는 최신순 페이지네이션.
+  // 상단에 뜬 글은 목록에서 빼서 중복·페이지 어긋남을 막는다 (4번째 이후 고정 글은 일반 목록에 섞임).
+  // 고정 글은 1페이지에서만 내려주고, total은 상단 포함 전체 개수.
+  private async listPage(
+    baseWhere: Prisma.PostWhereInput,
+    { page = 1, pageSize = 10 }: ListPostsQueryDto,
+  ) {
+    const pinnedTop = await this.prisma.post.findMany({
+      where: { ...baseWhere, pinned: true },
+      orderBy: { createdAt: 'desc' },
+      take: PINNED_LIMIT,
       include: AUTHOR_SELECT,
     });
+    const listWhere: Prisma.PostWhereInput = {
+      ...baseWhere,
+      id: { notIn: pinnedTop.map((p) => p.id) },
+    };
+    const [items, listTotal] = await Promise.all([
+      this.prisma.post.findMany({
+        where: listWhere,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: AUTHOR_SELECT,
+      }),
+      this.prisma.post.count({ where: listWhere }),
+    ]);
+
+    return {
+      pinned: page === 1 ? pinnedTop : [],
+      items,
+      total: listTotal + pinnedTop.length,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(listTotal / pageSize)),
+    };
+  }
+
+  findAll(query: ListPostsQueryDto) {
+    return this.listPage(
+      {
+        publishedAt: { not: null },
+        isPrivate: false,
+        ...(query.category ? { category: query.category } : {}),
+      },
+      query,
+    );
   }
 
   // 글 조회 없이 존재만 확인 — update/remove가 소유권 체크 전에 씀.
@@ -64,13 +108,24 @@ export class BlogService {
     });
   }
 
-  // 나의 글 목록 — 발행 여부·비공개 여부 상관없이 내가 쓴 글 전부 (/my-posts에서 사용)
-  findMine(userId: string) {
-    return this.prisma.post.findMany({
-      where: { userId },
-      orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
-      include: AUTHOR_SELECT,
-    });
+  // 나의 글 목록 — 발행·비공개 여부 상관없이 내가 쓴 글 전부 (/my-posts에서 사용).
+  // 사이드바 카테고리별 개수는 페이지와 무관한 전체 기준이라 categoryCounts로 따로 내려줌.
+  async findMine(userId: string, query: ListPostsQueryDto) {
+    const [page, grouped] = await Promise.all([
+      this.listPage(
+        { userId, ...(query.category ? { category: query.category } : {}) },
+        query,
+      ),
+      this.prisma.post.groupBy({
+        by: ['category'],
+        where: { userId },
+        _count: { _all: true },
+      }),
+    ]);
+    const categoryCounts = Object.fromEntries(
+      grouped.map((g) => [g.category, g._count._all]),
+    );
+    return { ...page, categoryCounts };
   }
 
   createDraft(userId: string) {

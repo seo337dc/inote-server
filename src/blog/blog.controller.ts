@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -15,6 +16,7 @@ import { InternalSecretGuard } from '../auth/internal-secret.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { BlogService } from './blog.service';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { ListPostsQueryDto } from './dto/list-posts-query.dto';
 
 // 2단계: 조회는 로그인 없이 공개, 작성/수정/삭제는 로그인 필수 (2026-09-10)
 // 3단계: 글쓰기는 draft(빈 글) 먼저 생성 후 저장 시 발행 — draft는 작성자만 조회 가능 (2026-09-11)
@@ -24,9 +26,12 @@ export class BlogController {
   constructor(private readonly blogService: BlogService) {}
 
   @Get()
-  @ApiOperation({ summary: '글 목록 조회 (발행된 글만)' })
-  findAll() {
-    return this.blogService.findAll();
+  @ApiOperation({
+    summary:
+      '글 목록 조회 (발행+비공개 아닌 글만) — 고정 글 최대 3개(1페이지만) + 페이지네이션 목록',
+  })
+  findAll(@Query() query: ListPostsQueryDto) {
+    return this.blogService.findAll(query);
   }
 
   @Get('mine/drafts')
@@ -42,9 +47,15 @@ export class BlogController {
   @Get('mine')
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
-  @ApiOperation({ summary: '내가 쓴 글 전체 (로그인 필요, 발행+draft 전부)' })
-  findMine(@CurrentUser() user: { id: string }) {
-    return this.blogService.findMine(user.id);
+  @ApiOperation({
+    summary:
+      '내가 쓴 글 (로그인 필요, 발행+draft 전부) — 고정 글 최대 3개(1페이지만) + 페이지네이션 목록 + 카테고리별 개수',
+  })
+  findMine(
+    @CurrentUser() user: { id: string },
+    @Query() query: ListPostsQueryDto,
+  ) {
+    return this.blogService.findMine(user.id, query);
   }
 
   @Get(':id')

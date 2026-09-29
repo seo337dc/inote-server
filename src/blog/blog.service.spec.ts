@@ -9,6 +9,8 @@ describe('BlogService', () => {
   const mockPrisma = {
     post: {
       findMany: jest.fn(),
+      count: jest.fn(),
+      groupBy: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -38,30 +40,126 @@ describe('BlogService', () => {
   });
 
   describe('findAll', () => {
-    it('발행되고 비공개가 아닌 글만 고정 우선·최신순으로 조회한다', async () => {
-      mockPrisma.post.findMany.mockResolvedValue([]);
+    const AUTHOR = { user: { select: { name: true, email: true } } };
 
-      await service.findAll();
+    it('고정 글 최대 3개를 따로 조회하고, 목록에서는 그 글들을 뺀 채 페이지네이션한다', async () => {
+      mockPrisma.post.findMany
+        .mockResolvedValueOnce([{ id: 'pin1' }, { id: 'pin2' }])
+        .mockResolvedValueOnce([{ id: 'a' }]);
+      mockPrisma.post.count.mockResolvedValue(11);
 
-      expect(mockPrisma.post.findMany).toHaveBeenCalledWith({
-        where: { publishedAt: { not: null }, isPrivate: false },
-        orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
-        include: { user: { select: { name: true, email: true } } },
+      const result = await service.findAll({ page: 1, pageSize: 10 });
+
+      const base = { publishedAt: { not: null }, isPrivate: false };
+      expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(1, {
+        where: { ...base, pinned: true },
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+        include: AUTHOR,
       });
+      expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(2, {
+        where: { ...base, id: { notIn: ['pin1', 'pin2'] } },
+        orderBy: { createdAt: 'desc' },
+        skip: 0,
+        take: 10,
+        include: AUTHOR,
+      });
+      expect(result).toEqual({
+        pinned: [{ id: 'pin1' }, { id: 'pin2' }],
+        items: [{ id: 'a' }],
+        total: 13,
+        page: 1,
+        pageSize: 10,
+        totalPages: 2,
+      });
+    });
+
+    it('2페이지부터는 고정 글을 내려주지 않지만 목록에서는 계속 제외한다', async () => {
+      mockPrisma.post.findMany
+        .mockResolvedValueOnce([{ id: 'pin1' }])
+        .mockResolvedValueOnce([{ id: 'b' }]);
+      mockPrisma.post.count.mockResolvedValue(11);
+
+      const result = await service.findAll({ page: 2, pageSize: 10 });
+
+      expect(result.pinned).toEqual([]);
+      expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: expect.objectContaining({ id: { notIn: ['pin1'] } }),
+          skip: 10,
+        }),
+      );
+    });
+
+    it('category가 있으면 고정 조회·목록 모두 그 카테고리로 거른다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+
+      await service.findAll({ page: 1, pageSize: 10, category: '학습' });
+
+      for (const n of [1, 2]) {
+        expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
+          n,
+          expect.objectContaining({
+            where: expect.objectContaining({ category: '학습' }),
+          }),
+        );
+      }
+    });
+
+    it('글이 없어도 totalPages는 최소 1이다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+
+      const result = await service.findAll({});
+
+      expect(result.totalPages).toBe(1);
+      expect(result.total).toBe(0);
     });
   });
 
   describe('findMine', () => {
-    it('발행·비공개 여부 상관없이 내가 쓴 글 전체를 고정 우선·최신순으로 조회한다', async () => {
-      mockPrisma.post.findMany.mockResolvedValue([]);
+    it('내 글 전체(발행·비공개 무관)를 같은 방식으로 조회하고 카테고리별 개수를 함께 준다', async () => {
+      mockPrisma.post.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: 'a' }]);
+      mockPrisma.post.count.mockResolvedValue(1);
+      mockPrisma.post.groupBy.mockResolvedValue([
+        { category: '학습', _count: { _all: 3 } },
+        { category: '이직', _count: { _all: 1 } },
+      ]);
 
-      await service.findMine('user-1');
-
-      expect(mockPrisma.post.findMany).toHaveBeenCalledWith({
-        where: { userId: 'user-1' },
-        orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
-        include: { user: { select: { name: true, email: true } } },
+      const result = await service.findMine('user-1', {
+        page: 1,
+        pageSize: 10,
       });
+
+      expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: { userId: 'user-1', pinned: true },
+        }),
+      );
+      expect(mockPrisma.post.groupBy).toHaveBeenCalledWith({
+        by: ['category'],
+        where: { userId: 'user-1' },
+        _count: { _all: true },
+      });
+      expect(result.categoryCounts).toEqual({ 학습: 3, 이직: 1 });
+      expect(result.items).toEqual([{ id: 'a' }]);
+    });
+
+    it('category 필터가 있어도 카테고리별 개수는 필터 없이 전체 기준으로 센다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+      mockPrisma.post.groupBy.mockResolvedValue([]);
+
+      await service.findMine('user-1', { category: '학습' });
+
+      expect(mockPrisma.post.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'user-1' } }),
+      );
     });
   });
 
