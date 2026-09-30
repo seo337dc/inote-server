@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { RenameCategoryDto } from './dto/rename-category.dto';
 
 const MAX_DEPTH = 3;
 const DEFAULT_CATEGORY_NAMES = ['학습', '이직', '일기', '블로그', '기록'];
@@ -48,5 +49,14 @@ export class CategoriesService {
     return this.prisma.postCategory.create({
       data: { userId, name: dto.name, parentId: dto.parentId ?? null, depth },
     });
+  }
+
+  // TODO(작업 #6): 이름 수정 구현 — 지금은 테스트가 "빨간색"으로 시작하도록 자리만 잡아 둔 상태.
+  // 테스트(categories.rename.spec.ts)를 하나씩 통과시키며 채운다.
+  rename(userId: string, id: string, dto: RenameCategoryDto): Promise<never> {
+    void userId;
+    void id;
+    void dto;
+    return Promise.reject(new Error('rename: 아직 구현하지 않았습니다.'));
   }
 }
