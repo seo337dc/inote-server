@@ -12,9 +12,9 @@
 | 항목 | 결정 |
 |---|---|
 | 이전 대상 | Neon PostgreSQL 2개 → Supabase |
-| 프로젝트 개수 | **2개로 분리**: `inote-prod`(운영), `inote-dev`(개발·통합 테스트) — 무료 플랜의 활성 프로젝트 2개 한도를 그대로 사용 |
+| 프로젝트 개수 | ~~2개로 분리(`inote-prod`·`inote-dev`)~~ → **2026-10-02 변경: 프로젝트 1개만 사용** (`wgtywtbmpwrtjzvknhwa`, 리전 East US (Ohio)). 로컬과 운영이 다시 같은 DB를 쓰게 되므로 통합 테스트용 DB가 필요해지면 두 번째 프로젝트를 만든다(무료 2개 한도) |
 | AI DB | **BE DB에 합친다** (별도 프로젝트를 만들지 않음) |
-| 리전 | 미국 동부(us-east-1, 버지니아) — Render(오하이오/버지니아)·Vercel(iad1)과 가깝게 |
+| 리전 | **East US (Ohio, us-east-2)** — Render BE가 Ohio, Vercel(FE·AI) 서버 코드가 `iad1`(워싱턴)이라 모두 미국 동부 |
 | 진행 시점 | BE가 Render 정지로 내려가 있어 사용자 영향 없음 → 지금 전환하기에 좋은 시점 |
 
 ### 왜 2개로 나누나
@@ -58,7 +58,7 @@
 - [ ] 연결 주소 확보(값은 적지 않음): prod·dev 각각 Session pooler 5432(BE), Transaction pooler 6543(AI)
 - [ ] 로컬에 `pg_dump`/`psql` 설치 (현재 없음 — 예: `brew install libpq`). **버전은 Neon 서버 버전 이상**이어야 덤프 가능
 - [ ] Neon 서버 버전 확인 (`show server_version`)
-- [ ] ⚠️ **최우선 — Neon 전체 백업**을 로컬에 저장 (롤백용, 저장소에 커밋하지 않음 — 개인 데이터). Neon `inote-server` 프로젝트가 무료 컴퓨트 한도(월 100 CU-hrs, 사용 104.35)를 넘겨 **일시정지 경고**가 떠 있어 접속이 막히기 전에 받아 두는 것이 안전. `pg_dump`가 없으면 Python(psycopg)으로 테이블별 내보내기도 가능 (2026-09-30 "다음에 하기로" 보류)
+- [x] **Neon 전체 백업 완료 (2026-10-02)** — 이 PC의 `~/inote-backups/2026-10-02/`(저장소 밖, 폴더 700·파일 600, 커밋 금지). 방식: `pg_dump` 없이 Python(psycopg)으로 읽기 전용 연결 후 테이블별 `COPY ... TO STDOUT` 텍스트 파일 + `manifest.json`(행 수). BE DB 22개 테이블·198행, AI DB 2개 테이블·21행(세션 5·대화 16). 복원은 새 DB에 스키마를 만든 뒤 `COPY ... FROM STDIN`으로 같은 파일을 넣고 `manifest.json`의 행 수와 대조
 - [ ] Neon 데이터 행 수 기록 (이전 후 대조용): 테이블별 `count(*)`
 
 ### 4-2. 스키마 (BE)
@@ -145,9 +145,19 @@
 | 날짜 | 한 일 | 결과·메모 |
 |---|---|---|
 | 2026-09-30 | 데이터 규모 측정, 결정(프로젝트 2개·AI DB 합치기), 이 문서 작성 | 준비 완료, 이전 시작 전 |
+| 2026-10-02 | Render BE가 시작 단계 `prisma migrate deploy`에서 `P1001: Can't reach database server`로 반복 재시작 — Neon 컴퓨트가 깨어나는 데 5~6초 걸려 Prisma 기본 연결 대기(약 5초)를 넘김 | 연결 주소에 `connect_timeout=30` 추가 권장. Neon 한도·콜드 스타트가 이전의 직접 이유 |
+| 2026-10-02 | Neon 데이터 백업 완료(COPY 파일, 행 수 목록) | 이전 시작 준비 완료 |
+| 2026-10-02 | Supabase 프로젝트 1개 생성(Ohio), 접속 확인(Session pooler 5432, PostgreSQL 17.11). 연결 주소는 로컬 전용 `inote-server/.env.supabase.local`(gitignore) | 따옴표·`pgbouncer=true`·6543 포트를 정리해야 접속됨, 비밀번호 불일치는 재설정으로 해결 |
+| 2026-10-02 | **스키마 기준선 적용**: 기존 마이그레이션 3개를 `20261002000000_baseline` 하나로 교체(로컬 작업 트리, **아직 커밋·푸시 안 함**) → `migrate deploy`로 Supabase에 적용 → `migrate diff`로 Prisma 스키마·Neon과 비교해 **차이 없음** 확인 | 테이블 21개 + `_prisma_migrations` |
+| 2026-10-02 | 모든 `public` 테이블(22개)에 행 수준 보안(RLS) 활성화 | Prisma 접속 사용자는 RLS를 우회하므로 앱 동작에는 영향 없음, API로의 공개 접근은 차단 |
 | 2026-09-30 | Neon BE DB 비밀번호 재설정(채팅 노출 대응), 로컬 `.env` 교체·BE 재시작·접속 확인 | 정상. Neon BE 프로젝트에 무료 한도 일시정지 경고 확인 → 백업을 최우선 항목으로 표시, 실행은 보류 |
 
 ## 8. 트러블슈팅 (겪으면 채우기)
+
+- **Supabase 연결 주소 정리**: Connect 화면의 주소를 그대로 쓰면 접속이 안 된다. ① 문서·메모의 생략 표시 `…`가 들어간 호스트를 복사하지 말 것(실제 호스트는 `aws-0-us-east-2.pooler.supabase.com`) ② 큰따옴표 제거 ③ BE(상시 서버)는 **Session pooler 5432** — Transaction pooler(6543)용 `?pgbouncer=true`는 psycopg 등 일부 도구에서 오류(`invalid URI query parameter`)이므로 세션 풀러에선 뺀다 ④ 비밀번호는 특수문자 없는 영문+숫자 24자로(연결 주소에 퍼센트 인코딩 문제 회피). 비밀번호 불일치(`password authentication failed`)는 대시보드에서 재설정으로 해결.
+- **Supabase 비밀번호 강도 거부**: "Password not secure enough" — 직접 만든 값이 짧거나 단순하면 거부됨. 터미널에서 `openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24 | pbcopy`로 만든 값은 통과.
+- **기준선 마이그레이션은 Render가 Supabase를 가리키기 전에 `main`에 올리지 않는다**: Render가 시작 때 `prisma migrate deploy`를 실행하는데, 아직 Neon(옛 마이그레이션 3개 기록)을 쓰는 상태에서 baseline이 올라가면 "이미 테이블이 있다"며 시작에 실패한다.
+- **오류 메시지에 연결 주소가 그대로 찍힌다**: psycopg 연결 오류 메시지에 `postgresql://user:비밀번호@...`가 포함되어 한 번 노출됐다. 진단 스크립트는 예외 메시지를 정규식으로 가려서(`<연결주소 생략>`) 출력한다.
 
 -
 
