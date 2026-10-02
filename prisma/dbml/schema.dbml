@@ -235,6 +235,8 @@ Table Post {
   createdAt DateTime [default: `now()`, not null, note: '작성일']
   updatedAt DateTime [not null, note: '수정일']
   publishedAt DateTime [note: '발행 시각 (null = 아직 저장 안 한 draft, 목록에 노출 안 됨)']
+  lastEditedAt DateTime [note: '마지막 저장(발행) 시각 — 첫 발행 땐 publishedAt과 같고, 이미 발행된 글을 다시 저장할 때만 갱신.
+핀·비공개 전환·자동 임시저장으로는 안 바뀜 (updatedAt과 다른 점). 목록 정렬 기준. draft는 null']
   isPrivate Boolean [not null, default: false, note: '비공개 여부 — true면 홈/전체 목록에서 빠지고, 작성자 본인 외엔 상세 조회도 막힘']
   pinned Boolean [not null, default: false, note: '고정 여부 — true면 홈/나의 글 목록 맨 위에 노출']
   thumbnailUrl String [note: '썸네일 이미지 URL (R2 업로드) — 출간 화면에서 지정, 없으면 null']

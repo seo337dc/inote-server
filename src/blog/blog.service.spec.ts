@@ -16,6 +16,12 @@ const EMPTY_DRAFT = {
   content: { in: ['', '<p></p>'] },
 };
 
+// 서비스의 LIST_ORDER와 같은 정렬 — 마지막 저장순, draft(null)는 맨 뒤, 같으면 생성순
+const LIST_ORDER = [
+  { lastEditedAt: { sort: 'desc', nulls: 'last' } },
+  { createdAt: 'desc' },
+];
+
 describe('BlogService', () => {
   let service: BlogService;
 
@@ -107,6 +113,20 @@ describe('BlogService', () => {
       }
     });
 
+    it('고정 글·일반 글 모두 마지막 저장순(lastEditedAt)으로 정렬한다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+
+      await service.findAll({});
+
+      for (const n of [1, 2]) {
+        expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
+          n,
+          expect.objectContaining({ orderBy: LIST_ORDER }),
+        );
+      }
+    });
+
     it('글이 없어도 totalPages는 최소 1이다', async () => {
       mockPrisma.post.findMany.mockResolvedValue([]);
       mockPrisma.post.count.mockResolvedValue(0);
@@ -127,7 +147,7 @@ describe('BlogService', () => {
       pinned: true,
     };
 
-    it('비로그인이면 발행된 공개 글만 제목·카테고리만 골라 최신순으로 조회한다', async () => {
+    it('비로그인이면 발행된 공개 글만 제목·카테고리만 골라 마지막 저장순으로 조회한다', async () => {
       mockPrisma.post.findMany.mockResolvedValue([{ id: 'a' }]);
 
       const result = await service.findOutline();
@@ -135,7 +155,7 @@ describe('BlogService', () => {
       expect(mockPrisma.post.findMany).toHaveBeenCalledWith({
         where: { publishedAt: { not: null }, OR: [{ isPrivate: false }] },
         select: SELECT,
-        orderBy: { createdAt: 'desc' },
+        orderBy: LIST_ORDER,
         take: 500,
       });
       expect(result).toEqual([{ id: 'a' }]);
@@ -186,6 +206,21 @@ describe('BlogService', () => {
       });
       expect(result.categoryCounts).toEqual({ 학습: 3, 이직: 1 });
       expect(result.items).toEqual([{ id: 'a' }]);
+    });
+
+    it('내 글도 마지막 저장순으로 정렬하고, draft(lastEditedAt null)는 맨 뒤로 보낸다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+      mockPrisma.post.groupBy.mockResolvedValue([]);
+
+      await service.findMine('user-1', {});
+
+      for (const n of [1, 2]) {
+        expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
+          n,
+          expect.objectContaining({ orderBy: LIST_ORDER }),
+        );
+      }
     });
 
     it('category 필터가 있어도 카테고리별 개수는 필터 없이 전체 기준으로 센다', async () => {
@@ -418,7 +453,12 @@ describe('BlogService', () => {
 
       expect(mockPrisma.post.update).toHaveBeenCalledWith({
         where: { id: 'p1' },
-        data: { title: '제목', content: '본문', publishedAt: expect.any(Date) },
+        data: {
+          title: '제목',
+          content: '본문',
+          publishedAt: expect.any(Date),
+          lastEditedAt: expect.any(Date),
+        },
         include: expect.any(Object),
       });
       expect(global.fetch).toHaveBeenCalledWith(
@@ -456,6 +496,55 @@ describe('BlogService', () => {
           data: expect.objectContaining({ publishedAt: existingPublishedAt }),
         }),
       );
+    });
+
+    it('처음 발행하면 publishedAt과 lastEditedAt이 같은 시각이다 (= 수정 안 함)', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'user-1',
+        publishedAt: null,
+      });
+      mockPrisma.post.update.mockResolvedValue({ id: 'p1', content: '' });
+
+      await service.update('user-1', 'p1', { publish: true });
+
+      const { data } = mockPrisma.post.update.mock.calls[0][0];
+      expect(data.publishedAt).toBeInstanceOf(Date);
+      expect(data.lastEditedAt).toBe(data.publishedAt);
+    });
+
+    it('이미 발행된 글을 다시 저장하면 lastEditedAt만 지금 시각으로 바뀐다', async () => {
+      const existingPublishedAt = new Date('2026-01-01');
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'user-1',
+        publishedAt: existingPublishedAt,
+      });
+      mockPrisma.post.update.mockResolvedValue({ id: 'p1', content: '' });
+
+      const before = Date.now();
+      await service.update('user-1', 'p1', { publish: true });
+
+      const { data } = mockPrisma.post.update.mock.calls[0][0];
+      expect(data.publishedAt).toBe(existingPublishedAt);
+      expect(data.lastEditedAt.getTime()).toBeGreaterThanOrEqual(before);
+    });
+
+    it('publish 없이 저장(임시저장·핀·비공개 전환)하면 lastEditedAt을 건드리지 않는다', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'user-1',
+        publishedAt: new Date('2026-09-01'),
+      });
+      mockPrisma.post.update.mockResolvedValue({ id: 'p1' });
+
+      await service.update('user-1', 'p1', { content: '자동저장' });
+      await service.update('user-1', 'p1', { pinned: true });
+      await service.update('user-1', 'p1', { isPrivate: true });
+
+      for (const [arg] of mockPrisma.post.update.mock.calls) {
+        expect(arg.data).not.toHaveProperty('lastEditedAt');
+      }
     });
 
     it('내용이 비어 있으면 발행이어도 요약을 요청하지 않는다', async () => {

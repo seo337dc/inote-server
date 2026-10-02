@@ -17,6 +17,13 @@ const DETAIL_INCLUDE = {
   aiSummary: { select: { summary: true } },
 };
 
+// 목록·트리 정렬: 마지막으로 저장(발행)한 글이 위로. draft는 lastEditedAt이 null이라 맨 뒤로 보내고
+// (Postgres는 DESC에서 null을 맨 앞에 두므로 nulls: 'last' 명시), 같으면 생성순.
+const LIST_ORDER: Prisma.PostOrderByWithRelationInput[] = [
+  { lastEditedAt: { sort: 'desc', nulls: 'last' } },
+  { createdAt: 'desc' },
+];
+
 const EMPTY_CONTENT = ['', '<p></p>'];
 const PINNED_PAGE_SIZE = 3;
 const OUTLINE_LIMIT = 500;
@@ -50,7 +57,7 @@ export class BlogService {
     const [pinned, pinnedTotal, items, listTotal] = await Promise.all([
       this.prisma.post.findMany({
         where: pinnedWhere,
-        orderBy: { createdAt: 'desc' },
+        orderBy: LIST_ORDER,
         skip: (pinnedPage - 1) * PINNED_PAGE_SIZE,
         take: PINNED_PAGE_SIZE,
         include: AUTHOR_SELECT,
@@ -58,7 +65,7 @@ export class BlogService {
       this.prisma.post.count({ where: pinnedWhere }),
       this.prisma.post.findMany({
         where: listWhere,
-        orderBy: { createdAt: 'desc' },
+        orderBy: LIST_ORDER,
         skip: (page - 1) * pageSize,
         take: pageSize,
         include: AUTHOR_SELECT,
@@ -108,7 +115,7 @@ export class BlogService {
         isPrivate: true,
         pinned: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: LIST_ORDER,
       take: OUTLINE_LIMIT,
     });
   }
@@ -193,11 +200,15 @@ export class BlogService {
       throw new ForbiddenException('본인이 작성한 글만 수정할 수 있습니다.');
     }
     const { publish, ...fields } = dto;
+    // 진짜 저장(발행)일 때만 lastEditedAt을 갱신 — 첫 발행이면 publishedAt과 같은 시각으로 맞춘다
+    const now = new Date();
     const updated = await this.prisma.post.update({
       where: { id },
       data: {
         ...fields,
-        ...(publish ? { publishedAt: post.publishedAt ?? new Date() } : {}),
+        ...(publish
+          ? { publishedAt: post.publishedAt ?? now, lastEditedAt: now }
+          : {}),
       },
       include: DETAIL_INCLUDE,
     });
