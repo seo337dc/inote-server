@@ -28,6 +28,18 @@ const EMPTY_CONTENT = ['', '<p></p>'];
 const PINNED_PAGE_SIZE = 3;
 const OUTLINE_LIMIT = 500;
 
+// 검색어가 있으면 제목 또는 본문에 들어 있는 글만 (대소문자 무시). 본문은 HTML 그대로라
+// 태그 이름(strong 등)으로 검색하면 걸릴 수 있다 — 필요해지면 텍스트 전용 컬럼을 따로 둔다.
+function searchWhere(q?: string): Prisma.PostWhereInput {
+  if (!q) return {};
+  return {
+    OR: [
+      { title: { contains: q, mode: 'insensitive' } },
+      { content: { contains: q, mode: 'insensitive' } },
+    ],
+  };
+}
+
 // 제목도 본문도 없는 발행 전 글 — 글쓰기 화면에 들어오기만 해도 생기는 빈 draft라서
 // 목록·알림에는 draft로 취급하지 않는다 (사용자가 뭐라도 쓰면 그때부터 draft).
 const EMPTY_DRAFT: Prisma.PostWhereInput = {
@@ -92,6 +104,7 @@ export class BlogService {
         publishedAt: { not: null },
         isPrivate: false,
         ...(query.category ? { category: query.category } : {}),
+        ...searchWhere(query.q),
       },
       query,
     );
@@ -164,6 +177,7 @@ export class BlogService {
           userId,
           NOT: EMPTY_DRAFT,
           ...(query.category ? { category: query.category } : {}),
+          ...searchWhere(query.q),
         },
         query,
       ),

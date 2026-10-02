@@ -16,6 +16,14 @@ const EMPTY_DRAFT = {
   content: { in: ['', '<p></p>'] },
 };
 
+// 서비스의 searchWhere와 같은 조건 — 제목 또는 본문에 검색어 (대소문자 무시)
+const SEARCH = (q: string) => ({
+  OR: [
+    { title: { contains: q, mode: 'insensitive' } },
+    { content: { contains: q, mode: 'insensitive' } },
+  ],
+});
+
 // 서비스의 LIST_ORDER와 같은 정렬 — 마지막 저장순, draft(null)는 맨 뒤, 같으면 생성순
 const LIST_ORDER = [
   { lastEditedAt: { sort: 'desc', nulls: 'last' } },
@@ -111,6 +119,58 @@ describe('BlogService', () => {
           }),
         );
       }
+    });
+
+    it('검색어(q)가 있으면 공개 조건은 그대로 두고 제목·본문 OR 조건을 고정 글·일반 글 모두에 붙인다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+
+      await service.findAll({ q: '리액트' });
+
+      for (const n of [1, 2]) {
+        expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
+          n,
+          expect.objectContaining({
+            where: {
+              publishedAt: { not: null },
+              isPrivate: false,
+              ...SEARCH('리액트'),
+              pinned: n === 1,
+            },
+          }),
+        );
+      }
+      // 개수도 같은 조건으로 센다 (total·totalPages가 검색 결과 기준이 되도록)
+      expect(mockPrisma.post.count).toHaveBeenNthCalledWith(1, {
+        where: expect.objectContaining(SEARCH('리액트')),
+      });
+    });
+
+    it('검색어와 카테고리를 함께 주면 둘 다 만족하는 글만 찾는다 (카테고리 안에서 검색)', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+
+      await service.findAll({ category: '학습', q: '리액트' });
+
+      expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: '학습',
+            ...SEARCH('리액트'),
+          }),
+        }),
+      );
+    });
+
+    it('검색어가 없으면 OR 조건을 붙이지 않는다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+
+      await service.findAll({});
+
+      const { where } = mockPrisma.post.findMany.mock.calls[0][0];
+      expect(where).not.toHaveProperty('OR');
     });
 
     it('고정 글·일반 글 모두 마지막 저장순(lastEditedAt)으로 정렬한다', async () => {
@@ -221,6 +281,42 @@ describe('BlogService', () => {
           expect.objectContaining({ orderBy: LIST_ORDER }),
         );
       }
+    });
+
+    it('검색어(q)가 있으면 내 글 안에서만 제목·본문으로 찾는다 (다른 사람 글은 대상 아님)', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+      mockPrisma.post.groupBy.mockResolvedValue([]);
+
+      await service.findMine('user-1', { q: '리액트' });
+
+      for (const n of [1, 2]) {
+        expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
+          n,
+          expect.objectContaining({
+            where: {
+              userId: 'user-1',
+              NOT: EMPTY_DRAFT,
+              ...SEARCH('리액트'),
+              pinned: n === 1,
+            },
+          }),
+        );
+      }
+    });
+
+    it('검색 중이어도 카테고리별 개수는 검색어 없이 전체 기준으로 센다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+      mockPrisma.post.groupBy.mockResolvedValue([]);
+
+      await service.findMine('user-1', { q: '리액트' });
+
+      expect(mockPrisma.post.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'user-1', NOT: EMPTY_DRAFT },
+        }),
+      );
     });
 
     it('category 필터가 있어도 카테고리별 개수는 필터 없이 전체 기준으로 센다', async () => {
