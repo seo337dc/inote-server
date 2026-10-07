@@ -129,18 +129,28 @@ export class BlogService {
     };
   }
 
+  // 전체 공개 글. userId를 주면 그 작성자의 공개 글만 보고, 응답에 그 작성자(author)를 함께 준다 —
+  // 글이 0개(검색 결과 없음 포함)여도 화면 제목에 이름을 쓸 수 있고, 없는 사용자면 author가 null이다.
   async findAll(query: ListPostsQueryDto) {
-    return this.listPage(
-      {
-        publishedAt: { not: null },
-        isPrivate: false,
-        ...combineWhere(
-          await this.categoryFilter(query.category),
-          searchWhere(query.q),
-        ),
-      },
-      query,
-    );
+    const where: Prisma.PostWhereInput = {
+      publishedAt: { not: null },
+      isPrivate: false,
+      ...(query.userId ? { userId: query.userId } : {}),
+      ...combineWhere(
+        await this.categoryFilter(query.category),
+        searchWhere(query.q),
+      ),
+    };
+    if (!query.userId) return this.listPage(where, query);
+
+    const [page, author] = await Promise.all([
+      this.listPage(where, query),
+      this.prisma.user.findUnique({
+        where: { id: query.userId },
+        select: { id: true, name: true },
+      }),
+    ]);
+    return { ...page, author };
   }
 
   // 카테고리 이름으로 거르는 조건 — 그 카테고리의 글과 그 아래(하위) 카테고리의 글을 모두 포함한다.

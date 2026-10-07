@@ -64,4 +64,12 @@ export class ListPostsQueryDto {
   @IsString()
   @MaxLength(SEARCH_QUERY_MAX)
   q?: string;
+
+  @ApiPropertyOptional({
+    description:
+      '작성자 id로 필터 (공개 목록 전용) — 그 작성자의 공개 글만, 응답에 author가 함께 내려감',
+  })
+  @IsOptional()
+  @IsString()
+  userId?: string;
 }

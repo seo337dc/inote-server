@@ -109,6 +109,15 @@ describe('BlogService', () => {
       'page를 넘겨도 pinned 조회의 skip은 변하지 않는다 (두 영역이 독립적)',
     );
 
+    // TODO(테스트): 작성자별 공개 글 목록 (구현됨: findAll의 userId) — 나중에 작성할 테스트 목록.
+    //  mock: mockPrisma.user.findUnique를 추가한다 (기존 mockPrisma에는 user가 없음)
+    //  - userId가 있으면 고정 조회·일반 조회·count 모두 where에 { userId }가 더해진다 (publishedAt not null, isPrivate false는 그대로)
+    //  - 그 작성자의 비공개·임시저장 글은 본인이 불러도 이 목록에 나오지 않는다 (where에 isPrivate: false, publishedAt not null)
+    //  - 응답에 author가 { id, name }으로 붙는다 (user.findUnique select는 id·name만 — 이메일 등 노출 금지)
+    //  - 없는 사용자(findUnique가 null)면 author는 null이고 목록은 비어 있다 (오류 아님)
+    //  - 글이 0개(검색 결과 없음)여도 author는 채워진다
+    //  - userId가 없으면 user 조회를 하지 않고 응답에 author 필드 자체가 없다
+    //  - category·q와 함께 써도 서로 덮어쓰지 않는다 (userId는 최상위 키라 OR와 충돌 없음)
     // TODO(테스트): 목록 글마다 categoryPath (구현됨: withCategoryPaths) — 나중에 작성할 테스트 목록.
     //  mock: mockPrisma.postCategory.findMany (post mock에 userId·category를 둔다)
     //  - 고정 글·일반 글 모두에 categoryPath가 붙는다 (예: 학습 > AI 글 → ['학습', 'AI'])
