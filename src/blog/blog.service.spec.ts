@@ -116,6 +116,11 @@ describe('BlogService', () => {
     //  - 응답에 author가 { id, name }으로 붙는다 (user.findUnique select는 id·name만 — 이메일 등 노출 금지)
     //  - 없는 사용자(findUnique가 null)면 author는 null이고 목록은 비어 있다 (오류 아님)
     //  - 글이 0개(검색 결과 없음)여도 author는 채워진다
+    //  - 카테고리 목록(categories): 그 작성자의 PostCategory 중 공개 글이 있는 것만 — 자기 이름의 공개 글이 있거나 하위 중 하나라도 있으면 포함
+    //    (비공개 글만 있는 카테고리·글이 없는 카테고리는 제외 → 이름이 새지 않는다). select는 id·name·parentId·depth·createdAt, 정렬 depth→createdAt
+    //  - 카테고리별 개수(categoryCounts): post.groupBy({ by: ['category'], where: { userId, publishedAt not null, isPrivate false } }) 결과를 {이름: 개수}로
+    //  - 개수는 category·q 필터와 상관없이 그 작성자의 공개 글 전체 기준 (나의 글 categoryCounts와 같은 방식)
+    //  - 순환 데이터(parentId가 서로를 가리킴)여도 끝난다 / userId가 없으면 위 둘 다 조회하지 않고 응답에 없다
     //  - userId가 없으면 user 조회를 하지 않고 응답에 author 필드 자체가 없다
     //  - category·q와 함께 써도 서로 덮어쓰지 않는다 (userId는 최상위 키라 OR와 충돌 없음)
     // TODO(테스트): 목록 글마다 categoryPath (구현됨: withCategoryPaths) — 나중에 작성할 테스트 목록.

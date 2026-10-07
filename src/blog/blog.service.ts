@@ -143,14 +143,71 @@ export class BlogService {
     };
     if (!query.userId) return this.listPage(where, query);
 
-    const [page, author] = await Promise.all([
+    const [page, author, summary] = await Promise.all([
       this.listPage(where, query),
       this.prisma.user.findUnique({
         where: { id: query.userId },
         select: { id: true, name: true },
       }),
+      this.publicCategorySummary(query.userId),
     ]);
-    return { ...page, author };
+    return { ...page, author, ...summary };
+  }
+
+  // 작성자 페이지의 카테고리 목록 — 그 사람의 카테고리 중 "공개 글이 있는 것"(그 아래 하위에 있는 경우 포함)과
+  // 공개 글의 카테고리별 개수(직속, 이름 기준). 비공개 글만 있는 카테고리는 이름도 내려가지 않는다.
+  // 개수는 목록의 category·q 필터와 상관없이 그 사람의 공개 글 전체 기준이다 (나의 글의 categoryCounts와 같은 방식).
+  private async publicCategorySummary(userId: string) {
+    const [grouped, rows] = await Promise.all([
+      this.prisma.post.groupBy({
+        by: ['category'],
+        where: { userId, publishedAt: { not: null }, isPrivate: false },
+        _count: { _all: true },
+      }),
+      this.prisma.postCategory.findMany({
+        where: { userId },
+        select: {
+          id: true,
+          name: true,
+          parentId: true,
+          depth: true,
+          createdAt: true,
+        },
+        orderBy: [{ depth: 'asc' }, { createdAt: 'asc' }],
+      }),
+    ]);
+    const categoryCounts = Object.fromEntries(
+      grouped.map((g) => [g.category, g._count._all]),
+    );
+
+    const childrenOf = new Map<string, typeof rows>();
+    for (const row of rows) {
+      if (row.parentId) {
+        childrenOf.set(row.parentId, [
+          ...(childrenOf.get(row.parentId) ?? []),
+          row,
+        ]);
+      }
+    }
+    // 자기 직속 글이 있거나 하위 중 하나라도 공개 글이 있으면 보인다 (순환 데이터여도 끝나게 방문 기록을 둔다)
+    const hasPublicPosts = (
+      row: (typeof rows)[number],
+      visited = new Set<string>(),
+    ): boolean => {
+      if (visited.has(row.id)) return false;
+      visited.add(row.id);
+      return (
+        (categoryCounts[row.name] ?? 0) > 0 ||
+        (childrenOf.get(row.id) ?? []).some((child) =>
+          hasPublicPosts(child, visited),
+        )
+      );
+    };
+
+    return {
+      categories: rows.filter((row) => hasPublicPosts(row)),
+      categoryCounts,
+    };
   }
 
   // 카테고리 이름으로 거르는 조건 — 그 카테고리의 글과 그 아래(하위) 카테고리의 글을 모두 포함한다.
