@@ -109,6 +109,14 @@ describe('BlogService', () => {
       'page를 넘겨도 pinned 조회의 skip은 변하지 않는다 (두 영역이 독립적)',
     );
 
+    // TODO(테스트): 목록 글마다 categoryPath (구현됨: withCategoryPaths) — 나중에 작성할 테스트 목록.
+    //  mock: mockPrisma.postCategory.findMany (post mock에 userId·category를 둔다)
+    //  - 고정 글·일반 글 모두에 categoryPath가 붙는다 (예: 학습 > AI 글 → ['학습', 'AI'])
+    //  - 이번 페이지 글들의 작성자 카테고리를 한 번에 읽는다 (where.userId.in = 중복 없는 작성자 id들, 조회 1번)
+    //  - 작성자마다 트리가 달라서 같은 이름이어도 글마다 자기 작성자의 트리로 경로를 만든다
+    //  - 트리에 없는 이름이면 [category] / userId가 null이면 조회 없이 [category] / category가 빈 문자열이면 []
+    //  - 대상 글이 없거나 모두 조회 불필요(작성자 없음·카테고리 빈 값)면 카테고리를 읽지 않는다
+    //  - findMine도 같은 응답 모양 (categoryCounts는 그대로)
     // TODO(테스트): category 필터가 하위 카테고리까지 포함 (구현됨: categoryFilter) — 나중에 작성할 테스트 목록.
     //  mock: mockPrisma.postCategory.findMany (기본은 빈 배열 = 트리 없음). 공개 목록은 where가
     //  { user: { categories: { some: { name } } } }, 내 글 목록은 { userId } 로 트리를 읽는다.
@@ -281,7 +289,8 @@ describe('BlogService', () => {
         _count: { _all: true },
       });
       expect(result.categoryCounts).toEqual({ 학습: 3, 이직: 1 });
-      expect(result.items).toEqual([{ id: 'a' }]);
+      // 목록의 글에는 카테고리 경로(categoryPath)가 붙는다 — 이 mock 글은 category가 없어 빈 배열
+      expect(result.items).toEqual([{ id: 'a', categoryPath: [] }]);
     });
 
     it('내 글도 마지막 저장순으로 정렬하고, draft(lastEditedAt null)는 맨 뒤로 보낸다', async () => {

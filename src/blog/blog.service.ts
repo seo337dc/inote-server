@@ -49,6 +49,23 @@ function combineWhere(
   return a.OR && b.OR ? { AND: [a, b] } : { ...a, ...b };
 }
 
+type CategoryRow = { id: string; name: string; parentId: string | null };
+
+// 작성자 한 명의 카테고리 목록(깊이·생성순으로 정렬돼 있어야 함)에서 name의 경로를 만든다 — 최상위부터 name까지의 이름.
+// 같은 이름이 여러 곳이면 목록에서 먼저 나온 것(가장 얕고 먼저 만든 것)을 쓴다. 목록에 없으면 [name].
+function pathOf(categories: CategoryRow[], name: string): string[] {
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  const path: string[] = [];
+  const visited = new Set<string>(); // 잘못된 순환 데이터여도 무한 루프에 빠지지 않게
+  let current = categories.find((c) => c.name === name);
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    path.unshift(current.name);
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+  return path.length > 0 ? path : [name];
+}
+
 // 제목도 본문도 없는 발행 전 글 — 글쓰기 화면에 들어오기만 해도 생기는 빈 draft라서
 // 목록·알림에는 draft로 취급하지 않는다 (사용자가 뭐라도 쓰면 그때부터 draft).
 const EMPTY_DRAFT: Prisma.PostWhereInput = {
@@ -94,12 +111,17 @@ export class BlogService {
       this.prisma.post.count({ where: listWhere }),
     ]);
 
+    const [pinnedWithPath, itemsWithPath] = await Promise.all([
+      this.withCategoryPaths(pinned),
+      this.withCategoryPaths(items),
+    ]);
+
     return {
-      pinned,
+      pinned: pinnedWithPath,
       pinnedPage,
       pinnedTotal,
       pinnedTotalPages: Math.max(1, Math.ceil(pinnedTotal / PINNED_PAGE_SIZE)),
-      items,
+      items: itemsWithPath,
       total: pinnedTotal + listTotal,
       page,
       pageSize,
@@ -235,23 +257,43 @@ export class BlogService {
     if (!post.category) return [];
     if (!post.userId) return [post.category];
 
-    // 같은 이름이 여러 곳에 있을 수 있어(생성 시 중복을 막지 않음) 가장 얕고 먼저 만든 것이 앞에 오게 정렬해 첫 번째를 쓴다
     const categories = await this.prisma.postCategory.findMany({
       where: { userId: post.userId },
       select: { id: true, name: true, parentId: true },
       orderBy: [{ depth: 'asc' }, { createdAt: 'asc' }],
     });
-    const byId = new Map(categories.map((c) => [c.id, c]));
+    return pathOf(categories, post.category);
+  }
 
-    const path: string[] = [];
-    const visited = new Set<string>(); // 잘못된 순환 데이터여도 무한 루프에 빠지지 않게
-    let current = categories.find((c) => c.name === post.category);
-    while (current && !visited.has(current.id)) {
-      visited.add(current.id);
-      path.unshift(current.name);
-      current = current.parentId ? byId.get(current.parentId) : undefined;
+  // 목록의 각 글에 categoryPath를 붙인다 — 이번 페이지 글들의 작성자(보통 소수) 카테고리를 한 번에 읽어 글마다 경로를 만든다.
+  // 작성자가 없거나 category가 빈 글은 조회 없이 각각 [category] / []. 대상이 하나도 없으면 DB를 읽지 않는다.
+  private async withCategoryPaths<
+    T extends { userId: string | null; category: string },
+  >(posts: T[]): Promise<(T & { categoryPath: string[] })[]> {
+    const userIds = [
+      ...new Set(
+        posts.filter((p) => p.category && p.userId).map((p) => p.userId!),
+      ),
+    ];
+    const byUser = new Map<string, CategoryRow[]>();
+    if (userIds.length > 0) {
+      const rows = await this.prisma.postCategory.findMany({
+        where: { userId: { in: userIds } },
+        select: { id: true, userId: true, name: true, parentId: true },
+        orderBy: [{ depth: 'asc' }, { createdAt: 'asc' }],
+      });
+      for (const row of rows) {
+        byUser.set(row.userId, [...(byUser.get(row.userId) ?? []), row]);
+      }
     }
-    return path.length > 0 ? path : [post.category];
+    return posts.map((post) => ({
+      ...post,
+      categoryPath: !post.category
+        ? []
+        : post.userId
+          ? pathOf(byUser.get(post.userId) ?? [], post.category)
+          : [post.category],
+    }));
   }
 
   // inote-ai가 대화 기록 접근 제어에 쓰는 내부 전용 조회 — 존재 안 하면 null.
