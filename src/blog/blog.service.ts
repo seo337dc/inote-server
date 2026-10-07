@@ -152,7 +152,36 @@ export class BlogService {
     if (hiddenFromOthers && post.userId !== requesterUserId) {
       throw new NotFoundException('글을 찾을 수 없습니다.');
     }
-    return post;
+    return { ...post, categoryPath: await this.buildCategoryPath(post) };
+  }
+
+  // 글 상세의 카테고리 경로 — 작성자의 카테고리 트리에서 최상위부터 이 글의 카테고리까지의 이름 (예: ['학습', 'AI']).
+  // 글의 category는 이름 문자열이라 작성자의 PostCategory 중 이름이 같은 것을 찾아 parentId를 따라 올라간다.
+  // 트리에서 못 찾으면(작성자 탈퇴, 트리 미생성 등) [category], category가 비어 있으면 [].
+  private async buildCategoryPath(post: {
+    userId: string | null;
+    category: string;
+  }): Promise<string[]> {
+    if (!post.category) return [];
+    if (!post.userId) return [post.category];
+
+    // 같은 이름이 여러 곳에 있을 수 있어(생성 시 중복을 막지 않음) 가장 얕고 먼저 만든 것이 앞에 오게 정렬해 첫 번째를 쓴다
+    const categories = await this.prisma.postCategory.findMany({
+      where: { userId: post.userId },
+      select: { id: true, name: true, parentId: true },
+      orderBy: [{ depth: 'asc' }, { createdAt: 'asc' }],
+    });
+    const byId = new Map(categories.map((c) => [c.id, c]));
+
+    const path: string[] = [];
+    const visited = new Set<string>(); // 잘못된 순환 데이터여도 무한 루프에 빠지지 않게
+    let current = categories.find((c) => c.name === post.category);
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
+      path.unshift(current.name);
+      current = current.parentId ? byId.get(current.parentId) : undefined;
+    }
+    return path.length > 0 ? path : [post.category];
   }
 
   // inote-ai가 대화 기록 접근 제어에 쓰는 내부 전용 조회 — 존재 안 하면 null.

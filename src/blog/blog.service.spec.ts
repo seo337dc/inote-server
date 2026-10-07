@@ -335,6 +335,22 @@ describe('BlogService', () => {
   });
 
   describe('findOne', () => {
+    // TODO(테스트): 글 상세의 categoryPath (구현됨: buildCategoryPath) — 아래는 나중에 작성할 테스트 목록.
+    //  mock은 mockPrisma에 postCategory.findMany를 추가하고, post mock에 category·userId를 둔다.
+    //  계약: 작성자의 카테고리 트리에서 최상위→글 카테고리 이름 배열. 못 찾으면 [category], category가 빈 문자열이면 [].
+    //  - 최상위 카테고리 글이면 이름 하나만 담는다 (일기 → ['일기'])
+    //  - 2단계면 [상위, 하위] 순서 (학습 > AI), 3단계면 세 개 (학습 > AI > RAG)
+    //  - 기존 응답 필드(id, title, category 등)는 그대로 두고 categoryPath만 더한다
+    //  - 카테고리는 요청자가 아니라 글 작성자 것만 조회한다 (findMany where.userId = post.userId)
+    //  - 같은 이름이 여러 곳에 있으면 orderBy [{depth:'asc'},{createdAt:'asc'}]로 요청하고, 목록에서 먼저 나온 것의 경로를 쓴다
+    //  - 작성자 트리에 그 이름이 없으면 [post.category]
+    //  - userId가 null(작성자 탈퇴)이면 조회 없이 [post.category]
+    //  - category가 빈 문자열이면 조회 없이 []
+    //  - 부모가 목록에 없어 체인이 끊기면 찾은 데까지만 담는다 (예외 없이)
+    //  - parentId가 서로를 가리키는 순환 데이터여도 무한 루프 없이 끝난다
+    //  - 다른 사람의 비공개 글이면 NotFoundException이고 카테고리는 조회하지 않는다
+    //  - 작성자 본인의 비공개 글은 조회되고 categoryPath도 담긴다
+    //  ※ 기존 findOne 테스트는 post mock에 category가 없어 조회를 건너뛰므로 그대로 통과한다.
     it('존재하지 않으면 NotFoundException', async () => {
       mockPrisma.post.findUnique.mockResolvedValue(null);
 
