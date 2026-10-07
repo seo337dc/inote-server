@@ -369,6 +369,31 @@ export class BlogService {
     return post?.userId ?? null;
   }
 
+  // 다른 사람의 글 상세 왼쪽 카테고리 트리용 — 그 작성자의 공개 글(발행, 비공개 제외)과 공개 글이 있는 카테고리.
+  // 요청자가 누구든(작성자 본인이라도) 공개된 것만 준다. 없는 사용자면 author가 null이고 나머지는 비어 있다.
+  async findUserOutline(userId: string) {
+    const [author, posts, summary] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true },
+      }),
+      this.prisma.post.findMany({
+        where: { userId, publishedAt: { not: null }, isPrivate: false },
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          isPrivate: true,
+          pinned: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: OUTLINE_LIMIT,
+      }),
+      this.publicCategorySummary(userId),
+    ]);
+    return { author, categories: summary.categories, posts };
+  }
+
   // 카테고리 관리의 '글 이동' 탭용 — 내 글 전부(임시저장 포함, 빈 임시저장 제외)를 본문 없이 가볍게. 최신순, 최대 OUTLINE_LIMIT개.
   // 공개 글 트리용 findOutline과 달리 내 글만이고 임시저장(publishedAt null)도 담긴다.
   findMyOutline(userId: string) {

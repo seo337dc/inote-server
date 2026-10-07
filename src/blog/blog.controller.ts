@@ -44,6 +44,15 @@ export class BlogController {
     return this.blogService.findOutline(user?.id);
   }
 
+  @Get('outline/user/:userId')
+  @ApiOperation({
+    summary:
+      '다른 사람의 글 상세 왼쪽 카테고리 트리용 — 그 작성자의 공개 글(제목·카테고리만)과 공개 글이 있는 카테고리 (비공개 제외, 로그인 불필요)',
+  })
+  findUserOutline(@Param('userId') userId: string) {
+    return this.blogService.findUserOutline(userId);
+  }
+
   @Get('mine/drafts')
   @ApiBearerAuth()
   @UseGuards(AuthGuard)

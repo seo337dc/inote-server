@@ -109,6 +109,13 @@ describe('BlogService', () => {
       'page를 넘겨도 pinned 조회의 skip은 변하지 않는다 (두 영역이 독립적)',
     );
 
+    // TODO(테스트): 다른 사람의 글 상세 카테고리 트리 API (구현됨: findUserOutline, GET /blog/posts/outline/user/:userId) — 나중에 작성할 테스트 목록.
+    //  mock: mockPrisma.user.findUnique, post.findMany, post.groupBy, postCategory.findMany
+    //  - 글은 { userId, publishedAt not null, isPrivate false }만 — 그 작성자의 비공개·임시저장 글은 본인이 불러도 안 나온다
+    //  - select는 id·title·category·isPrivate·pinned만(본문 없음), 최신순(createdAt desc), 최대 500개
+    //  - categories는 공개 글이 있는 것만 (publicCategorySummary와 같은 규칙: 하위에만 있어도 부모 포함, 비공개만 있는 카테고리 제외)
+    //  - author는 { id, name } (이메일 없음), 없는 사용자면 null이고 목록들은 비어 있다(오류 아님)
+    //  - 라우트: 'outline/user/:userId'가 ':id'(단건 조회)보다 먼저 잡히고 로그인 없이 호출된다
     // TODO(테스트): 작성자별 공개 글 목록 (구현됨: findAll의 userId) — 나중에 작성할 테스트 목록.
     //  mock: mockPrisma.user.findUnique를 추가한다 (기존 mockPrisma에는 user가 없음)
     //  - userId가 있으면 고정 조회·일반 조회·count 모두 where에 { userId }가 더해진다 (publishedAt not null, isPrivate false는 그대로)
