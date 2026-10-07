@@ -302,6 +302,23 @@ export class BlogService {
     return post?.userId ?? null;
   }
 
+  // 카테고리 관리의 '글 이동' 탭용 — 내 글 전부(임시저장 포함, 빈 임시저장 제외)를 본문 없이 가볍게. 최신순, 최대 OUTLINE_LIMIT개.
+  // 공개 글 트리용 findOutline과 달리 내 글만이고 임시저장(publishedAt null)도 담긴다.
+  findMyOutline(userId: string) {
+    return this.prisma.post.findMany({
+      where: { userId, NOT: EMPTY_DRAFT },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        isPrivate: true,
+        publishedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: OUTLINE_LIMIT,
+    });
+  }
+
   findMyDrafts(userId: string) {
     return this.prisma.post.findMany({
       where: { userId, publishedAt: null, NOT: EMPTY_DRAFT },

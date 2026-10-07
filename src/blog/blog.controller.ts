@@ -54,6 +54,17 @@ export class BlogController {
     return this.blogService.findMyDrafts(user.id);
   }
 
+  @Get('mine/outline')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      '내 글 전체 목록 (제목·카테고리만, 로그인 필요) — 카테고리 관리의 글 이동 탭용',
+  })
+  findMyOutline(@CurrentUser() user: { id: string }) {
+    return this.blogService.findMyOutline(user.id);
+  }
+
   @Get('mine')
   @ApiBearerAuth()
   @UseGuards(AuthGuard)

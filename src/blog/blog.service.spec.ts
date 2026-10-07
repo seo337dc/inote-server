@@ -359,6 +359,17 @@ describe('BlogService', () => {
     });
   });
 
+  describe('findMyOutline', () => {
+    // TODO(테스트): 내 글 목록 API (#7, 구현됨: findMyOutline) — 나중에 작성할 테스트 목록.
+    //  mock: mockPrisma.post.findMany
+    //  - where는 { userId, NOT: EMPTY_DRAFT } — 내 글만, 빈 임시저장은 제외(발행 전이어도 제목·본문이 있으면 포함)
+    //  - select는 id·title·category·isPrivate·publishedAt만 (본문 없음)
+    //  - 최신순(createdAt desc), 최대 500개(take)
+    //  - 비공개 글도 포함한다 (내 글이므로)
+    //  - 결과는 findMany 결과를 그대로 돌려준다
+    it.todo('내 글 목록 API 테스트 (위 목록 참고)');
+  });
+
   describe('findOne', () => {
     // TODO(테스트): 글 상세의 categoryPath (구현됨: buildCategoryPath) — 아래는 나중에 작성할 테스트 목록.
     //  mock은 mockPrisma에 postCategory.findMany를 추가하고, post mock에 category·userId를 둔다.
