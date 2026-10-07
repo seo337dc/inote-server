@@ -43,7 +43,10 @@ export class ListPostsQueryDto {
   @Max(50)
   pageSize?: number = 10;
 
-  @ApiPropertyOptional({ description: '카테고리 이름으로 필터 (없으면 전체)' })
+  @ApiPropertyOptional({
+    description:
+      '카테고리 이름으로 필터 — 그 카테고리와 하위 카테고리의 글을 모두 포함 (없으면 전체)',
+  })
   @IsOptional()
   @IsString()
   category?: string;

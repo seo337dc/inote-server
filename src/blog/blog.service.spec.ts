@@ -44,6 +44,10 @@ describe('BlogService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    // 목록의 category 필터가 하위 카테고리까지 포함하려고 작성자의 카테고리 트리를 읽는다 (기본은 트리 없음)
+    postCategory: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     postSummary: {
       upsert: jest.fn(),
     },
@@ -105,6 +109,18 @@ describe('BlogService', () => {
       'page를 넘겨도 pinned 조회의 skip은 변하지 않는다 (두 영역이 독립적)',
     );
 
+    // TODO(테스트): category 필터가 하위 카테고리까지 포함 (구현됨: categoryFilter) — 나중에 작성할 테스트 목록.
+    //  mock: mockPrisma.postCategory.findMany (기본은 빈 배열 = 트리 없음). 공개 목록은 where가
+    //  { user: { categories: { some: { name } } } }, 내 글 목록은 { userId } 로 트리를 읽는다.
+    //  - 하위 카테고리가 있으면 findAll where가 OR [{ category: 이름 }, { userId, category: { in: 하위 이름들 } } ...]
+    //  - 작성자마다 트리가 달라서 하위 이름은 작성자별로 따로 묶인다 (A의 '학습' 하위 이름이 B의 글에는 적용되지 않음)
+    //  - 3단계(학습 > AI > RAG)면 '학습' 필터에 AI·RAG 글이 모두 포함된다 / 중간(AI) 필터에는 RAG만 더해진다
+    //  - 맨 아래 카테고리(하위 없음)이거나 트리에 없는 이름이면 예전처럼 { category: 이름 } 정확 일치 (OR 없음)
+    //  - category 필터가 없으면 카테고리 트리를 조회하지 않는다
+    //  - 고정 글 조회·일반 글 조회·count 모두 같은 필터를 쓴다 (listPage가 baseWhere를 공유)
+    //  - 이름이 같은 카테고리가 한 작성자 트리에 여러 곳이면 각각의 하위를 합친다 / 순환 데이터여도 끝난다
+    //  - category와 검색어(q)를 같이 주면 공개 목록은 둘 다 최상위 OR이라 AND: [카테고리 조건, 검색 조건]으로 묶인다 (한쪽이 덮어써지지 않음)
+    //  - findMine: where는 { userId, NOT: EMPTY_DRAFT, category: { in: [이름, ...하위 이름들] } }, categoryCounts(groupBy)는 여전히 정확한 카테고리별 개수
     it('category가 있으면 고정 조회·목록 모두 그 카테고리로 거른다', async () => {
       mockPrisma.post.findMany.mockResolvedValue([]);
       mockPrisma.post.count.mockResolvedValue(0);

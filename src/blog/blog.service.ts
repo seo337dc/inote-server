@@ -40,6 +40,15 @@ function searchWhere(q?: string): Prisma.PostWhereInput {
   };
 }
 
+// 두 조건을 한 where로 합친다. 카테고리 필터(하위 카테고리 포함)와 검색은 둘 다 최상위 OR을 쓸 수 있어
+// 그냥 펼치면 서로 덮어쓰므로, 둘 다 OR일 때만 AND로 묶는다 (아니면 평평하게 합쳐 기존 모양 유지).
+function combineWhere(
+  a: Prisma.PostWhereInput,
+  b: Prisma.PostWhereInput,
+): Prisma.PostWhereInput {
+  return a.OR && b.OR ? { AND: [a, b] } : { ...a, ...b };
+}
+
 // 제목도 본문도 없는 발행 전 글 — 글쓰기 화면에 들어오기만 해도 생기는 빈 draft라서
 // 목록·알림에는 draft로 취급하지 않는다 (사용자가 뭐라도 쓰면 그때부터 draft).
 const EMPTY_DRAFT: Prisma.PostWhereInput = {
@@ -98,16 +107,77 @@ export class BlogService {
     };
   }
 
-  findAll(query: ListPostsQueryDto) {
+  async findAll(query: ListPostsQueryDto) {
     return this.listPage(
       {
         publishedAt: { not: null },
         isPrivate: false,
-        ...(query.category ? { category: query.category } : {}),
-        ...searchWhere(query.q),
+        ...combineWhere(
+          await this.categoryFilter(query.category),
+          searchWhere(query.q),
+        ),
       },
       query,
     );
+  }
+
+  // 카테고리 이름으로 거르는 조건 — 그 카테고리의 글과 그 아래(하위) 카테고리의 글을 모두 포함한다.
+  // 글의 category는 이름 문자열이라, 하위 여부는 "글 작성자의" 카테고리 트리에서 판단한다 (작성자마다 트리가 다름).
+  // - 이름이 같은 카테고리가 트리 여러 곳에 있으면(생성 시 중복을 막지 않음) 각각의 하위를 모두 합친다
+  // - 하위가 없거나 트리에 없는 이름이면 예전처럼 { category: name } 정확 일치
+  // ownerUserId를 주면 그 사용자의 트리만 본다 (내 글 목록), 없으면 그 이름을 가진 카테고리가 있는 모든 작성자의 트리를 본다 (공개 목록).
+  private async categoryFilter(
+    name: string | undefined,
+    ownerUserId?: string,
+  ): Promise<Prisma.PostWhereInput> {
+    if (!name) return {};
+
+    const categories = await this.prisma.postCategory.findMany({
+      where: ownerUserId
+        ? { userId: ownerUserId }
+        : { user: { categories: { some: { name } } } },
+      select: { id: true, userId: true, name: true, parentId: true },
+    });
+
+    // 작성자별로 트리를 따로 훑어 name 아래의 하위 카테고리 이름을 모은다
+    const childrenOf = new Map<string, typeof categories>();
+    for (const c of categories) {
+      if (!c.parentId) continue;
+      childrenOf.set(c.parentId, [...(childrenOf.get(c.parentId) ?? []), c]);
+    }
+    const descendantsByUser = new Map<string, Set<string>>();
+    for (const root of categories.filter((c) => c.name === name)) {
+      const names = descendantsByUser.get(root.userId) ?? new Set<string>();
+      const visited = new Set<string>([root.id]); // 순환 데이터여도 무한 루프에 빠지지 않게
+      const queue = [root];
+      for (let node = queue.shift(); node; node = queue.shift()) {
+        for (const child of childrenOf.get(node.id) ?? []) {
+          if (visited.has(child.id)) continue;
+          visited.add(child.id);
+          names.add(child.name);
+          queue.push(child);
+        }
+      }
+      descendantsByUser.set(root.userId, names);
+    }
+
+    const perUser = [...descendantsByUser]
+      .map(([userId, names]) => ({ userId, names: [...names] }))
+      .filter(({ names }) => names.length > 0);
+    if (perUser.length === 0) return { category: name };
+
+    if (ownerUserId) {
+      return { category: { in: [name, ...perUser[0].names] } };
+    }
+    return {
+      OR: [
+        { category: name },
+        ...perUser.map(({ userId, names }) => ({
+          userId,
+          category: { in: names },
+        })),
+      ],
+    };
   }
 
   // 글 상세 왼쪽 카테고리 트리용 — 본문 없이 제목·카테고리만 가볍게 전부 내려준다.
@@ -200,13 +270,13 @@ export class BlogService {
   // 나의 글 목록 — 발행·비공개 여부 상관없이 내가 쓴 글 전부 (/my-posts에서 사용).
   // 사이드바 카테고리별 개수는 페이지와 무관한 전체 기준이라 categoryCounts로 따로 내려줌.
   async findMine(userId: string, query: ListPostsQueryDto) {
+    const categoryFilter = await this.categoryFilter(query.category, userId);
     const [page, grouped] = await Promise.all([
       this.listPage(
         {
           userId,
           NOT: EMPTY_DRAFT,
-          ...(query.category ? { category: query.category } : {}),
-          ...searchWhere(query.q),
+          ...combineWhere(categoryFilter, searchWhere(query.q)),
         },
         query,
       ),
