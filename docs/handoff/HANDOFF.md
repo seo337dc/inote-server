@@ -79,9 +79,10 @@
 | 다음 수신자 | 사람(다른 PC에서 이어감) |
 
 ### BE 상태 요약
-- 운영 BE(Render 무료)는 무료 시간 초과로 **정지 중** — 다음 달 시작에 재개 예상. 재개 후 `/api/v1/health` 확인, cron-job의 Inote Server 작업 켜기
+- 운영 BE는 Render 무료(서비스 1개만 상시, 월 750시간 한도에 거의 붙어 있음), DB는 **Supabase**(Session pooler 5432, 단일 baseline 마이그레이션)로 이전 완료 — 자세한 상태·환경 변수·주의는 `inote` 레포의 `docs/handoff/HANDOFF.md`가 기준. cron-job의 Inote Server 작업 켜기 확인 필요
 - Koyeb 이전은 취소(신규 무료 플랜 없음) — `Dockerfile`·관련 문서는 제거함
-- 이번에 추가된 BE 기능: `thumbnailUrl`, 고정 글 별도 페이지네이션(`pinnedPage`), AI 다시 요약하기(`POST /blog/posts/:id/summarize`), 카테고리 트리용 글 목록(`GET /blog/posts/outline`)
+- 이번에 추가된 BE 기능: `thumbnailUrl`, 고정 글 별도 페이지네이션(`pinnedPage`), AI 다시 요약하기(`POST /blog/posts/:id/summarize`), 카테고리 트리용 글 목록(`GET /blog/posts/outline`), 목록 검색(`q`)·수정 시각(`lastEditedAt`)
+- **2026-10-07 추가**: 글 상세·목록 응답의 `categoryPath`(작성자 카테고리 트리 기준 경로), 목록 `category` 필터가 하위 카테고리 글까지 포함(`categoryFilter`, 검색과는 `combineWhere`로 AND), 내 글 목록 `GET /blog/posts/mine/outline`(#7). **테스트는 아직 없고 목록이 `src/blog/blog.service.spec.ts`의 `TODO(테스트)` 주석에 있다**; 공개 글 목록 작성자 필터 `GET /blog/posts?userId=`(그 작성자의 공개 글만, 응답에 `author {id,name}` — 없는 사용자면 null). **카테고리 이름 중복은 BE `create`가 막지 않는다**(FE에서만 막음)
 
 ### 진행 중: 카테고리 이름 수정 API (#6)
 - 테스트 작성 완료(**구현 전이라 일부러 실패 상태**): `src/categories/categories.rename.spec.ts`(12), `src/categories/dto/rename-category.dto.spec.ts`(7)
@@ -89,10 +90,10 @@
 - 다음: DTO(`@Transform` 공백 정리 + 1~50자) → 서비스 `rename` → 컨트롤러 `PATCH /categories/:id` 구현해 테스트를 통과시킨다
 
 ### 이어질 BE 작업
-- #7 `GET /blog/posts/mine/outline`(테스트 목록·골격은 Claude가 주고 사용자가 채움)
+- ✅ #7 `GET /blog/posts/mine/outline` — 구현 완료(10/7), 테스트만 남음
 - #8 카테고리 위치 이동 `PATCH /categories/:id/move` — 골격 `categories.move.spec.ts`(38 todo), `position` 컬럼 필요 → Supabase 기준선과 함께
-- Neon → Supabase 이전: `docs/supabase-migration.md` (백업이 최우선)
+- Neon → Supabase 이전은 끝남(`docs/supabase-migration.md`). Neon은 롤백용으로 아직 삭제하지 않음
 
 ### 알려진 이슈
 - 전체 `npx jest`는 #6 구현 전까지 실패(정상)
-- 로컬과 운영이 같은 Neon DB를 쓴다 (Supabase 이전으로 분리 예정)
+- 로컬과 운영이 같은 Supabase DB를 쓴다 (dev/prod 분리 없음) — 로컬 BE는 `DATABASE_URL`에 `?connection_limit=2&pool_timeout=20`을 붙여 실행해야 풀러(최대 15)가 차지 않는다
