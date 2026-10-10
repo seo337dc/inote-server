@@ -269,17 +269,11 @@ export class BlogService {
     };
   }
 
-  // 글 상세 왼쪽 카테고리 트리용 — 본문 없이 제목·카테고리만 가볍게 전부 내려준다.
-  // 발행된 공개 글 + (로그인했다면) 내 비공개 글. draft는 제외.
-  findOutline(requesterUserId?: string) {
+  // 내 글 상세 왼쪽 카테고리 트리용 — 본문 없이 제목·카테고리만 가볍게 내려준다.
+  // 내가 발행한 글만(비공개 포함). draft는 제외. 다른 사람의 글 상세는 findUserOutline이 맡는다.
+  findOutline(userId: string) {
     return this.prisma.post.findMany({
-      where: {
-        publishedAt: { not: null },
-        OR: [
-          { isPrivate: false },
-          ...(requesterUserId ? [{ userId: requesterUserId }] : []),
-        ],
-      },
+      where: { userId, publishedAt: { not: null } },
       select: {
         id: true,
         title: true,
