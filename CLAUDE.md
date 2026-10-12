@@ -60,6 +60,7 @@ API 문서      →  /api/docs (Swagger UI)
 | 학습 노트 | [LEARNING](https://app.notion.com/p/LEARNING-37fb5151f22f812ba369cdceb333a9fa) |
 | 기획 | [planning](https://app.notion.com/p/planning-391b5151f22f808dbeeac31ec6c3e245) |
 
+- KURE 임베딩 작업(관련 글 추천 등): `inote` 레포 `docs/kure/HANDOFF.md`(브랜치 `docs/kure-handoff`, `main` 병합 전)를 먼저 읽는다
 - FE 레포: https://github.com/seo337dc/inote (글쓰기/만다르트/관리자), https://github.com/seo337dc/inote-money (자산관리)
 - Notion MCP: `.cursor/mcp.json` — Cursor Settings → Tools & MCP → `notion` → Connect
 
@@ -82,7 +83,8 @@ inote-server/
 │   ├── users/                ← 내 프로필 조회/수정, 비밀번호 생성, 회원 탈퇴
 │   ├── admin/
 │   │   └── users/            ← 관리자 전용 회원 목록/상세/삭제
-│   ├── blog/                 ← inote 글쓰기 CRUD, draft/발행, AI 요약 연동
+│   ├── blog/                 ← inote 글쓰기 CRUD, draft/발행, AI 요약 연동, 비슷한 글(`GET :id/similar`)
+│   ├── embeddings/           ← KURE 글 벡터 동기화(inote-ai 호출, fail-open)·후보 글 id(비공개 유출 방지)·유사 글 조회·백필 로직
 │   ├── mandalart/            ← 만다르트 로드맵 (공개 조회, 관리자만 수정)
 │   └── money/                ← inote-money API
 │       ├── expenses/         ← 가계부 CRUD
@@ -92,6 +94,8 @@ inote-server/
 │       ├── mini-game/        ← 캐시플로우 미니게임 결과
 │       ├── terms/            ← 금융 용어 + 좋아요
 │       └── books/            ← 금융 책 추천 + 좋아요
+├── scripts/                  ← dev-db.sh(로컬 개발 DB·시드·백필), backfill-embeddings.ts
+├── docs/                     ← handoff/HANDOFF.md, local-dev-db.md, embeddings-backfill.md
 ├── prisma/
 │   ├── schema.prisma
 │   └── dbml/schema.dbml      ← `prisma generate`로 자동 생성, dbdiagram.io에 붙여넣는 용도
@@ -114,7 +118,8 @@ inote-server/
 - **Points** — 포인트 적립/사용 (추후, 미착수)
 
 ### 서비스별
-- **Blog** (`inote`) — 글쓰기 CRUD, draft/발행, AI 요약 연동
+- **Blog** (`inote`) — 글쓰기 CRUD, draft/발행, AI 요약 연동, 비슷한 글
+- **Embeddings** (`inote`) — KURE 임베딩: 글 저장·삭제 때 벡터 동기화, 후보 글 id 계산(공개 여부는 BE가 판정), 유사 글 조회. 설계 `inote` 레포 `docs/kure/PLAN.md`·`HANDOFF.md`
 - **Mandalart** (`inote`) — 로드맵 항목, 공개 조회·관리자만 수정
 - **Money** (`inote-money`) — 가계부, 주식, 내 정보 설정, 리뷰, 미니게임, 금융 용어/책
 - **Daily** — 데일리 기록 (예정, 미착수)
@@ -175,6 +180,8 @@ GOOGLE_CLIENT_ID="..."
 GOOGLE_CLIENT_SECRET="..."
 INOTE_AI_URL="..."                        # inote-ai 베이스 URL (blog AI 요약 호출용)
 INTERNAL_SECRET="..."                     # inote-ai와 동일한 값이어야 함 (서비스 간 인증)
+EMBEDDINGS_ENABLED="false"                # "true"일 때만 글 저장·삭제를 inote-ai 임베딩 API에 알림(기본 꺼짐, 운영 미설정)
+SIMILAR_MIN_SCORE="0.6"                   # 비슷한 글의 최소 유사도(0~1, 임시값 — 평가 세트로 확정 예정)
 AUTH_ERROR_FALLBACK_URL="..."             # OAuth state 재사용 등 에러 시 최종 fallback (inote 로그인 페이지)
 SENTRY_DSN="..."                          # 아직 미연결
 PORT=3200

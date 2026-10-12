@@ -73,16 +73,26 @@
 
 | 항목 | 값 |
 |------|-----|
-| 날짜 | 2026-09-30 |
+| 날짜 | 2026-10-12 |
 | 작성자 | Claude Code |
 | 브랜치 | `main` |
-| 다음 수신자 | 사람(다른 PC에서 이어감) |
+| 다음 수신자 | 사람(내일 이어서) |
 
 ### BE 상태 요약
 - 운영 BE는 Render 무료(서비스 1개만 상시, 월 750시간 한도에 거의 붙어 있음), DB는 **Supabase**(Session pooler 5432, 단일 baseline 마이그레이션)로 이전 완료 — 자세한 상태·환경 변수·주의는 `inote` 레포의 `docs/handoff/HANDOFF.md`가 기준. cron-job의 Inote Server 작업 켜기 확인 필요
 - Koyeb 이전은 취소(신규 무료 플랜 없음) — `Dockerfile`·관련 문서는 제거함
 - 이번에 추가된 BE 기능: `thumbnailUrl`, 고정 글 별도 페이지네이션(`pinnedPage`), AI 다시 요약하기(`POST /blog/posts/:id/summarize`), 카테고리 트리용 글 목록(`GET /blog/posts/outline`), 목록 검색(`q`)·수정 시각(`lastEditedAt`)
 - **2026-10-07 추가**: 글 상세·목록 응답의 `categoryPath`(작성자 카테고리 트리 기준 경로), 목록 `category` 필터가 하위 카테고리 글까지 포함(`categoryFilter`, 검색과는 `combineWhere`로 AND), 내 글 목록 `GET /blog/posts/mine/outline`(#7). **테스트는 아직 없고 목록이 `src/blog/blog.service.spec.ts`의 `TODO(테스트)` 주석에 있다**; 공개 글 목록 작성자 필터 `GET /blog/posts?userId=`(그 작성자의 공개 글만, 응답에 `author {id,name}` — 없는 사용자면 null). 작성자 목록 응답의 `categories`·`categoryCounts`(공개 글이 있는 카테고리와 공개 글 직속 개수), 다른 사람의 글 상세용 `GET /blog/posts/outline/user/:userId`(로그인 불필요, 공개 글·카테고리·author). **카테고리 이름 중복은 BE `create`가 막지 않는다**(FE에서만 막음)
+
+### KURE 임베딩 작업 (2026-10-12) — 관련 글 추천용 BE 완료
+> 4개 레포에 걸친 전체 상태·로컬 실행법·다음 할 일은 `inote` 레포 `docs/kure/HANDOFF.md`(브랜치 `docs/kure-handoff`, `main` 병합 전)를 먼저 읽는다. 아래는 BE 관점 요약.
+
+- **완료·푸시됨**: A6-1 개발 DB(`612b3a8`) · A6-2·3 AI 호출 모듈·후보 id 함수(`d06e622`) · A6-4 저장·삭제·관리자 사용자 삭제 훅(`500af37`) · A6-5 백필 스크립트(`fe6bbe0`) · B2 유사 글 조회 함수(`43a9524`) · B3 `GET /blog/posts/:id/similar`(`4e9e12d`). 코드는 `src/embeddings/`와 `blog.service.ts`·`blog.controller.ts`·`admin-users.service.ts`.
+- **운영 영향 없음**: `EMBEDDINGS_ENABLED`는 기본 **꺼짐**이고 운영에 설정하지 않았다. 새 엔드포인트는 꺼져 있으면 `200 {"items":[]}`(볼 수 없는 글은 404)만 돌려준다. 운영에서 켜는 순서는 PLAN 8절(AI DB 확장·임베딩 서비스 호스팅이 먼저).
+- **환경변수(추가)**: `EMBEDDINGS_ENABLED`(기본 false) · `SIMILAR_MIN_SCORE`(기본 0.6, 임시 — A7 평가로 확정) · 기존 `INOTE_AI_URL`·`INTERNAL_SECRET`.
+- **로컬**: `scripts/dev-db.sh up|migrate|seed|backfill|psql|url` (개발 DB는 localhost:5435, 비밀번호는 gitignore된 `.env.dev`). 시드 사용자 `dev-user-a`·`dev-user-b`, 테스트 글 `dev-seed-…`. 백필은 BE DB·AI 서버의 짝이 어긋나면 거절한다(`docs/embeddings-backfill.md`).
+- **테스트**: 이번 작업은 **`it.todo` 목록**(사용자가 직접 작성, 각 spec 맨 위 주석에 준비·약속·함정): `embedding-candidates`(**유출 방지 핵심, 가장 먼저**) · `similar-posts` · `inote-ai-embeddings` · `embedding-backfill` · `similar-posts-query.dto` · `blog.service.spec`(임베딩 연동·비슷한 글) · `admin-users.service.spec`.
+- **다음 BE 작업**: A7 평가용 후보 쌍 목록 스크립트(공개 글만) · FE(B4)가 시작되면 계약 변경 요청 대응 · C 단계(카테고리 제안·유사 글 알림)는 UX 승인 후.
 
 ### 진행 중: 카테고리 이름 수정 API (#6)
 - 테스트 작성 완료(**구현 전이라 일부러 실패 상태**): `src/categories/categories.rename.spec.ts`(12), `src/categories/dto/rename-category.dto.spec.ts`(7)
@@ -95,5 +105,5 @@
 - Neon → Supabase 이전은 끝남(`docs/supabase-migration.md`). Neon은 롤백용으로 아직 삭제하지 않음
 
 ### 알려진 이슈
-- 전체 `npx jest`는 #6 구현 전까지 실패(정상)
+- 전체 `npx jest`(2026-10-12): **20 실패 / 172 통과 / 149 todo**. 실패 20건은 모두 기존 것 — 18건은 #6 구현 전에 일부러 먼저 쓴 테스트(`categories.rename.spec.ts` 11 + `rename-category.dto.spec.ts` 7, 정상), 2건은 `blog.service.spec.ts`의 `findOutline` 2개(`ed11399` 이후 기대값이 낡음, **누가 고칠지 미정**)
 - 로컬과 운영이 같은 Supabase DB를 쓴다 (dev/prod 분리 없음) — 로컬 BE는 `DATABASE_URL`에 `?connection_limit=2&pool_timeout=20`을 붙여 실행해야 풀러(최대 15)가 차지 않는다
