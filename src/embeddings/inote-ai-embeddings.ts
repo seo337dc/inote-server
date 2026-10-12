@@ -41,7 +41,7 @@ export function pendingEmbeddingPosts(): number {
 }
 
 // fetch는 연결 실패를 "fetch failed"로만 알려 주고 원인(ECONNREFUSED 등)은 cause에 있다 — 로그에서 알아볼 수 있게 붙인다
-function describeError(e: unknown): string {
+export function describeError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e);
   const cause = (e as { cause?: { code?: string; message?: string } } | null)
     ?.cause;
@@ -80,7 +80,7 @@ function baseUrl(
   return url.replace(/\/+$/, '');
 }
 
-function headers(): Record<string, string> {
+export function internalHeaders(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
     'x-internal-secret': process.env.INTERNAL_SECRET ?? '',
@@ -108,7 +108,7 @@ export function upsertPostEmbedding(
         if (!url) return new Response(null, { status: 200 }); // 주소가 없으면 이미 경고했고, 실패로 또 세지 않는다
         return fetch(`${url}/embeddings/posts/${encodeURIComponent(postId)}`, {
           method: 'PUT',
-          headers: headers(),
+          headers: internalHeaders(),
           body: JSON.stringify({ title, content }),
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         });
@@ -136,7 +136,7 @@ export function deletePostEmbedding(
         if (!url) return new Response(null, { status: 200 });
         return fetch(`${url}/embeddings/posts/${encodeURIComponent(postId)}`, {
           method: 'DELETE',
-          headers: headers(),
+          headers: internalHeaders(),
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         });
       },
@@ -185,7 +185,7 @@ export async function putPostEmbedding(
       `${url.replace(/\/+$/, '')}/embeddings/posts/${encodeURIComponent(postId)}`,
       {
         method: 'PUT',
-        headers: headers(),
+        headers: internalHeaders(),
         body: JSON.stringify({ title, content }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       },
