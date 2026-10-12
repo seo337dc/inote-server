@@ -17,6 +17,7 @@ cp .env.dev.example .env.dev      # INOTE_DEV_DB_PASSWORD를 채운다
 scripts/dev-db.sh up              # DB 시작 (5435)
 scripts/dev-db.sh migrate         # prisma migrate deploy 를 개발 DB에 적용
 scripts/dev-db.sh seed            # 시드 (여러 번 실행해도 안전)
+scripts/dev-db.sh backfill        # 개발 DB 글을 로컬 AI 서버에 임베딩 (docs/embeddings-backfill.md)
 scripts/dev-db.sh start           # BE를 개발 DB로 실행 (pnpm run start:dev, 3200)
 scripts/dev-db.sh psql            # DB 접속
 scripts/dev-db.sh down | reset    # 정지(데이터 유지) | 삭제 후 다시 만들기
