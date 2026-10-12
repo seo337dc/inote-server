@@ -937,4 +937,59 @@ describe('BlogService', () => {
       'EMBEDDINGS_ENABLED가 꺼져 있으면 update·remove 모두 임베딩 호출 없음',
     );
   });
+
+  // ─────────────────────────────────────────────────────────────────
+  // TODO(직접 작성): 비슷한 글 (B3) — 구현은 blog.service.ts의 findSimilar, 컨트롤러는 GET :id/similar.
+  //
+  // 준비: 임베딩 연동 블록과 같다 — process.env에 EMBEDDINGS_ENABLED='true', INOTE_AI_URL, INTERNAL_SECRET을 설정하고
+  //       afterEach에서 원복. AI 응답은 fetch 목이 { ok: true, json: () => ({ items: [{ postId, score }] }) }를 돌려주게 한다.
+  //       mockPrisma.post에 findUnique(이 글의 접근 확인)·findMany(첫 호출 = 후보 id, 둘째 호출 = 글 정보)를 쓴다.
+  //       mockPrisma.postCategory.findMany는 카테고리 경로용(기본 [] 이면 [category]).
+  //   컨트롤러 헤더를 시험하려면 인증 모듈(better-auth)이 ESM이라 jest.mock으로 '../auth/*.guard'를 대체해야 한다.
+  //
+  // 지켜야 할 약속(계약)
+  //   1) 볼 수 없는 글(남의 draft·비공개, 없는 글)은 404 — 같은 메시지로 존재 여부를 숨긴다
+  //   2) AI·임베딩 장애, 벡터 없음, 기준 미달, 꺼져 있음은 오류가 아니라 { items: [] }
+  //   3) 후보 밖 id는 AI가 줘도 응답에 없고, 글 정보를 읽을 때 읽기 규칙을 다시 건다(이중 방어)
+  //   4) 응답에 이메일·본문이 없다. isPrivate: true는 항상 isMine: true인 글에서만
+  describe('비슷한 글 (B3)', () => {
+    it.todo(
+      '존재하지 않는 글 / 남의 draft / 남의 비공개 글이면 NotFoundException (비로그인 포함)',
+    );
+    it.todo(
+      '작성자가 없는(userId null) 비공개 글을 비로그인이 우연히 통과하지 못한다',
+    );
+    it.todo(
+      '내 draft는 접근할 수 있지만 AI를 부르지 않고 빈 목록, 내 비공개 글은 기준 글로 쓸 수 있다',
+    );
+    it.todo(
+      'EMBEDDINGS_ENABLED가 꺼져 있으면 후보 조회도 AI 호출도 없이 빈 목록 (접근 확인은 먼저)',
+    );
+    it.todo(
+      '후보 where는 readableCandidatesWhere(요청자, 이 글 id) — 비로그인은 userId 조건이 없다',
+    );
+    it.todo(
+      'AI에는 postId·후보 id·limit·minScore를 넘기고, 글 정보 조회에도 같은 읽기 규칙을 AND로 다시 건다',
+    );
+    it.todo(
+      'AI 점수 순서를 유지하고, 그 사이 지워졌거나 볼 수 없게 된 글은 빠진다',
+    );
+    it.todo(
+      '응답 모양: id·title·category·categoryPath·isMine·isPrivate·user({name} 또는 null)·score',
+    );
+    it.todo(
+      'isMine은 요청자와 작성자가 같을 때만 true (비로그인·작성자 없는 글은 false), isPrivate은 내 글일 때만 true',
+    );
+    it.todo('작성자의 이메일·본문이 응답에 없다');
+    it.todo(
+      'AI가 후보 밖 id(비공개 글)를 돌려줘도 응답에 없고 글 정보 조회도 하지 않는다',
+    );
+    it.todo(
+      'AI 서버 장애·비정상 응답·시간 초과면 빈 목록이고 글 정보 조회를 하지 않는다',
+    );
+    it.todo('후보가 하나도 없으면 AI를 부르지 않는다');
+    it.todo(
+      '컨트롤러: Cache-Control: private, no-store를 걸고 Vary는 덧붙인다(res.vary), 요청자·limit(기본 5)을 서비스에 넘긴다',
+    );
+  });
 });

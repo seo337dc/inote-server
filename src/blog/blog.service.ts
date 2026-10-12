@@ -10,9 +10,15 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   deletePostEmbedding,
+  isEmbeddingsEnabled,
   isEmptyPost,
   upsertPostEmbedding,
 } from '../embeddings/inote-ai-embeddings';
+import {
+  findCandidateIds,
+  readableCandidatesWhere,
+} from '../embeddings/embedding-candidates';
+import { findSimilarPosts } from '../embeddings/similar-posts';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { ListPostsQueryDto } from './dto/list-posts-query.dto';
 
@@ -311,6 +317,73 @@ export class BlogService {
       throw new NotFoundException('글을 찾을 수 없습니다.');
     }
     return { ...post, categoryPath: await this.buildCategoryPath(post) };
+  }
+
+  // 글 상세 아래 "비슷한 글" — 이 글과 뜻이 가까운, 요청자가 볼 수 있는 글. 설계: inote 레포 docs/kure/PLAN.md 6절 B.
+  // 1) 이 글을 볼 권한을 상세와 같은 규칙으로 확인(없으면 404) → 2) 후보 = 발행됨 AND (공개 OR 내 글), 이 글 제외
+  // → 3) inote-ai가 후보 안에서만 순위를 매겨 돌려줌 → 4) 글 정보를 붙임. AI 장애·벡터 없음·기준 미달은 오류가 아니라 빈 목록.
+  // 응답이 요청자마다 달라서(내 비공개 글이 후보에 들어감) 컨트롤러가 캐시를 금지한다.
+  async findSimilar(
+    id: string,
+    requesterUserId: string | undefined,
+    limit: number,
+  ) {
+    const source = await this.prisma.post.findUnique({
+      where: { id },
+      select: { userId: true, publishedAt: true, isPrivate: true },
+    });
+    const hiddenFromOthers = !source || !source.publishedAt || source.isPrivate;
+    if (!source || (hiddenFromOthers && source.userId !== requesterUserId)) {
+      throw new NotFoundException('글을 찾을 수 없습니다.');
+    }
+    // 아직 발행 전인 글(내 draft)은 벡터가 없고, 꺼져 있으면 AI를 부르지 않으니 후보를 계산할 이유도 없다
+    if (!source.publishedAt || !isEmbeddingsEnabled()) return { items: [] };
+
+    const visible = readableCandidatesWhere(requesterUserId, id);
+    const candidateIds = await findCandidateIds(
+      this.prisma,
+      visible,
+      this.logger,
+    );
+    const similar = await findSimilarPosts(
+      { postId: id, candidateIds, limit },
+      this.logger,
+    );
+    if (similar.length === 0) return { items: [] };
+
+    // 글 정보를 읽을 때 **읽기 규칙을 다시 건다** — 그 사이 비공개로 바뀐 글이나 AI가 잘못 보낸 id는 여기서도 걸러진다
+    const posts = await this.prisma.post.findMany({
+      where: { AND: [visible, { id: { in: similar.map((s) => s.postId) } }] },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        userId: true,
+        isPrivate: true,
+        user: { select: { name: true } },
+      },
+    });
+    const withPaths = await this.withCategoryPaths(posts);
+    const byId = new Map(withPaths.map((p) => [p.id, p]));
+
+    const items = similar.flatMap(({ postId, score }) => {
+      const post = byId.get(postId);
+      if (!post) return []; // 그 사이 지워졌거나 볼 수 없게 된 글
+      const isMine = !!requesterUserId && post.userId === requesterUserId;
+      return [
+        {
+          id: post.id,
+          title: post.title,
+          category: post.category,
+          categoryPath: post.categoryPath,
+          isMine,
+          isPrivate: isMine && post.isPrivate,
+          user: post.user ? { name: post.user.name } : null,
+          score,
+        },
+      ];
+    });
+    return { items };
   }
 
   // 글 상세의 카테고리 경로 — 작성자의 카테고리 트리에서 최상위부터 이 글의 카테고리까지의 이름 (예: ['학습', 'AI']).

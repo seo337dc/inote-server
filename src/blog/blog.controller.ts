@@ -7,8 +7,10 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '../auth/auth.guard';
 import { OptionalAuthGuard } from '../auth/optional-auth.guard';
@@ -17,6 +19,10 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { BlogService } from './blog.service';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { ListPostsQueryDto } from './dto/list-posts-query.dto';
+import {
+  SIMILAR_LIMIT_DEFAULT,
+  SimilarPostsQueryDto,
+} from './dto/similar-posts-query.dto';
 
 // 2단계: 조회는 로그인 없이 공개, 작성/수정/삭제는 로그인 필수 (2026-09-10)
 // 3단계: 글쓰기는 draft(빈 글) 먼저 생성 후 저장 시 발행 — draft는 작성자만 조회 가능 (2026-09-11)
@@ -97,6 +103,29 @@ export class BlogController {
     @Param('id') id: string,
   ) {
     return this.blogService.findOne(id, user?.id);
+  }
+
+  @Get(':id/similar')
+  @UseGuards(OptionalAuthGuard)
+  @ApiOperation({
+    summary:
+      '비슷한 글 (로그인 선택) — 이 글과 뜻이 가까운, 요청자가 볼 수 있는 글(공개 글 + 내 글). 볼 수 없는 글이면 404, AI 장애·벡터 없음은 빈 목록',
+  })
+  findSimilar(
+    @CurrentUser() user: { id: string } | undefined,
+    @Param('id') id: string,
+    @Query() query: SimilarPostsQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    // 요청자마다 응답이 다르다(내 비공개 글이 후보에 들어감) → 공유 캐시 금지.
+    // Vary는 CORS가 이미 넣은 Origin을 지우지 않도록 덧붙인다(res.vary).
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.vary('Cookie');
+    return this.blogService.findSimilar(
+      id,
+      user?.id,
+      query.limit ?? SIMILAR_LIMIT_DEFAULT,
+    );
   }
 
   @Get(':id/owner')
