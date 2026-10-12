@@ -1,0 +1,22 @@
+# 로컬 개발용 BE DB (Postgres). 운영 DB(Supabase)와 완전히 분리된 이 PC 안의 DB.
+# 지금까지 로컬 BE는 운영 DB를 그대로 써서, 로컬에서 글·사용자를 만들거나 지우면 운영 데이터에 영향이 갔다 — 이 DB로 분리한다.
+#
+# 직접 부르기보다 scripts/dev-db.sh를 쓴다 (운영 DB로 잘못 연결하지 않게 로컬 주소를 스스로 만들어 쓴다):
+#   scripts/dev-db.sh up | migrate | seed | psql | down | reset
+#
+# 이미 받아 둔 pgvector 이미지를 재사용한다(새로 내려받지 않으려고). BE는 vector 확장을 쓰지 않으니 일반 Postgres처럼 동작한다.
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    # 이 PC 밖에서는 접근하지 못하게 localhost에만 연다 (5433: inote-embedder 실험 DB, 5434: inote-ai 개발 DB)
+    ports:
+      - "127.0.0.1:5435:5432"
+    environment:
+      POSTGRES_USER: inote
+      POSTGRES_PASSWORD: ${INOTE_DEV_DB_PASSWORD:?.env.dev에 INOTE_DEV_DB_PASSWORD를 채워 주세요 (openssl rand -hex 16)}
+      POSTGRES_DB: inote_dev
+    volumes:
+      - inote-dev-pgdata:/var/lib/postgresql/data
+
+volumes:
+  inote-dev-pgdata:

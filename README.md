@@ -40,6 +40,8 @@ cd inote-server
 pnpm install
 ```
 
+> 💡 **로컬에서 운영 DB를 건드리고 싶지 않다면** 도커 개발 DB를 쓴다 — `scripts/dev-db.sh up/migrate/seed/start` (상세·주의: [`docs/local-dev-db.md`](docs/local-dev-db.md)). 아래 `.env`의 `DATABASE_URL`은 기본적으로 운영 DB다.
+
 ### 2. 환경변수 설정
 
 ```bash
