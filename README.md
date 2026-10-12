@@ -59,6 +59,7 @@ GOOGLE_CLIENT_SECRET="..."
 PORT=3200
 INOTE_AI_URL="http://localhost:8000"               # inote-ai 베이스 URL (blog 모듈 AI 요약 호출용)
 INTERNAL_SECRET="..."                              # inote-ai와 동일한 값이어야 함 (서비스 간 인증)
+EMBEDDINGS_ENABLED="false"                         # "true"일 때만 글 저장·삭제를 inote-ai 임베딩 API에 알림 (기본 꺼짐, 실패해도 글 저장은 막지 않음)
 ```
 
 > ⚠️ Neon DATABASE_URL에 `channel_binding=require` 옵션은 제거하세요. Prisma와 호환되지 않습니다.
