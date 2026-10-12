@@ -673,7 +673,11 @@ describe('BlogService', () => {
         userId: 'user-1',
         publishedAt: null,
       });
-      mockPrisma.post.update.mockResolvedValue({ id: 'p1', content: '' });
+      mockPrisma.post.update.mockResolvedValue({
+        id: 'p1',
+        title: '',
+        content: '',
+      });
 
       await service.update('user-1', 'p1', { publish: true });
 
@@ -689,7 +693,11 @@ describe('BlogService', () => {
         userId: 'user-1',
         publishedAt: existingPublishedAt,
       });
-      mockPrisma.post.update.mockResolvedValue({ id: 'p1', content: '' });
+      mockPrisma.post.update.mockResolvedValue({
+        id: 'p1',
+        title: '',
+        content: '',
+      });
 
       const before = Date.now();
       await service.update('user-1', 'p1', { publish: true });
@@ -898,5 +906,35 @@ describe('BlogService', () => {
 
       expect(result).toEqual({ id: 'p1' });
     });
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // TODO(직접 작성): 임베딩 연동 (A6-4) — 구현은 blog.service.ts의 update/remove/syncEmbedding.
+  //
+  // 준비: 이 블록의 beforeEach에서 process.env.EMBEDDINGS_ENABLED='true', INOTE_AI_URL, INTERNAL_SECRET을 설정하고
+  //       afterEach에서 원복한다. 위 beforeEach의 fetch 목은 모든 호출을 성공으로 돌려주므로, 임베딩 호출만 따로
+  //       고르려면 URL에 '/embeddings/posts/'가 들어간 호출만 걸러서 본다. 꺼져 있을 땐 fetch에 임베딩 호출이 없어야 한다.
+  //       "기다리지 않는다"는 임베딩 호출의 응답을 deferred promise로 붙잡아 둔 채 update/remove가 끝나는지로 확인한다.
+  describe('임베딩 연동 (A6-4)', () => {
+    it.todo(
+      'update publish:true → PUT /embeddings/posts/{id}에 {title, content}를 보내고, 요약 요청도 그대로 한다',
+    );
+    it.todo(
+      'update 응답은 임베딩 응답을 기다리지 않는다 (임베딩 fetch가 끝나지 않아도 update가 끝난다)',
+    );
+    it.todo('update publish 없음(임시저장·핀·비공개 전환) → 임베딩 호출 없음');
+    it.todo(
+      'update publish + 제목·본문이 모두 빔("", "  ", "<p></p>") → PUT 없이 DELETE(이전 벡터 정리)',
+    );
+    it.todo('update publish + 제목만 있거나 본문만 있으면 PUT (빈 글만 제외)');
+    it.todo('임베딩 호출이 실패해도 update는 성공한다 (fail-open)');
+    it.todo('본인 글이 아니면(ForbiddenException) 임베딩 호출 없음');
+    it.todo(
+      'remove → DB 삭제 뒤 DELETE /embeddings/posts/{id}, 응답은 임베딩을 기다리지 않는다',
+    );
+    it.todo('remove 권한 없음 → 임베딩 호출 없음');
+    it.todo(
+      'EMBEDDINGS_ENABLED가 꺼져 있으면 update·remove 모두 임베딩 호출 없음',
+    );
   });
 });

@@ -1,5 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  deletePostEmbeddings,
+  isEmbeddingsEnabled,
+} from '../../embeddings/inote-ai-embeddings';
 import { deleteInoteAiData } from '../../users/inote-ai-client';
 import { ListAdminUsersQueryDto } from './dto/list-admin-users-query.dto';
 
@@ -83,10 +87,25 @@ export class AdminUsersService {
 
     const aiDataDeleted = await deleteInoteAiData(id, this.logger);
 
+    // 글이 지워지기 전에 id를 모아 둔다 — 지운 뒤엔 어떤 글이었는지 알 수 없다.
+    // 임베딩이 꺼져 있으면 읽지도 않는다.
+    const postIds = isEmbeddingsEnabled()
+      ? (
+          await this.prisma.post.findMany({
+            where: { userId: id },
+            select: { id: true },
+          })
+        ).map((p) => p.id)
+      : [];
+
     await this.prisma.$transaction([
       this.prisma.post.deleteMany({ where: { userId: id } }),
       this.prisma.user.delete({ where: { id } }),
     ]);
+
+    // 삭제가 끝난 뒤에만, 기다리지 않고 하나씩 지운다 (트랜잭션이 실패하면 벡터는 그대로 둔다).
+    // 못 지운 벡터는 후보 id에 없어서 노출되지 않는다.
+    void deletePostEmbeddings(postIds, this.logger);
 
     return { success: true, aiDataDeleted };
   }

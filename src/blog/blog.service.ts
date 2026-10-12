@@ -8,6 +8,11 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  deletePostEmbedding,
+  isEmptyPost,
+  upsertPostEmbedding,
+} from '../embeddings/inote-ai-embeddings';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { ListPostsQueryDto } from './dto/list-posts-query.dto';
 
@@ -472,6 +477,8 @@ export class BlogService {
     });
 
     if (publish) {
+      // 임베딩은 기다리지 않는다(약 5초) — 요약과 동시에 시작만 하고, 실패해도 저장 응답엔 영향이 없다
+      this.syncEmbedding(updated);
       await this.summarize(updated.id, updated.title, updated.content);
     }
 
@@ -484,8 +491,21 @@ export class BlogService {
       throw new ForbiddenException('본인이 작성한 글만 삭제할 수 있습니다.');
     }
     const deleted = await this.prisma.post.delete({ where: { id } });
+    // 벡터 삭제는 기다리지 않는다 — 실패하면 고아 벡터가 남지만 후보 id에 없어서 노출되지 않는다
+    void deletePostEmbedding(id, this.logger);
     await this.deleteAiSession(id);
     return deleted;
+  }
+
+  // 저장(발행)한 글의 벡터를 inote-ai에 맞춘다 — 기다리지 않고 시작만 한다 (실패해도 던지지 않음).
+  // 제목도 본문도 빈 글만 제외한다: 새로 만들 벡터가 없으니, 이전 벡터가 남아 있으면 지운다.
+  // 공개↔비공개 전환·임시저장은 이 함수를 부르지 않는다 (벡터에 공개 여부가 없고 후보 id는 BE가 정한다).
+  private syncEmbedding(post: { id: string; title: string; content: string }) {
+    if (isEmptyPost(post.title, post.content)) {
+      void deletePostEmbedding(post.id, this.logger);
+    } else {
+      void upsertPostEmbedding(post.id, post.title, post.content, this.logger);
+    }
   }
 
   // 글쓰기 세션의 id는 post_id를 그대로 쓰므로, 글이 삭제되면 그 세션(+대화 기록)도 같이

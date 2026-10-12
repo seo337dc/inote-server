@@ -19,6 +19,7 @@ describe('AdminUsersService', () => {
       delete: jest.fn(),
     },
     post: {
+      findMany: jest.fn(),
       deleteMany: jest.fn(),
     },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
@@ -170,5 +171,27 @@ describe('AdminUsersService', () => {
       expect(deleteInoteAiData).not.toHaveBeenCalled();
       expect(mockPrisma.user.delete).not.toHaveBeenCalled();
     });
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // TODO(직접 작성): 사용자 삭제 시 임베딩 정리 (A6-4) — 구현은 admin-users.service.ts의 delete.
+  //
+  // 준비: EMBEDDINGS_ENABLED='true', INOTE_AI_URL, INTERNAL_SECRET 설정 + jest.spyOn(global, 'fetch'). 호출 순서는
+  //       mockPrisma.post.findMany / $transaction / fetch 목에서 순서를 기록하는 배열로 확인한다.
+  //       (이 파일의 $transaction 목은 Promise.all이라, 순서 기록을 넣으려면 구현을 감싸야 한다.)
+  describe('delete — 임베딩 정리 (A6-4)', () => {
+    it.todo(
+      '글 id를 deleteMany 전에 모은다 (findMany({ where: { userId }, select: { id: true } }))',
+    );
+    it.todo(
+      '트랜잭션이 끝난 뒤에 글마다 DELETE /embeddings/posts/{id}를 보낸다',
+    );
+    it.todo(
+      '벡터 삭제는 하나씩 차례로 보낸다 (동시에 여러 개가 나가지 않는다)',
+    );
+    it.todo('트랜잭션이 실패하면 벡터를 지우지 않는다');
+    it.todo('글이 하나도 없으면 임베딩 호출이 없다');
+    it.todo('AI 서버가 죽어 있어도 삭제 결과는 정상이다 (success: true)');
+    it.todo('EMBEDDINGS_ENABLED가 꺼져 있으면 글 id를 읽지도(findMany) 않는다');
   });
 });
