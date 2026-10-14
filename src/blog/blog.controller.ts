@@ -51,6 +51,16 @@ export class BlogController {
     return this.blogService.findOutline(user.id);
   }
 
+  @Get('public-ids')
+  @UseGuards(InternalSecretGuard)
+  @ApiOperation({
+    summary:
+      '[내부 전용] 공개 글 id 목록 — inote-ai 글 목록 채팅의 검색 후보용 (발행됨 AND 공개)',
+  })
+  listPublicPostIds() {
+    return this.blogService.listPublicPostIds();
+  }
+
   @Get('outline/user/:userId')
   @ApiOperation({
     summary:

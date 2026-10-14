@@ -992,4 +992,29 @@ describe('BlogService', () => {
       '컨트롤러: Cache-Control: private, no-store를 걸고 Vary는 덧붙인다(res.vary), 요청자·limit(기본 5)을 서비스에 넘긴다',
     );
   });
+
+  // ─────────────────────────────────────────────────────────────────
+  // TODO(직접 작성): 공개 글 id 목록 (글 목록 채팅 1차, 결정 17) — 구현은 blog.service.ts의 listPublicPostIds,
+  //       컨트롤러는 GET public-ids(InternalSecretGuard). inote-ai의 "글 찾기"가 검색 후보로 쓴다.
+  //
+  // 준비: findCandidateIds는 prisma.post.findMany만 쓰므로 mockPrisma.post.findMany가 [{ id }] 목록을 돌려주게 하면 된다.
+  //   컨트롤러 가드를 시험하려면 인증 모듈(better-auth)이 ESM이라 jest.mock으로 '../auth/*.guard'를 대체해야 한다.
+  //
+  // 지켜야 할 약속(계약)
+  //   1) 발행됨 AND 공개인 글만 — 임시저장·비공개 글 id가 섞이면 안 된다 (비공개 유출의 입구)
+  //   2) 비밀키가 없거나 틀리면 401 — 공개 글 id라도 내부 전용이다
+  //   3) 'public-ids'가 ':id' 라우트보다 앞에 있어 id로 해석되지 않는다
+  describe('공개 글 id 목록 (글 목록 채팅)', () => {
+    it.todo(
+      '{ ids: [...] } 모양으로 돌려주고, where는 publicCandidatesWhere()와 같다 (발행됨 AND 비공개 아님)',
+    );
+    it.todo(
+      '최근 저장순으로 읽고 5000개 상한을 넘으면 오래된 글을 잘라 경고한다 (findCandidateIds 재사용)',
+    );
+    it.todo('글이 없으면 { ids: [] }');
+    it.todo('컨트롤러: 올바른 내부 비밀키로만 접근되고 없거나 틀리면 401이다');
+    it.todo(
+      'GET /blog/posts/public-ids가 GET /blog/posts/:id로 가지 않는다 (라우트 순서)',
+    );
+  });
 });

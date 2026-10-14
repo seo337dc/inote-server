@@ -16,6 +16,7 @@ import {
 } from '../embeddings/inote-ai-embeddings';
 import {
   findCandidateIds,
+  publicCandidatesWhere,
   readableCandidatesWhere,
 } from '../embeddings/embedding-candidates';
 import { findSimilarPosts } from '../embeddings/similar-posts';
@@ -317,6 +318,17 @@ export class BlogService {
       throw new NotFoundException('글을 찾을 수 없습니다.');
     }
     return { ...post, categoryPath: await this.buildCategoryPath(post) };
+  }
+
+  // 공개 글 id 목록 — inote-ai의 글 목록 채팅("글 찾기")이 검색 후보로 쓴다(내부 전용, 비밀키 필요). 공개 여부의 판정은 항상 BE가 한다:
+  // 발행됨 AND 공개인 글만. 최근 저장순, 최대 5000개(embedding-candidates의 상한). 설계: inote 레포 docs/kure/PLAN.md 결정 17.
+  async listPublicPostIds() {
+    const ids = await findCandidateIds(
+      this.prisma,
+      publicCandidatesWhere(),
+      this.logger,
+    );
+    return { ids };
   }
 
   // 글 상세 아래 "비슷한 글" — 이 글과 뜻이 가까운, 요청자가 볼 수 있는 글. 설계: inote 레포 docs/kure/PLAN.md 6절 B.
