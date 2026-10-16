@@ -49,6 +49,10 @@ describe('BlogService', () => {
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn(),
     },
+    // 작성자 목록(findAll userId)이 작성자 정보를 읽는다
+    user: {
+      findUnique: jest.fn(),
+    },
     postSummary: {
       upsert: jest.fn(),
     },
@@ -151,20 +155,109 @@ describe('BlogService', () => {
     //  - 이름이 같은 카테고리가 한 작성자 트리에 여러 곳이면 각각의 하위를 합친다 / 순환 데이터여도 끝난다
     //  - category와 검색어(q)를 같이 주면 공개 목록은 둘 다 최상위 OR이라 AND: [카테고리 조건, 검색 조건]으로 묶인다 (한쪽이 덮어써지지 않음)
     //  - findMine: where는 { userId, NOT: EMPTY_DRAFT, category: { in: [이름, ...하위 이름들] } }, categoryCounts(groupBy)는 여전히 정확한 카테고리별 개수
-    it('category가 있으면 고정 조회·목록 모두 그 카테고리로 거른다', async () => {
-      mockPrisma.post.findMany.mockResolvedValue([]);
-      mockPrisma.post.count.mockResolvedValue(0);
+    describe('카테고리 필터 (categoryId, 하위 카테고리 포함)', () => {
+      // 학습(c1) > AI(c2) > RAG(c3), 사이드프로젝트(c4) > AI(c5) — 이름이 같은 AI가 두 곳에 있다
+      const TREE = [
+        { id: 'c1', parentId: null },
+        { id: 'c2', parentId: 'c1' },
+        { id: 'c3', parentId: 'c2' },
+        { id: 'c4', parentId: null },
+        { id: 'c5', parentId: 'c4' },
+      ];
 
-      await service.findAll({ page: 1, pageSize: 10, category: '학습' });
+      beforeEach(() => {
+        mockPrisma.post.findMany.mockResolvedValue([]);
+        mockPrisma.post.count.mockResolvedValue(0);
+        mockPrisma.postCategory.findUnique.mockResolvedValue({
+          userId: 'owner',
+        });
+        mockPrisma.postCategory.findMany.mockResolvedValue(TREE);
+      });
 
-      for (const n of [1, 2]) {
-        expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
-          n,
-          expect.objectContaining({
-            where: expect.objectContaining({ category: '학습' }),
-          }),
+      const whereOf = (n: number) =>
+        (
+          mockPrisma.post.findMany.mock.calls[n - 1] as [
+            { where: Record<string, unknown> },
+          ]
+        )[0].where;
+
+      it('하위 카테고리가 있으면 그 카테고리와 아래 전부의 글을 포함한다 (3단계까지)', async () => {
+        await service.findAll({ categoryId: 'c1' });
+
+        // 고정 글(1번째)·일반 글(2번째) 조회가 같은 필터를 쓴다
+        for (const n of [1, 2]) {
+          expect(whereOf(n)).toEqual(
+            expect.objectContaining({ categoryId: { in: ['c1', 'c2', 'c3'] } }),
+          );
+        }
+      });
+
+      it('중간 카테고리를 고르면 그 아래만 더해진다 (위쪽 부모는 포함 안 됨)', async () => {
+        await service.findAll({ categoryId: 'c2' });
+
+        expect(whereOf(2)).toEqual(
+          expect.objectContaining({ categoryId: { in: ['c2', 'c3'] } }),
         );
-      }
+      });
+
+      it('이름이 같은 다른 카테고리(사이드프로젝트 > AI)의 글은 섞이지 않는다', async () => {
+        await service.findAll({ categoryId: 'c2' }); // 학습 > AI
+
+        const filter = whereOf(2).categoryId as { in: string[] };
+        expect(filter.in).not.toContain('c5');
+      });
+
+      it('맨 아래 카테고리(하위 없음)는 그 id 하나로 정확히 거른다 (in이 아님)', async () => {
+        await service.findAll({ categoryId: 'c5' });
+
+        expect(whereOf(2)).toEqual(
+          expect.objectContaining({ categoryId: 'c5' }),
+        );
+      });
+
+      it('공개 목록은 그 카테고리의 주인을 먼저 찾고, 그 주인의 트리만 읽는다', async () => {
+        await service.findAll({ categoryId: 'c1' });
+
+        expect(mockPrisma.postCategory.findUnique).toHaveBeenCalledWith({
+          where: { id: 'c1' },
+          select: { userId: true },
+        });
+        expect(mockPrisma.postCategory.findMany).toHaveBeenCalledWith({
+          where: { userId: 'owner' },
+          select: { id: true, parentId: true },
+        });
+      });
+
+      it('없는 카테고리 id면 트리를 읽지 않고 그 id로만 거른다 (아무 글도 안 걸리는 조건, 오류 아님)', async () => {
+        mockPrisma.postCategory.findUnique.mockResolvedValue(null);
+
+        await service.findAll({ categoryId: 'nope' });
+
+        expect(whereOf(2)).toEqual(
+          expect.objectContaining({ categoryId: 'nope' }),
+        );
+        expect(mockPrisma.postCategory.findMany).not.toHaveBeenCalled();
+      });
+
+      it('categoryId가 없으면 카테고리를 전혀 조회하지 않는다', async () => {
+        await service.findAll({});
+
+        expect(mockPrisma.postCategory.findUnique).not.toHaveBeenCalled();
+        expect(whereOf(2)).not.toHaveProperty('categoryId');
+      });
+
+      it('부모가 서로를 가리키는 순환 데이터여도 끝난다', async () => {
+        mockPrisma.postCategory.findMany.mockResolvedValue([
+          { id: 'a', parentId: 'b' },
+          { id: 'b', parentId: 'a' },
+        ]);
+
+        await service.findAll({ categoryId: 'a' });
+
+        expect(whereOf(2)).toEqual(
+          expect.objectContaining({ categoryId: { in: ['a', 'b'] } }),
+        );
+      });
     });
 
     it('검색어(q)가 있으면 공개 조건은 그대로 두고 제목·본문 OR 조건을 고정 글·일반 글 모두에 붙인다', async () => {
@@ -196,13 +289,15 @@ describe('BlogService', () => {
       mockPrisma.post.findMany.mockResolvedValue([]);
       mockPrisma.post.count.mockResolvedValue(0);
 
-      await service.findAll({ category: '학습', q: '리액트' });
+      mockPrisma.postCategory.findUnique.mockResolvedValue(null); // 하위 없는 단순한 경우로 둔다
+
+      await service.findAll({ categoryId: 'c-study', q: '리액트' });
 
       expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
           where: expect.objectContaining({
-            category: '학습',
+            categoryId: 'c-study',
             ...SEARCH('리액트'),
           }),
         }),
@@ -249,17 +344,18 @@ describe('BlogService', () => {
       id: true,
       title: true,
       category: true,
+      categoryId: true,
       isPrivate: true,
       pinned: true,
     };
 
-    it('비로그인이면 발행된 공개 글만 제목·카테고리만 골라 마지막 저장순으로 조회한다', async () => {
+    it('내가 발행한 글(비공개 포함)만 제목·카테고리(id 포함)만 골라 마지막 저장순으로 조회한다', async () => {
       mockPrisma.post.findMany.mockResolvedValue([{ id: 'a' }]);
 
-      const result = await service.findOutline();
+      const result = await service.findOutline('u1');
 
       expect(mockPrisma.post.findMany).toHaveBeenCalledWith({
-        where: { publishedAt: { not: null }, OR: [{ isPrivate: false }] },
+        where: { userId: 'u1', publishedAt: { not: null } },
         select: SELECT,
         orderBy: LIST_ORDER,
         take: 500,
@@ -267,17 +363,14 @@ describe('BlogService', () => {
       expect(result).toEqual([{ id: 'a' }]);
     });
 
-    it('로그인했으면 공개 글에 더해 내 글(비공개 포함)도 조회한다', async () => {
+    it('draft(발행 전)는 제외한다 — where에 publishedAt not null', async () => {
       mockPrisma.post.findMany.mockResolvedValue([]);
 
       await service.findOutline('u1');
 
       expect(mockPrisma.post.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {
-            publishedAt: { not: null },
-            OR: [{ isPrivate: false }, { userId: 'u1' }],
-          },
+          where: expect.objectContaining({ publishedAt: { not: null } }),
         }),
       );
     });
@@ -290,8 +383,9 @@ describe('BlogService', () => {
         .mockResolvedValueOnce([{ id: 'a' }]);
       mockPrisma.post.count.mockResolvedValue(1);
       mockPrisma.post.groupBy.mockResolvedValue([
-        { category: '학습', _count: { _all: 3 } },
-        { category: '이직', _count: { _all: 1 } },
+        { categoryId: 'c-study', _count: { _all: 3 } },
+        { categoryId: 'c-job', _count: { _all: 1 } },
+        { categoryId: null, _count: { _all: 2 } },
       ]);
 
       const result = await service.findMine('user-1', {
@@ -306,11 +400,16 @@ describe('BlogService', () => {
         }),
       );
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith({
-        by: ['category'],
+        by: ['categoryId'],
         where: { userId: 'user-1', NOT: EMPTY_DRAFT },
         _count: { _all: true },
       });
-      expect(result.categoryCounts).toEqual({ 학습: 3, 이직: 1 });
+      // 카테고리 id → 직속 글 수. 아직 지정 안 된 글(categoryId null)은 'unassigned'
+      expect(result.categoryCounts).toEqual({
+        'c-study': 3,
+        'c-job': 1,
+        unassigned: 2,
+      });
       // 목록의 글에는 카테고리 경로(categoryPath)가 붙는다 — 이 mock 글은 category가 없어 빈 배열
       expect(result.items).toEqual([{ id: 'a', categoryPath: [] }]);
     });
@@ -366,12 +465,13 @@ describe('BlogService', () => {
       );
     });
 
-    it('category 필터가 있어도 카테고리별 개수는 필터 없이 전체 기준으로 센다', async () => {
+    it('categoryId 필터가 있어도 카테고리별 개수는 필터 없이 전체 기준으로 센다', async () => {
       mockPrisma.post.findMany.mockResolvedValue([]);
       mockPrisma.post.count.mockResolvedValue(0);
       mockPrisma.post.groupBy.mockResolvedValue([]);
+      mockPrisma.postCategory.findMany.mockResolvedValue([]);
 
-      await service.findMine('user-1', { category: '학습' });
+      await service.findMine('user-1', { categoryId: 'c-study' });
 
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -381,11 +481,168 @@ describe('BlogService', () => {
     });
   });
 
+  describe('findMine — categoryId 필터', () => {
+    it('내 글 목록은 카테고리 주인을 따로 찾지 않고 내 트리를 바로 읽어 하위까지 포함한다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+      mockPrisma.post.groupBy.mockResolvedValue([]);
+      mockPrisma.postCategory.findMany.mockResolvedValue([
+        { id: 'c1', parentId: null },
+        { id: 'c2', parentId: 'c1' },
+      ]);
+
+      await service.findMine('user-1', { categoryId: 'c1' });
+
+      expect(mockPrisma.postCategory.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.postCategory.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        select: { id: true, parentId: true },
+      });
+      expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: 'user-1',
+            categoryId: { in: ['c1', 'c2'] },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('카테고리 경로 (categoryPath = { id, name }[], categoryId 기준)', () => {
+    // 학습(c1) > AI(c2), 사이드프로젝트(c4) > AI(c5) — 같은 이름 AI가 두 곳
+    const TREE = [
+      { id: 'c1', userId: 'u1', name: '학습', parentId: null },
+      { id: 'c2', userId: 'u1', name: 'AI', parentId: 'c1' },
+      { id: 'c4', userId: 'u1', name: '사이드프로젝트', parentId: null },
+      { id: 'c5', userId: 'u1', name: 'AI', parentId: 'c4' },
+    ];
+
+    async function pathsOf(
+      posts: { id: string; category: string; categoryId: string | null }[],
+    ) {
+      mockPrisma.post.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce(posts.map((p) => ({ ...p, userId: 'u1' })));
+      mockPrisma.post.count.mockResolvedValue(0);
+      mockPrisma.post.groupBy.mockResolvedValue([]);
+      mockPrisma.postCategory.findMany.mockResolvedValue(TREE);
+      const result = await service.findMine('u1', {});
+      return Object.fromEntries(
+        result.items.map((i) => [i.id, i.categoryPath]),
+      );
+    }
+
+    it('최상위부터 이 글의 카테고리까지 { id, name }으로 담는다', async () => {
+      const paths = await pathsOf([
+        { id: 'a', category: 'AI', categoryId: 'c2' },
+        { id: 'b', category: '학습', categoryId: 'c1' },
+      ]);
+
+      expect(paths.a).toEqual([
+        { id: 'c1', name: '학습' },
+        { id: 'c2', name: 'AI' },
+      ]);
+      expect(paths.b).toEqual([{ id: 'c1', name: '학습' }]);
+    });
+
+    it('같은 이름이 두 곳이어도 글의 categoryId로 정확한 경로를 찾는다', async () => {
+      const paths = await pathsOf([
+        { id: 'study', category: 'AI', categoryId: 'c2' },
+        { id: 'side', category: 'AI', categoryId: 'c5' },
+      ]);
+
+      expect(paths.study.map((p) => p.name)).toEqual(['학습', 'AI']);
+      expect(paths.side.map((p) => p.name)).toEqual(['사이드프로젝트', 'AI']);
+      expect(paths.side[1].id).toBe('c5');
+    });
+
+    it('카테고리가 아직 지정되지 않은 글(categoryId null)은 이름 사본 하나, id는 null이다', async () => {
+      const paths = await pathsOf([
+        { id: 'x', category: 'AI', categoryId: null },
+      ]);
+
+      expect(paths.x).toEqual([{ id: null, name: 'AI' }]);
+    });
+
+    it('이름 사본도 없으면(빈 draft 등) 빈 경로다', async () => {
+      const paths = await pathsOf([
+        { id: 'x', category: '', categoryId: null },
+      ]);
+
+      expect(paths.x).toEqual([]);
+    });
+
+    it('categoryId는 있는데 트리에서 못 찾으면 이름 사본 하나로 대신한다 (예외 없음)', async () => {
+      const paths = await pathsOf([
+        { id: 'x', category: '옛카테고리', categoryId: 'gone' },
+      ]);
+
+      expect(paths.x).toEqual([{ id: 'gone', name: '옛카테고리' }]);
+    });
+
+    it('카테고리가 지정된 글이 하나도 없으면 카테고리를 읽지 않는다', async () => {
+      mockPrisma.post.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { id: 'x', category: 'AI', categoryId: null, userId: 'u1' },
+        ]);
+      mockPrisma.post.count.mockResolvedValue(0);
+      mockPrisma.post.groupBy.mockResolvedValue([]);
+
+      await service.findMine('u1', {});
+
+      expect(mockPrisma.postCategory.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('작성자 목록의 카테고리 요약 (findAll userId)', () => {
+    it('글 수는 카테고리 id 기준(지정 안 된 글은 unassigned)이고, 공개 글이 있는 카테고리만 내려간다', async () => {
+      mockPrisma.post.findMany.mockResolvedValue([]);
+      mockPrisma.post.count.mockResolvedValue(0);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        name: '작성자',
+      });
+      mockPrisma.post.groupBy.mockResolvedValue([
+        { categoryId: 'c-ai', _count: { _all: 2 } },
+        { categoryId: null, _count: { _all: 1 } },
+      ]);
+      const row = (id: string, name: string, parentId: string | null) => ({
+        id,
+        name,
+        parentId,
+        depth: parentId ? 2 : 1,
+        createdAt: new Date('2026-01-01'),
+      });
+      mockPrisma.postCategory.findMany.mockResolvedValue([
+        row('c-study', '학습', null),
+        row('c-ai', 'AI', 'c-study'),
+        row('c-diary', '일기', null), // 공개 글 없음 → 내려가지 않는다
+        row('c-side-ai', 'AI', 'c-diary'), // 이름이 같은 AI지만 공개 글이 없다
+      ]);
+
+      const result = await service.findAll({ userId: 'u1' });
+
+      expect(mockPrisma.post.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({ by: ['categoryId'] }),
+      );
+      expect(result.categoryCounts).toEqual({ 'c-ai': 2, unassigned: 1 });
+      // 학습은 하위 AI에 공개 글이 있어서 보이고, 일기·사이드 쪽 AI는 글이 없어 빠진다
+      // categories는 목록 응답에만 붙는 필드라(작성자 필터일 때) 타입이 느슨해서 필요한 모양으로 좁혀 읽는다
+      const ids = (result as { categories: { id: string }[] }).categories.map(
+        (c) => c.id,
+      );
+      expect(ids).toEqual(['c-study', 'c-ai']);
+    });
+  });
+
   describe('findMyOutline', () => {
     // TODO(테스트): 내 글 목록 API (#7, 구현됨: findMyOutline) — 나중에 작성할 테스트 목록.
     //  mock: mockPrisma.post.findMany
     //  - where는 { userId, NOT: EMPTY_DRAFT } — 내 글만, 빈 임시저장은 제외(발행 전이어도 제목·본문이 있으면 포함)
-    //  - select는 id·title·category·isPrivate·publishedAt만 (본문 없음)
+    //  - select는 id·title·category·categoryId·isPrivate·publishedAt만 (본문 없음)
     //  - 최신순(createdAt desc), 최대 500개(take)
     //  - 비공개 글도 포함한다 (내 글이므로)
     //  - 결과는 findMany 결과를 그대로 돌려준다

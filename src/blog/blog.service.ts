@@ -63,19 +63,44 @@ function combineWhere(
 
 type CategoryRow = { id: string; name: string; parentId: string | null };
 
-// 작성자 한 명의 카테고리 목록(깊이·생성순으로 정렬돼 있어야 함)에서 name의 경로를 만든다 — 최상위부터 name까지의 이름.
-// 같은 이름이 여러 곳이면 목록에서 먼저 나온 것(가장 얕고 먼저 만든 것)을 쓴다. 목록에 없으면 [name].
-function pathOf(categories: CategoryRow[], name: string): string[] {
+// 글 목록·상세의 카테고리 경로 한 칸 — 링크를 이름이 아니라 id로 걸 수 있게 id를 같이 준다.
+// id가 null인 칸은 아직 카테고리가 지정되지 않은 글(이름 사본만 있음)을 뜻한다.
+type CategoryPathItem = { id: string | null; name: string };
+
+// 카테고리별 글 수 맵에서 카테고리가 지정되지 않은 글(categoryId null)을 세는 키
+const UNASSIGNED_KEY = 'unassigned';
+
+// groupBy(categoryId) 결과를 { [categoryId]: 개수 } 맵으로 — categoryId가 null인 글은 UNASSIGNED_KEY로 센다.
+function countsByCategoryId(
+  grouped: { categoryId: string | null; _count: { _all: number } }[],
+): Record<string, number> {
+  return Object.fromEntries(
+    grouped.map((g) => [g.categoryId ?? UNASSIGNED_KEY, g._count._all]),
+  );
+}
+
+// 글의 카테고리 경로 — 작성자 카테고리 목록에서 post.categoryId부터 부모를 따라 올라가 최상위부터 이 글의 카테고리까지.
+// 같은 이름이 여러 곳에 있어도 id로 찾으니 섞이지 않는다.
+// - categoryId가 없으면(아직 지정 안 된 글): 이름 사본이 있으면 [{ id: null, name }], 없으면 []
+// - id는 있는데 목록에서 못 찾으면(작성자 탈퇴 등으로 트리를 못 읽음): [{ id, name: 이름 사본 }], 이름 사본도 없으면 []
+function pathOf(
+  categories: CategoryRow[],
+  post: { category: string; categoryId: string | null },
+): CategoryPathItem[] {
+  if (!post.categoryId) {
+    return post.category ? [{ id: null, name: post.category }] : [];
+  }
   const byId = new Map(categories.map((c) => [c.id, c]));
-  const path: string[] = [];
+  const path: CategoryPathItem[] = [];
   const visited = new Set<string>(); // 잘못된 순환 데이터여도 무한 루프에 빠지지 않게
-  let current = categories.find((c) => c.name === name);
+  let current = byId.get(post.categoryId);
   while (current && !visited.has(current.id)) {
     visited.add(current.id);
-    path.unshift(current.name);
+    path.unshift({ id: current.id, name: current.name });
     current = current.parentId ? byId.get(current.parentId) : undefined;
   }
-  return path.length > 0 ? path : [name];
+  if (path.length > 0) return path;
+  return post.category ? [{ id: post.categoryId, name: post.category }] : [];
 }
 
 // 제목도 본문도 없는 발행 전 글 — 글쓰기 화면에 들어오기만 해도 생기는 빈 draft라서
@@ -149,7 +174,7 @@ export class BlogService {
       isPrivate: false,
       ...(query.userId ? { userId: query.userId } : {}),
       ...combineWhere(
-        await this.categoryFilter(query.category),
+        await this.categoryFilter(query.categoryId),
         searchWhere(query.q),
       ),
     };
@@ -167,12 +192,12 @@ export class BlogService {
   }
 
   // 작성자 페이지의 카테고리 목록 — 그 사람의 카테고리 중 "공개 글이 있는 것"(그 아래 하위에 있는 경우 포함)과
-  // 공개 글의 카테고리별 개수(직속, 이름 기준). 비공개 글만 있는 카테고리는 이름도 내려가지 않는다.
+  // 공개 글의 카테고리별 개수(직속, 카테고리 id 기준 — 아직 지정 안 된 글은 'unassigned'). 비공개 글만 있는 카테고리는 이름도 내려가지 않는다.
   // 개수는 목록의 category·q 필터와 상관없이 그 사람의 공개 글 전체 기준이다 (나의 글의 categoryCounts와 같은 방식).
   private async publicCategorySummary(userId: string) {
     const [grouped, rows] = await Promise.all([
       this.prisma.post.groupBy({
-        by: ['category'],
+        by: ['categoryId'],
         where: { userId, publishedAt: { not: null }, isPrivate: false },
         _count: { _all: true },
       }),
@@ -188,9 +213,7 @@ export class BlogService {
         orderBy: [{ depth: 'asc' }, { createdAt: 'asc' }],
       }),
     ]);
-    const categoryCounts = Object.fromEntries(
-      grouped.map((g) => [g.category, g._count._all]),
-    );
+    const categoryCounts = countsByCategoryId(grouped);
 
     const childrenOf = new Map<string, typeof rows>();
     for (const row of rows) {
@@ -209,7 +232,7 @@ export class BlogService {
       if (visited.has(row.id)) return false;
       visited.add(row.id);
       return (
-        (categoryCounts[row.name] ?? 0) > 0 ||
+        (categoryCounts[row.id] ?? 0) > 0 ||
         (childrenOf.get(row.id) ?? []).some((child) =>
           hasPublicPosts(child, visited),
         )
@@ -222,63 +245,48 @@ export class BlogService {
     };
   }
 
-  // 카테고리 이름으로 거르는 조건 — 그 카테고리의 글과 그 아래(하위) 카테고리의 글을 모두 포함한다.
-  // 글의 category는 이름 문자열이라, 하위 여부는 "글 작성자의" 카테고리 트리에서 판단한다 (작성자마다 트리가 다름).
-  // - 이름이 같은 카테고리가 트리 여러 곳에 있으면(생성 시 중복을 막지 않음) 각각의 하위를 모두 합친다
-  // - 하위가 없거나 트리에 없는 이름이면 예전처럼 { category: name } 정확 일치
-  // ownerUserId를 주면 그 사용자의 트리만 본다 (내 글 목록), 없으면 그 이름을 가진 카테고리가 있는 모든 작성자의 트리를 본다 (공개 목록).
+  // 카테고리 id로 거르는 조건 — 그 카테고리의 글과 그 아래(하위) 카테고리의 글을 모두 포함한다.
+  // 글은 카테고리 id(Post.categoryId)로 가리키므로 같은 이름이 다른 부모 아래 있어도 섞이지 않는다.
+  // 하위는 그 카테고리 **주인의** 트리에서 찾는다. ownerUserId를 주면(내 글 목록) 그 사용자의 트리를 바로 읽고,
+  // 없으면(공개 목록) 그 카테고리의 주인을 먼저 찾는다. 없는 id·남의 카테고리 id는 오류가 아니라 "아무 글도 안 걸리는" 조건이 된다
+  // (글은 자기 카테고리만 가리킬 수 있으므로 id 하나로 거르면 빈 목록이다).
   private async categoryFilter(
-    name: string | undefined,
+    categoryId: string | undefined,
     ownerUserId?: string,
   ): Promise<Prisma.PostWhereInput> {
-    if (!name) return {};
+    if (!categoryId) return {};
+
+    let treeOwnerId = ownerUserId;
+    if (!treeOwnerId) {
+      const root = await this.prisma.postCategory.findUnique({
+        where: { id: categoryId },
+        select: { userId: true },
+      });
+      if (!root) return { categoryId };
+      treeOwnerId = root.userId;
+    }
 
     const categories = await this.prisma.postCategory.findMany({
-      where: ownerUserId
-        ? { userId: ownerUserId }
-        : { user: { categories: { some: { name } } } },
-      select: { id: true, userId: true, name: true, parentId: true },
+      where: { userId: treeOwnerId },
+      select: { id: true, parentId: true },
     });
-
-    // 작성자별로 트리를 따로 훑어 name 아래의 하위 카테고리 이름을 모은다
-    const childrenOf = new Map<string, typeof categories>();
+    const childrenOf = new Map<string, string[]>();
     for (const c of categories) {
       if (!c.parentId) continue;
-      childrenOf.set(c.parentId, [...(childrenOf.get(c.parentId) ?? []), c]);
+      childrenOf.set(c.parentId, [...(childrenOf.get(c.parentId) ?? []), c.id]);
     }
-    const descendantsByUser = new Map<string, Set<string>>();
-    for (const root of categories.filter((c) => c.name === name)) {
-      const names = descendantsByUser.get(root.userId) ?? new Set<string>();
-      const visited = new Set<string>([root.id]); // 순환 데이터여도 무한 루프에 빠지지 않게
-      const queue = [root];
-      for (let node = queue.shift(); node; node = queue.shift()) {
-        for (const child of childrenOf.get(node.id) ?? []) {
-          if (visited.has(child.id)) continue;
-          visited.add(child.id);
-          names.add(child.name);
-          queue.push(child);
-        }
+
+    // 자기 자신부터 아래로 훑는다 (순환 데이터여도 끝나게 방문 기록을 둔다)
+    const ids = [categoryId];
+    const visited = new Set<string>(ids);
+    for (let i = 0; i < ids.length; i++) {
+      for (const child of childrenOf.get(ids[i]) ?? []) {
+        if (visited.has(child)) continue;
+        visited.add(child);
+        ids.push(child);
       }
-      descendantsByUser.set(root.userId, names);
     }
-
-    const perUser = [...descendantsByUser]
-      .map(([userId, names]) => ({ userId, names: [...names] }))
-      .filter(({ names }) => names.length > 0);
-    if (perUser.length === 0) return { category: name };
-
-    if (ownerUserId) {
-      return { category: { in: [name, ...perUser[0].names] } };
-    }
-    return {
-      OR: [
-        { category: name },
-        ...perUser.map(({ userId, names }) => ({
-          userId,
-          category: { in: names },
-        })),
-      ],
-    };
+    return ids.length === 1 ? { categoryId } : { categoryId: { in: ids } };
   }
 
   // 내 글 상세 왼쪽 카테고리 트리용 — 본문 없이 제목·카테고리만 가볍게 내려준다.
@@ -290,6 +298,7 @@ export class BlogService {
         id: true,
         title: true,
         category: true,
+        categoryId: true,
         isPrivate: true,
         pinned: true,
       },
@@ -370,6 +379,7 @@ export class BlogService {
         id: true,
         title: true,
         category: true,
+        categoryId: true,
         userId: true,
         isPrivate: true,
         user: { select: { name: true } },
@@ -398,32 +408,35 @@ export class BlogService {
     return { items };
   }
 
-  // 글 상세의 카테고리 경로 — 작성자의 카테고리 트리에서 최상위부터 이 글의 카테고리까지의 이름 (예: ['학습', 'AI']).
-  // 글의 category는 이름 문자열이라 작성자의 PostCategory 중 이름이 같은 것을 찾아 parentId를 따라 올라간다.
-  // 트리에서 못 찾으면(작성자 탈퇴, 트리 미생성 등) [category], category가 비어 있으면 [].
+  // 글 상세의 카테고리 경로 — 작성자의 카테고리 트리에서 최상위부터 이 글의 카테고리까지 ([{ id, name }, ...], 예: 학습 > AI).
+  // 글의 categoryId로 PostCategory를 찾아 parentId를 따라 올라간다 (같은 이름이 여러 곳이어도 정확).
+  // 카테고리가 지정되지 않은 글(categoryId null)은 이름 사본 하나([{ id: null, name }]), 이름도 비어 있으면 []. 이 경우 DB를 읽지 않는다.
   private async buildCategoryPath(post: {
     userId: string | null;
     category: string;
-  }): Promise<string[]> {
-    if (!post.category) return [];
-    if (!post.userId) return [post.category];
+    categoryId: string | null;
+  }): Promise<CategoryPathItem[]> {
+    if (!post.categoryId || !post.userId) return pathOf([], post);
 
     const categories = await this.prisma.postCategory.findMany({
       where: { userId: post.userId },
       select: { id: true, name: true, parentId: true },
-      orderBy: [{ depth: 'asc' }, { createdAt: 'asc' }],
     });
-    return pathOf(categories, post.category);
+    return pathOf(categories, post);
   }
 
   // 목록의 각 글에 categoryPath를 붙인다 — 이번 페이지 글들의 작성자(보통 소수) 카테고리를 한 번에 읽어 글마다 경로를 만든다.
-  // 작성자가 없거나 category가 빈 글은 조회 없이 각각 [category] / []. 대상이 하나도 없으면 DB를 읽지 않는다.
+  // 작성자가 없거나 categoryId가 없는 글은 조회 없이 이름 사본 하나 / []. 대상이 하나도 없으면 DB를 읽지 않는다.
   private async withCategoryPaths<
-    T extends { userId: string | null; category: string },
-  >(posts: T[]): Promise<(T & { categoryPath: string[] })[]> {
+    T extends {
+      userId: string | null;
+      category: string;
+      categoryId: string | null;
+    },
+  >(posts: T[]): Promise<(T & { categoryPath: CategoryPathItem[] })[]> {
     const userIds = [
       ...new Set(
-        posts.filter((p) => p.category && p.userId).map((p) => p.userId!),
+        posts.filter((p) => p.categoryId && p.userId).map((p) => p.userId!),
       ),
     ];
     const byUser = new Map<string, CategoryRow[]>();
@@ -431,7 +444,6 @@ export class BlogService {
       const rows = await this.prisma.postCategory.findMany({
         where: { userId: { in: userIds } },
         select: { id: true, userId: true, name: true, parentId: true },
-        orderBy: [{ depth: 'asc' }, { createdAt: 'asc' }],
       });
       for (const row of rows) {
         byUser.set(row.userId, [...(byUser.get(row.userId) ?? []), row]);
@@ -439,11 +451,10 @@ export class BlogService {
     }
     return posts.map((post) => ({
       ...post,
-      categoryPath: !post.category
-        ? []
-        : post.userId
-          ? pathOf(byUser.get(post.userId) ?? [], post.category)
-          : [post.category],
+      categoryPath: pathOf(
+        post.userId ? (byUser.get(post.userId) ?? []) : [],
+        post,
+      ),
     }));
   }
 
@@ -467,6 +478,7 @@ export class BlogService {
           id: true,
           title: true,
           category: true,
+          categoryId: true,
           isPrivate: true,
           pinned: true,
         },
@@ -487,6 +499,7 @@ export class BlogService {
         id: true,
         title: true,
         category: true,
+        categoryId: true,
         isPrivate: true,
         publishedAt: true,
       },
@@ -505,7 +518,7 @@ export class BlogService {
   // 나의 글 목록 — 발행·비공개 여부 상관없이 내가 쓴 글 전부 (/my-posts에서 사용).
   // 사이드바 카테고리별 개수는 페이지와 무관한 전체 기준이라 categoryCounts로 따로 내려줌.
   async findMine(userId: string, query: ListPostsQueryDto) {
-    const categoryFilter = await this.categoryFilter(query.category, userId);
+    const categoryFilter = await this.categoryFilter(query.categoryId, userId);
     const [page, grouped] = await Promise.all([
       this.listPage(
         {
@@ -516,14 +529,13 @@ export class BlogService {
         query,
       ),
       this.prisma.post.groupBy({
-        by: ['category'],
+        by: ['categoryId'],
         where: { userId, NOT: EMPTY_DRAFT },
         _count: { _all: true },
       }),
     ]);
-    const categoryCounts = Object.fromEntries(
-      grouped.map((g) => [g.category, g._count._all]),
-    );
+    // 카테고리 id → 직속 글 수 (아직 지정 안 된 글은 'unassigned')
+    const categoryCounts = countsByCategoryId(grouped);
     return { ...page, categoryCounts };
   }
 
