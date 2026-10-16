@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -44,6 +45,18 @@ export class CategoriesService {
         );
       }
       depth = parent.depth + 1;
+    }
+
+    // 같은 부모 아래(최상위끼리 포함) 형제 중에 같은 이름이 있으면 막는다. 글이 카테고리를 id로 가리키므로
+    // 다른 부모 아래의 같은 이름(예: 학습 > AI, 사이드프로젝트 > AI)은 허용한다.
+    // DB 유니크 제약으로는 못 막는다 — PostgreSQL은 parentId가 NULL인 최상위끼리를 서로 다른 값으로 보기 때문.
+    const sibling = await this.prisma.postCategory.findFirst({
+      where: { userId, parentId: dto.parentId ?? null, name: dto.name },
+    });
+    if (sibling) {
+      throw new ConflictException(
+        '같은 위치에 같은 이름의 카테고리가 이미 있습니다.',
+      );
     }
 
     return this.prisma.postCategory.create({

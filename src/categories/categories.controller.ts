@@ -1,5 +1,10 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConflictResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CategoriesService } from './categories.service';
@@ -21,7 +26,13 @@ export class CategoriesController {
   }
 
   @Post()
-  @ApiOperation({ summary: '카테고리 추가 (최상위 또는 하위, 최대 3단계)' })
+  @ApiOperation({
+    summary:
+      '카테고리 추가 (최상위 또는 하위, 최대 3단계). 같은 부모 아래 같은 이름은 불가',
+  })
+  @ApiConflictResponse({
+    description: '같은 부모 아래에 같은 이름의 카테고리가 이미 있음',
+  })
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateCategoryDto) {
     return this.categoriesService.create(user.id, dto);
   }
