@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "prisma.config.ts", "prisma/seed-mandalart.ts", "prisma/seed-dev.ts", "scripts/backfill-embeddings.ts"]
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "prisma.config.ts", "prisma/seed-mandalart.ts", "prisma/seed-dev.ts", "scripts/backfill-embeddings.ts", "scripts/backfill-post-category-id.ts"]
 }

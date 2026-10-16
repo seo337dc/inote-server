@@ -94,7 +94,7 @@ inote-server/
 │       ├── mini-game/        ← 캐시플로우 미니게임 결과
 │       ├── terms/            ← 금융 용어 + 좋아요
 │       └── books/            ← 금융 책 추천 + 좋아요
-├── scripts/                  ← dev-db.sh(로컬 개발 DB·시드·백필), backfill-embeddings.ts
+├── scripts/                  ← dev-db.sh(로컬 개발 DB·시드·백필), backfill-embeddings.ts, backfill-post-category-id.ts(글의 categoryId 채우기 — docs/post-category-backfill.md)
 ├── docs/                     ← handoff/HANDOFF.md, local-dev-db.md, embeddings-backfill.md
 ├── prisma/
 │   ├── schema.prisma
