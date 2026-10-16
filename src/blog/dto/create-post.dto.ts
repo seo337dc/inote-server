@@ -28,7 +28,11 @@ export class CreatePostDto {
   @MaxLength(300)
   excerpt?: string;
 
-  @ApiProperty({ description: '카테고리', example: '학습' })
+  @ApiProperty({
+    description:
+      '카테고리 이름 — 이전 방식. 새 코드는 categoryId를 쓴다(같은 이름이 다른 부모 아래 있을 수 있어서). categoryId가 같이 오면 무시된다',
+    example: '학습',
+  })
   @IsString()
   @MinLength(1)
   @MaxLength(50)

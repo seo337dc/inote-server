@@ -540,6 +540,36 @@ export class BlogService {
     });
   }
 
+  // 저장 요청의 카테고리를 글에 쓸 값({ categoryId, category })으로 바꾼다. 아무것도 안 보냈으면 {} (카테고리는 그대로).
+  // - categoryId가 오면 그 카테고리가 "내 것"인지 확인하고(없거나 남의 것이면 404) 이름 사본을 거기서 가져온다. 이름이 같이 와도 무시.
+  // - 이름(category)만 오는 건 이전 방식(전환 기간): 내 카테고리 중 그 이름이 정확히 하나면 그 id를 잇고,
+  //   하나도 없거나 여럿(같은 이름이 두 곳)이면 id는 비운다 — 어느 쪽인지 알 수 없는 글을 임의로 잇지 않는다.
+  private async resolveCategory(
+    userId: string,
+    input: { category?: string; categoryId?: string },
+  ): Promise<{ categoryId?: string | null; category?: string }> {
+    if (input.categoryId !== undefined) {
+      const found = await this.prisma.postCategory.findUnique({
+        where: { id: input.categoryId },
+      });
+      if (!found || found.userId !== userId) {
+        throw new NotFoundException('카테고리를 찾을 수 없습니다.');
+      }
+      return { categoryId: found.id, category: found.name };
+    }
+    if (input.category !== undefined) {
+      const sameName = await this.prisma.postCategory.findMany({
+        where: { userId, name: input.category },
+        select: { id: true },
+      });
+      return {
+        category: input.category,
+        categoryId: sameName.length === 1 ? sameName[0].id : null,
+      };
+    }
+    return {};
+  }
+
   // publish가 true일 때만 진짜 저장(발행 + AI 요약 갱신). 그 외엔 임시저장 — 내용만 갱신하고
   // 발행 상태·요약은 건드리지 않는다 (자동저장이 Groq를 계속 호출하지 않도록).
   async update(userId: string, id: string, dto: UpdatePostDto) {
@@ -547,13 +577,19 @@ export class BlogService {
     if (post.userId !== userId) {
       throw new ForbiddenException('본인이 작성한 글만 수정할 수 있습니다.');
     }
-    const { publish, ...fields } = dto;
+    const { publish, category, categoryId, ...fields } = dto;
+    // 카테고리는 id로 가리킨다 — 이름 사본(Post.category)은 서버가 채운다. 안 보냈으면 카테고리는 건드리지 않는다
+    const categoryData = await this.resolveCategory(userId, {
+      category,
+      categoryId,
+    });
     // 진짜 저장(발행)일 때만 lastEditedAt을 갱신 — 첫 발행이면 publishedAt과 같은 시각으로 맞춘다
     const now = new Date();
     const updated = await this.prisma.post.update({
       where: { id },
       data: {
         ...fields,
+        ...categoryData,
         ...(publish
           ? { publishedAt: post.publishedAt ?? now, lastEditedAt: now }
           : {}),

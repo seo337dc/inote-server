@@ -47,6 +47,7 @@ describe('BlogService', () => {
     // 목록의 category 필터가 하위 카테고리까지 포함하려고 작성자의 카테고리 트리를 읽는다 (기본은 트리 없음)
     postCategory: {
       findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn(),
     },
     postSummary: {
       upsert: jest.fn(),
@@ -538,6 +539,142 @@ describe('BlogService', () => {
         service.update('other-user', 'p1', { title: '수정' }),
       ).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.post.update).not.toHaveBeenCalled();
+    });
+
+    describe('카테고리 (categoryId로 가리킨다)', () => {
+      const OWN_POST = { id: 'p1', userId: 'user-1', publishedAt: null };
+
+      beforeEach(() => {
+        mockPrisma.post.findUnique.mockResolvedValue(OWN_POST);
+        mockPrisma.post.update.mockResolvedValue({ id: 'p1' });
+      });
+
+      it('categoryId를 보내면 내 카테고리인지 확인하고, categoryId와 이름 사본(category)을 함께 저장한다', async () => {
+        mockPrisma.postCategory.findUnique.mockResolvedValue({
+          id: 'c-ai',
+          userId: 'user-1',
+          name: 'AI',
+        });
+
+        await service.update('user-1', 'p1', { categoryId: 'c-ai' });
+
+        expect(mockPrisma.postCategory.findUnique).toHaveBeenCalledWith({
+          where: { id: 'c-ai' },
+        });
+        expect(mockPrisma.post.update).toHaveBeenCalledWith({
+          where: { id: 'p1' },
+          data: { categoryId: 'c-ai', category: 'AI' },
+          include: expect.any(Object),
+        });
+      });
+
+      it('없는 카테고리 id면 NotFoundException — 글은 저장하지 않는다', async () => {
+        mockPrisma.postCategory.findUnique.mockResolvedValue(null);
+
+        await expect(
+          service.update('user-1', 'p1', { categoryId: 'missing' }),
+        ).rejects.toThrow(NotFoundException);
+        expect(mockPrisma.post.update).not.toHaveBeenCalled();
+      });
+
+      it('남의 카테고리 id면 NotFoundException (존재 여부를 숨긴다)', async () => {
+        mockPrisma.postCategory.findUnique.mockResolvedValue({
+          id: 'c-other',
+          userId: 'someone-else',
+          name: 'AI',
+        });
+
+        await expect(
+          service.update('user-1', 'p1', { categoryId: 'c-other' }),
+        ).rejects.toThrow(NotFoundException);
+        expect(mockPrisma.post.update).not.toHaveBeenCalled();
+      });
+
+      it('categoryId와 이름(category)이 같이 오면 categoryId가 우선이고 이름은 무시한다', async () => {
+        mockPrisma.postCategory.findUnique.mockResolvedValue({
+          id: 'c-ai',
+          userId: 'user-1',
+          name: 'AI',
+        });
+
+        await service.update('user-1', 'p1', {
+          categoryId: 'c-ai',
+          category: '엉뚱한 이름',
+        });
+
+        expect(mockPrisma.post.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: { categoryId: 'c-ai', category: 'AI' },
+          }),
+        );
+        expect(mockPrisma.postCategory.findMany).not.toHaveBeenCalled();
+      });
+
+      it('카테고리를 안 보내면 카테고리를 조회도 갱신도 하지 않는다 (자동저장 등)', async () => {
+        await service.update('user-1', 'p1', { title: '제목만' });
+
+        expect(mockPrisma.postCategory.findUnique).not.toHaveBeenCalled();
+        expect(mockPrisma.postCategory.findMany).not.toHaveBeenCalled();
+        expect(mockPrisma.post.update).toHaveBeenCalledWith({
+          where: { id: 'p1' },
+          data: { title: '제목만' },
+          include: expect.any(Object),
+        });
+      });
+
+      it('본인 글이 아니면 카테고리를 조회하기 전에 ForbiddenException', async () => {
+        await expect(
+          service.update('other-user', 'p1', { categoryId: 'c-ai' }),
+        ).rejects.toThrow(ForbiddenException);
+        expect(mockPrisma.postCategory.findUnique).not.toHaveBeenCalled();
+      });
+
+      describe('이전 방식: 이름(category)만 보낼 때', () => {
+        it('내 카테고리 중 그 이름이 정확히 하나면 그 id를 이어서 저장한다', async () => {
+          mockPrisma.postCategory.findMany.mockResolvedValueOnce([
+            { id: 'c-study' },
+          ]);
+
+          await service.update('user-1', 'p1', { category: '학습' });
+
+          expect(mockPrisma.postCategory.findMany).toHaveBeenCalledWith({
+            where: { userId: 'user-1', name: '학습' },
+            select: { id: true },
+          });
+          expect(mockPrisma.post.update).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: { category: '학습', categoryId: 'c-study' },
+            }),
+          );
+        });
+
+        it('같은 이름이 두 곳 이상이면 어느 쪽인지 알 수 없어 id는 비워 둔다', async () => {
+          mockPrisma.postCategory.findMany.mockResolvedValueOnce([
+            { id: 'c-study-ai' },
+            { id: 'c-side-ai' },
+          ]);
+
+          await service.update('user-1', 'p1', { category: 'AI' });
+
+          expect(mockPrisma.post.update).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: { category: 'AI', categoryId: null },
+            }),
+          );
+        });
+
+        it('내 트리에 없는 이름이면 이름만 저장하고 id는 비워 둔다', async () => {
+          mockPrisma.postCategory.findMany.mockResolvedValueOnce([]);
+
+          await service.update('user-1', 'p1', { category: '없는이름' });
+
+          expect(mockPrisma.post.update).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: { category: '없는이름', categoryId: null },
+            }),
+          );
+        });
+      });
     });
 
     it('publish: false면 내용만 갱신하고 publishedAt/요약은 건드리지 않는다', async () => {

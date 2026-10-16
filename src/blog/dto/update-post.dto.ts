@@ -38,6 +38,16 @@ export class UpdatePostDto extends PartialType(CreatePostDto) {
 
   @ApiPropertyOptional({
     description:
+      '카테고리 id (내 카테고리여야 함 — 없거나 남의 것이면 404). 서버가 이름 사본(category)도 함께 채운다. ' +
+      '안 보내면 카테고리는 그대로. category(이름)와 같이 보내면 이 값이 우선',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  categoryId?: string;
+
+  @ApiPropertyOptional({
+    description:
       '비공개 여부 — true면 홈/전체 목록에서 빠지고 작성자 본인만 조회 가능',
   })
   @IsOptional()
