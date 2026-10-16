@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -10,20 +10,21 @@ import { PrismaService } from '../prisma/prisma.service';
  *  PATCH /categories/:id   body: { name: string }
  *   - 응답: 수정된 카테고리 (PostCategory 한 건)
  *   - 이름 규칙: 앞뒤 공백을 지운 뒤 1~50자 (DTO에서 검증·정리)
- *   - 400: 내 카테고리 중 다른 것과 이름이 같음 (글이 카테고리를 "이름 문자열"로 가리키므로 이름이 겹치면 안 됨)
+ *   - 409: 같은 부모 아래 형제와 이름이 같음 (2026-10-16 변경 — 글이 카테고리를 id로 가리키므로 다른 부모 아래의 같은 이름은 허용.
+ *          원래는 "내 카테고리 전체에서 중복이면 400"이었고, 카테고리 추가(create)의 409와 맞추려고 상태 코드도 409로 바꿨다)
  *   - 404: 카테고리가 없거나 내 것이 아님
  *   - 이름이 지금과 같으면(변경 없음): 아무것도 쓰지 않고 그대로 돌려줌
- *   - ⚠️ 글의 카테고리는 이름 문자열이라, 이름을 바꾸면 "내 글 중 옛 이름을 가진 글"의 category도
- *     같은 트랜잭션으로 새 이름으로 바꿔야 한다 (다른 사람 글은 건드리지 않음)
+ *   - ⚠️ Post.category는 표시용 이름 사본이라, 이름을 바꾸면 "이 카테고리(categoryId)에 속한 내 글"의 category도
+ *     같은 트랜잭션으로 새 이름으로 바꿔야 한다 (이름만 같은 다른 카테고리의 글·다른 사람 글은 건드리지 않음)
  *
  * ── 구현 계획 (mock을 어떻게 세울지 힌트) ────────────────────────────
  *  service.rename(userId, id, dto)
  *   1) postCategory.findUnique({ where: { id } })   → 없거나 userId가 다르면 NotFoundException
  *   2) dto.name === 현재 이름  → 그대로 반환 (findFirst/트랜잭션 호출 없음)
- *   3) postCategory.findFirst({ where: { userId, name: dto.name, NOT: { id } } })  → 있으면 BadRequestException
+ *   3) postCategory.findFirst({ where: { userId, parentId: 현재 parentId, name: dto.name, NOT: { id } } })  → 있으면 ConflictException
  *   4) prisma.$transaction([
  *        postCategory.update({ where: { id }, data: { name: dto.name } }),
- *        post.updateMany({ where: { userId, category: 옛이름 }, data: { category: dto.name } }),
+ *        post.updateMany({ where: { userId, categoryId: id }, data: { category: dto.name } }),
  *      ])
  *   5) 트랜잭션 결과의 첫 번째 값(수정된 카테고리)을 반환
  *   ※ $transaction은 배열 형태로 부르므로 mockResolvedValue([수정된카테고리, { count: n }])로 세운다.
@@ -115,8 +116,8 @@ describe('CategoriesService — 이름 수정', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('내 다른 카테고리와 이름이 같으면 BadRequestException', async () => {
-      // Arrange: 내 카테고리 c1은 있고, '공부'라는 이름의 다른 카테고리(c2)가 이미 있다
+    it('같은 부모 아래 형제와 이름이 같으면 ConflictException', async () => {
+      // Arrange: 내 카테고리 c1은 있고, 같은 부모 아래 '공부'라는 이름의 형제(c2)가 이미 있다
       mockPrisma.postCategory.findUnique.mockResolvedValue(OWN);
       mockPrisma.postCategory.findFirst.mockResolvedValue({
         id: 'c2',
@@ -124,23 +125,52 @@ describe('CategoriesService — 이름 수정', () => {
         name: '공부',
       });
 
-      // Act & Assert: 글이 카테고리를 이름 문자열로 가리키므로 이름이 겹치면 400
+      // Act & Assert: 같은 위치에 같은 이름이 두 개가 되면 409
       await expect(
         service.rename('u1', 'c1', { name: '공부' }),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ConflictException);
     });
 
-    it('중복 검사에서 자기 자신은 제외한다 (findFirst의 NOT: { id })', async () => {
+    it('중복 검사는 같은 부모(parentId)의 형제만 보고, 자기 자신은 제외한다 (findFirst의 parentId·NOT: { id })', async () => {
       // Arrange: 중복이 없고 저장이 성공하는 상황
       arrangeSuccess();
 
       // Act
       await service.rename('u1', 'c1', { name: '공부' });
 
-      // Assert: 내 카테고리 중 "같은 이름이면서 자기 자신(c1)이 아닌 것"을 찾았는지
-      // (자기 자신을 빼지 않으면 이름을 바꾸지 않을 때도 자기 자신과 중복으로 걸린다)
+      // Assert: "같은 부모 아래, 같은 이름이면서 자기 자신(c1)이 아닌 것"을 찾았는지
+      // (다른 부모 아래의 같은 이름은 형제가 아니라 걸리지 않는다. 자기 자신을 빼지 않으면 자기 자신과 중복으로 걸린다)
       expect(mockPrisma.postCategory.findFirst).toHaveBeenCalledWith({
-        where: { userId: 'u1', name: '공부', NOT: { id: 'c1' } },
+        where: {
+          userId: 'u1',
+          parentId: null,
+          name: '공부',
+          NOT: { id: 'c1' },
+        },
+      });
+    });
+
+    it('하위 카테고리면 그 부모의 형제만 본다 (최상위 이름과 겹쳐도 상관없다)', async () => {
+      // Arrange: 부모 p1 아래에 있는 하위 카테고리 c3
+      const CHILD = { ...OWN, id: 'c3', name: 'AI', parentId: 'p1', depth: 2 };
+      mockPrisma.postCategory.findUnique.mockResolvedValue(CHILD);
+      mockPrisma.postCategory.findFirst.mockResolvedValue(null);
+      mockPrisma.$transaction.mockResolvedValue([
+        { ...CHILD, name: '학습' },
+        { count: 0 },
+      ]);
+
+      // Act: 최상위에 있는 '학습'과 같은 이름으로 바꿔도
+      await service.rename('u1', 'c3', { name: '학습' });
+
+      // Assert: 검색 범위가 parentId 'p1'이라 최상위 '학습'은 보지 않는다
+      expect(mockPrisma.postCategory.findFirst).toHaveBeenCalledWith({
+        where: {
+          userId: 'u1',
+          parentId: 'p1',
+          name: '학습',
+          NOT: { id: 'c3' },
+        },
       });
     });
 
@@ -202,16 +232,17 @@ describe('CategoriesService — 이름 수정', () => {
       expect(operations).toHaveLength(2);
     });
 
-    it('글 갱신은 내 글만 대상이다 (updateMany의 where에 userId와 옛 이름)', async () => {
+    it('글 갱신은 이 카테고리(categoryId)에 속한 내 글만 대상이다', async () => {
       // Arrange
       arrangeSuccess();
 
       // Act
       await service.rename('u1', 'c1', { name: '공부' });
 
-      // Assert: 옛 이름 '학습'을 가진 "내 글"만 새 이름 '공부'로 바꾼다 (다른 사람 글은 건드리지 않음)
+      // Assert: categoryId가 c1인 "내 글"의 이름 사본만 새 이름 '공부'로 바꾼다
+      // (이름이 같은 다른 카테고리의 글이나 다른 사람 글은 건드리지 않음)
       expect(mockPrisma.post.updateMany).toHaveBeenCalledWith({
-        where: { userId: 'u1', category: '학습' },
+        where: { userId: 'u1', categoryId: 'c1' },
         data: { category: '공부' },
       });
     });

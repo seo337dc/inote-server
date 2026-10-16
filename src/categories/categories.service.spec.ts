@@ -1,5 +1,9 @@
 import { Test } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -10,6 +14,7 @@ describe('CategoriesService', () => {
     postCategory: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       createMany: jest.fn(),
       create: jest.fn(),
     },
@@ -17,6 +22,8 @@ describe('CategoriesService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // 기본: 같은 위치에 같은 이름의 형제가 없다
+    mockPrisma.postCategory.findFirst.mockResolvedValue(null);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -116,6 +123,88 @@ describe('CategoriesService', () => {
         service.create('u1', { name: '4단계', parentId: 'p1' }),
       ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.postCategory.create).not.toHaveBeenCalled();
+    });
+
+    describe('이름 중복 (같은 부모 아래 형제끼리만 금지)', () => {
+      it('최상위에 같은 이름이 이미 있으면 ConflictException — 만들지 않는다', async () => {
+        mockPrisma.postCategory.findFirst.mockResolvedValue({
+          id: 'c1',
+          name: '학습',
+        });
+
+        await expect(service.create('u1', { name: '학습' })).rejects.toThrow(
+          ConflictException,
+        );
+        expect(mockPrisma.postCategory.create).not.toHaveBeenCalled();
+      });
+
+      it('최상위 중복 검사는 내 카테고리 중 parentId가 null인 같은 이름을 찾는다', async () => {
+        mockPrisma.postCategory.create.mockResolvedValue({ id: 'c1' });
+
+        await service.create('u1', { name: '학습' });
+
+        expect(mockPrisma.postCategory.findFirst).toHaveBeenCalledWith({
+          where: { userId: 'u1', parentId: null, name: '학습' },
+        });
+      });
+
+      it('하위 카테고리 중복 검사는 같은 부모(parentId)의 형제만 본다', async () => {
+        mockPrisma.postCategory.findUnique.mockResolvedValue({
+          id: 'p1',
+          userId: 'u1',
+          depth: 1,
+        });
+        mockPrisma.postCategory.create.mockResolvedValue({ id: 'c2' });
+
+        await service.create('u1', { name: 'AI', parentId: 'p1' });
+
+        expect(mockPrisma.postCategory.findFirst).toHaveBeenCalledWith({
+          where: { userId: 'u1', parentId: 'p1', name: 'AI' },
+        });
+      });
+
+      it('같은 부모 아래 형제와 이름이 같으면 ConflictException', async () => {
+        mockPrisma.postCategory.findUnique.mockResolvedValue({
+          id: 'p1',
+          userId: 'u1',
+          depth: 1,
+        });
+        mockPrisma.postCategory.findFirst.mockResolvedValue({
+          id: 'c9',
+          name: 'AI',
+        });
+
+        await expect(
+          service.create('u1', { name: 'AI', parentId: 'p1' }),
+        ).rejects.toThrow(ConflictException);
+        expect(mockPrisma.postCategory.create).not.toHaveBeenCalled();
+      });
+
+      it('다른 부모 아래에 같은 이름이 있어도(형제가 아니면) 만들 수 있다', async () => {
+        // 학습 > AI가 이미 있어도, 사이드프로젝트(p2) 아래 AI는 형제가 없다
+        mockPrisma.postCategory.findUnique.mockResolvedValue({
+          id: 'p2',
+          userId: 'u1',
+          depth: 1,
+        });
+        mockPrisma.postCategory.findFirst.mockResolvedValue(null);
+        mockPrisma.postCategory.create.mockResolvedValue({ id: 'c3' });
+
+        await service.create('u1', { name: 'AI', parentId: 'p2' });
+
+        expect(mockPrisma.postCategory.create).toHaveBeenCalledWith({
+          data: { userId: 'u1', name: 'AI', parentId: 'p2', depth: 2 },
+        });
+      });
+
+      it('상위 카테고리 검증이 중복 검사보다 먼저다 (없는 부모면 NotFound, 중복 검사 안 함)', async () => {
+        mockPrisma.postCategory.findUnique.mockResolvedValue(null);
+
+        await expect(
+          service.create('u1', { name: 'AI', parentId: 'missing' }),
+        ).rejects.toThrow(NotFoundException);
+        expect(mockPrisma.postCategory.findFirst).not.toHaveBeenCalled();
+      });
     });
   });
 });

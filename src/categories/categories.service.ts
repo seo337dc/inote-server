@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -46,17 +47,64 @@ export class CategoriesService {
       depth = parent.depth + 1;
     }
 
+    // 같은 부모 아래(최상위끼리 포함) 형제 중에 같은 이름이 있으면 막는다. 글이 카테고리를 id로 가리키므로
+    // 다른 부모 아래의 같은 이름(예: 학습 > AI, 사이드프로젝트 > AI)은 허용한다.
+    // DB 유니크 제약으로는 못 막는다 — PostgreSQL은 parentId가 NULL인 최상위끼리를 서로 다른 값으로 보기 때문.
+    const sibling = await this.prisma.postCategory.findFirst({
+      where: { userId, parentId: dto.parentId ?? null, name: dto.name },
+    });
+    if (sibling) {
+      throw new ConflictException(
+        '같은 위치에 같은 이름의 카테고리가 이미 있습니다.',
+      );
+    }
+
     return this.prisma.postCategory.create({
       data: { userId, name: dto.name, parentId: dto.parentId ?? null, depth },
     });
   }
 
-  // TODO(작업 #6): 이름 수정 구현 — 지금은 테스트가 "빨간색"으로 시작하도록 자리만 잡아 둔 상태.
-  // 테스트(categories.rename.spec.ts)를 하나씩 통과시키며 채운다.
-  rename(userId: string, id: string, dto: RenameCategoryDto): Promise<never> {
-    void userId;
-    void id;
-    void dto;
-    return Promise.reject(new Error('rename: 아직 구현하지 않았습니다.'));
+  // 이름 수정. 글은 카테고리를 id(Post.categoryId)로 가리키므로, 같은 이름이 다른 부모 아래 있어도 된다 —
+  // 막는 건 "같은 부모 아래 형제와 이름이 같은 것"뿐이다 (create와 같은 규칙).
+  // Post.category는 표시용 이름 사본이라, 이 카테고리에 속한 내 글의 사본만 새 이름으로 같이 바꾼다
+  // (이름만 같은 다른 카테고리의 글은 건드리지 않는다).
+  async rename(userId: string, id: string, dto: RenameCategoryDto) {
+    const category = await this.prisma.postCategory.findUnique({
+      where: { id },
+    });
+    // 남의 카테고리도 404 — 존재 여부를 알려 주지 않는다
+    if (!category || category.userId !== userId) {
+      throw new NotFoundException('카테고리를 찾을 수 없습니다.');
+    }
+
+    // 바뀐 게 없으면 아무것도 쓰지 않고 그대로 돌려준다
+    if (dto.name === category.name) return category;
+
+    const sibling = await this.prisma.postCategory.findFirst({
+      where: {
+        userId,
+        parentId: category.parentId,
+        name: dto.name,
+        NOT: { id },
+      },
+    });
+    if (sibling) {
+      throw new ConflictException(
+        '같은 위치에 같은 이름의 카테고리가 이미 있습니다.',
+      );
+    }
+
+    // 카테고리 이름과 글의 이름 사본을 한 트랜잭션으로 — 둘 중 하나만 바뀐 채로 남지 않게
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.postCategory.update({
+        where: { id },
+        data: { name: dto.name },
+      }),
+      this.prisma.post.updateMany({
+        where: { userId, categoryId: id },
+        data: { category: dto.name },
+      }),
+    ]);
+    return updated;
   }
 }

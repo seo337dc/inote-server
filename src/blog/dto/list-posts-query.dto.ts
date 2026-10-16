@@ -45,11 +45,11 @@ export class ListPostsQueryDto {
 
   @ApiPropertyOptional({
     description:
-      '카테고리 이름으로 필터 — 그 카테고리와 하위 카테고리의 글을 모두 포함 (없으면 전체)',
+      '카테고리 id로 필터 — 그 카테고리와 하위 카테고리의 글을 모두 포함 (없으면 전체). 이름이 아니라 id다: 같은 이름이 다른 부모 아래 있을 수 있다',
   })
   @IsOptional()
   @IsString()
-  category?: string;
+  categoryId?: string;
 
   @ApiPropertyOptional({
     description:

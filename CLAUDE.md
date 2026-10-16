@@ -296,6 +296,8 @@ npm run test:cov      # 커버리지 리포트
   `schema.dbml` 최신화 → (2) 그 파일을 열어서 내용을 보여줌 → (3) "이 내용을 dbdiagram.io
   (https://dbdiagram.io/d/inote-6a39fc895c789b8acbdd5d39)에 복사해서 붙여넣어달라"고 사용자에게
   명시적으로 안내 → (4) 사용자가 반영 완료했다고 확인하면 그때 커밋 진행.
+  **`schema.prisma`의 `///` 설명은 한 줄로 쓴다** (2026-10-16 추가) — 여러 줄이면 `schema.dbml`의 `note: '...'` 안에 줄바꿈이 들어가서
+  dbdiagram.io가 문법 오류를 낸다(DBML 작은따옴표 문자열은 줄바꿈 불가).
 
 ## 개발 방식
 
