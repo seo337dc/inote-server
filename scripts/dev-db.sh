@@ -8,7 +8,7 @@
 #   scripts/dev-db.sh backfill  개발 DB의 발행된 글을 로컬 AI 서버(INOTE_AI_URL)에 임베딩 (옵션: --dry-run --limit N --only ID)
 #   scripts/dev-db.sh backfill-category  개발 DB 글의 categoryId 채우기 (기본 dry-run, 옵션: --apply --user ID)
 #   scripts/dev-db.sh psql      개발 DB에 psql로 접속
-#   scripts/dev-db.sh start     BE를 개발 DB로 실행 (pnpm run start:dev)
+#   scripts/dev-db.sh start     BE를 개발 DB + R2 dev/ 폴더로 실행 (R2_KEY_PREFIX=dev, pnpm run start:dev)
 #   scripts/dev-db.sh url       개발 DB 주소(비밀번호 가림) 출력
 #   scripts/dev-db.sh down      컨테이너 정지(데이터 유지)    reset  컨테이너+데이터 삭제 후 다시 만들기
 set -euo pipefail
@@ -44,7 +44,7 @@ case "${1:-}" in
   backfill-category) shift; DATABASE_URL="$DEV_URL" npx ts-node --transpile-only -O '{"module":"commonjs","moduleResolution":"node","resolvePackageJsonExports":false,"rootDir":"."}' scripts/backfill-post-category-id.ts "$@" ;;
   backfill) shift; DATABASE_URL="$DEV_URL" npx ts-node --transpile-only -O '{"module":"commonjs","moduleResolution":"node","resolvePackageJsonExports":false,"rootDir":"."}' scripts/backfill-embeddings.ts "$@" ;;
   psql)    compose exec db psql -U inote -d inote_dev ;;
-  start)   DATABASE_URL="$DEV_URL" pnpm run start:dev ;;
+  start)   R2_KEY_PREFIX=dev DATABASE_URL="$DEV_URL" pnpm run start:dev ;;
   url)     echo "${DEV_URL/:${PW}@/:***@}" ;;
   *)       sed -n '2,14p' "$0"; exit 1 ;;
 esac

@@ -21,18 +21,24 @@ describe('BlogService.update — 이미지 승격', () => {
   let warn: jest.SpyInstance;
 
   const mockPrisma = {
-    post: { findUnique: jest.fn(), update: jest.fn() },
+    post: { findUnique: jest.fn(), update: jest.fn(), delete: jest.fn() },
     postCategory: { findMany: jest.fn(), findUnique: jest.fn() },
     postSummary: { upsert: jest.fn() },
   };
-  const mockR2 = { copy: jest.fn(), delete: jest.fn() };
+  const mockR2 = {
+    copy: jest.fn(),
+    delete: jest.fn(),
+    deletePrefix: jest.fn(),
+    publicBaseUrl: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     warn = jest
       .spyOn(Logger.prototype, 'warn')
       .mockImplementation(() => undefined);
-    process.env.CF_R2_PUBLIC_URL = 'https://cdn.example.com';
+    mockR2.publicBaseUrl.mockReturnValue('https://cdn.example.com');
+    mockR2.deletePrefix.mockResolvedValue(undefined);
     // 요약 호출(fetch)은 이 테스트의 관심사가 아니라 성공으로 막아 둔다
     jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
@@ -214,5 +220,91 @@ describe('BlogService.update — 이미지 승격', () => {
 
     expect(mockR2.copy).not.toHaveBeenCalled();
     expect(mockR2.delete).not.toHaveBeenCalled();
+  });
+
+  describe('remove — 글을 지우면 이미지도 지운다', () => {
+    function arrangeRemove(content: string, userId = 'u1') {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId,
+        content,
+      });
+      mockPrisma.post.delete.mockResolvedValue({ id: 'p1' });
+      mockR2.delete.mockResolvedValue(undefined);
+      mockR2.deletePrefix.mockResolvedValue(undefined);
+    }
+
+    it('저장된 글은 post/<userId>/<postId>/ 폴더째 지운다', async () => {
+      arrangeRemove(img(perm(UUID_A)));
+
+      await service.remove('u1', 'p1');
+
+      expect(mockR2.deletePrefix).toHaveBeenCalledWith('post/u1/p1/');
+    });
+
+    it('아직 승격되지 않은 내 tmp 이미지(임시저장 글)는 개별로 지운다', async () => {
+      arrangeRemove(img(tmp(UUID_A)) + img(tmp(UUID_B)));
+
+      await service.remove('u1', 'p1');
+
+      expect(mockR2.delete).toHaveBeenCalledWith(`tmp/post/u1/${UUID_A}.png`);
+      expect(mockR2.delete).toHaveBeenCalledWith(`tmp/post/u1/${UUID_B}.png`);
+    });
+
+    it('남의 tmp·외부 URL은 지우지 않는다', async () => {
+      arrangeRemove(img(tmp(UUID_A, 'u2')) + img('https://other.com/a.png'));
+
+      await service.remove('u1', 'p1');
+
+      expect(mockR2.delete).not.toHaveBeenCalled();
+    });
+
+    it('DB에서 글을 먼저 지운 뒤에 R2를 정리한다', async () => {
+      arrangeRemove(img(tmp(UUID_A)));
+      const order: string[] = [];
+      mockPrisma.post.delete.mockImplementation(() => {
+        order.push('db');
+        return Promise.resolve({ id: 'p1' });
+      });
+      mockR2.deletePrefix.mockImplementation(() => {
+        order.push('r2');
+        return Promise.resolve();
+      });
+
+      await service.remove('u1', 'p1');
+
+      expect(order).toEqual(['db', 'r2']);
+    });
+
+    it('R2 정리가 실패해도 글 삭제는 성공하고 warn만 남는다', async () => {
+      arrangeRemove(img(tmp(UUID_A)));
+      mockR2.delete.mockRejectedValue(new Error('r2 down'));
+      mockR2.deletePrefix.mockRejectedValue(new Error('r2 down'));
+
+      await expect(service.remove('u1', 'p1')).resolves.toBeDefined();
+
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it('DB 삭제가 실패하면 R2를 건드리지 않는다', async () => {
+      arrangeRemove(img(tmp(UUID_A)));
+      mockPrisma.post.delete.mockRejectedValue(new Error('db down'));
+
+      await expect(service.remove('u1', 'p1')).rejects.toThrow('db down');
+
+      expect(mockR2.delete).not.toHaveBeenCalled();
+      expect(mockR2.deletePrefix).not.toHaveBeenCalled();
+    });
+
+    it('본인 글이 아니면 ForbiddenException이고 R2를 건드리지 않는다', async () => {
+      arrangeRemove(img(tmp(UUID_A, 'u2')), 'u2');
+
+      await expect(service.remove('u1', 'p1')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+
+      expect(mockR2.delete).not.toHaveBeenCalled();
+      expect(mockR2.deletePrefix).not.toHaveBeenCalled();
+    });
   });
 });

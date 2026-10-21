@@ -74,7 +74,12 @@ describe('BlogService', () => {
         // 저장 때 이미지 승격에 쓰인다 — 이 파일의 관심사가 아니라 비어 있는 mock
         {
           provide: R2Service,
-          useValue: { copy: jest.fn(), delete: jest.fn() },
+          useValue: {
+            copy: jest.fn(),
+            delete: jest.fn().mockResolvedValue(undefined),
+            deletePrefix: jest.fn().mockResolvedValue(undefined),
+            publicBaseUrl: jest.fn().mockReturnValue(''),
+          },
         },
       ],
     }).compile();
@@ -1282,6 +1287,7 @@ describe('BlogService', () => {
       mockPrisma.post.findUnique.mockResolvedValue({
         id: 'p1',
         userId: 'user-1',
+        content: '',
       });
       mockPrisma.post.delete.mockResolvedValue({ id: 'p1' });
 
@@ -1300,6 +1306,7 @@ describe('BlogService', () => {
       mockPrisma.post.findUnique.mockResolvedValue({
         id: 'p1',
         userId: 'user-1',
+        content: '',
       });
       mockPrisma.post.delete.mockResolvedValue({ id: 'p1' });
       jest.spyOn(global, 'fetch').mockRejectedValue(new Error('AI 서버 다운'));

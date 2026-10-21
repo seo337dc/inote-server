@@ -646,7 +646,7 @@ export class BlogService {
     content: string,
   ): Promise<{ content: string; promoted: Promotion[] }> {
     const plan = planPromotions(content, {
-      publicUrl: process.env.CF_R2_PUBLIC_URL ?? '',
+      publicUrl: this.r2.publicBaseUrl(),
       userId,
       postId,
     });
@@ -688,7 +688,35 @@ export class BlogService {
     // 벡터 삭제는 기다리지 않는다 — 실패하면 고아 벡터가 남지만 후보 id에 없어서 노출되지 않는다
     void deletePostEmbedding(id, this.logger);
     await this.deleteAiSession(id);
+    await this.deletePostImages(userId, id, post.content);
     return deleted;
+  }
+
+  // 글을 지우면 그 글의 이미지도 R2에서 지운다 — DB 삭제가 끝난 뒤라 실패해도 삭제는 막지 않고 경고만 남긴다.
+  //  - 저장된 글의 이미지: post/<userId>/<postId>/ 폴더째
+  //  - 아직 승격되지 않은 이미지(임시저장 글, 승격에 실패한 것): 본문에 있는 "내 tmp" 파일만 개별로 (planPromotions와 같은
+  //    규칙이라 남의 파일·외부 주소는 지울 수 없다)
+  // 본문에서 지웠거나 저장 없이 나간 업로드는 어디에도 연결돼 있지 않아 여기서 못 지운다 (정리 배치 — inote 레포 docs/todo)
+  private async deletePostImages(
+    userId: string,
+    postId: string,
+    content: string,
+  ) {
+    const tmpKeys = planPromotions(content, {
+      publicUrl: this.r2.publicBaseUrl(),
+      userId,
+      postId,
+    }).map((p) => p.fromKey);
+    await Promise.all([
+      ...tmpKeys.map((key) =>
+        this.r2.delete(key).catch((e) => {
+          this.logger.warn(`failed to delete tmp image ${key}: ${e}`);
+        }),
+      ),
+      this.r2.deletePrefix(`post/${userId}/${postId}/`).catch((e) => {
+        this.logger.warn(`failed to delete images of post ${postId}: ${e}`);
+      }),
+    ]);
   }
 
   // 저장(발행)한 글의 벡터를 inote-ai에 맞춘다 — 기다리지 않고 시작만 한다 (실패해도 던지지 않음).
