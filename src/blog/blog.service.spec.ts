@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { BlogService } from './blog.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { R2Service } from '../uploads/r2.service';
 
 // 서비스의 EMPTY_DRAFT와 같은 조건 — 제목·본문이 모두 빈 발행 전 글
 const EMPTY_DRAFT = {
@@ -70,6 +71,16 @@ describe('BlogService', () => {
       providers: [
         BlogService,
         { provide: PrismaService, useValue: mockPrisma },
+        // 저장 때 이미지 승격에 쓰인다 — 이 파일의 관심사가 아니라 비어 있는 mock
+        {
+          provide: R2Service,
+          useValue: {
+            copy: jest.fn(),
+            delete: jest.fn().mockResolvedValue(undefined),
+            deletePrefix: jest.fn().mockResolvedValue(undefined),
+            publicBaseUrl: jest.fn().mockReturnValue(''),
+          },
+        },
       ],
     }).compile();
 
@@ -1065,6 +1076,7 @@ describe('BlogService', () => {
       mockPrisma.post.findUnique.mockResolvedValue({
         id: 'p1',
         userId: 'user-1',
+        content: '',
         publishedAt: null,
       });
       mockPrisma.post.update.mockResolvedValue({
@@ -1085,6 +1097,7 @@ describe('BlogService', () => {
       mockPrisma.post.findUnique.mockResolvedValue({
         id: 'p1',
         userId: 'user-1',
+        content: '',
         publishedAt: existingPublishedAt,
       });
       mockPrisma.post.update.mockResolvedValue({
@@ -1274,6 +1287,7 @@ describe('BlogService', () => {
       mockPrisma.post.findUnique.mockResolvedValue({
         id: 'p1',
         userId: 'user-1',
+        content: '',
       });
       mockPrisma.post.delete.mockResolvedValue({ id: 'p1' });
 
@@ -1292,6 +1306,7 @@ describe('BlogService', () => {
       mockPrisma.post.findUnique.mockResolvedValue({
         id: 'p1',
         userId: 'user-1',
+        content: '',
       });
       mockPrisma.post.delete.mockResolvedValue({ id: 'p1' });
       jest.spyOn(global, 'fetch').mockRejectedValue(new Error('AI 서버 다운'));

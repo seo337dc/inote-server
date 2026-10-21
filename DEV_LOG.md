@@ -31,6 +31,35 @@ npm run start:dev
 
 ## 작업 로그
 
+### 2026-10-21 — 글 에디터 이미지 업로드: tmp 업로드 + 저장 시 영구 위치로 승격
+
+설계·계약은 `inote` 레포 `docs/EDITOR_IMAGE_UPLOAD.md`, 남긴 것은 `inote` 레포 `docs/todo/editor-image-upload.md`. 여기는 BE에서 한 일과 이유.
+
+- **`POST /uploads/post-image`**: 로그인 필요, 5MB·jpeg/png/webp/gif(기존 `uploads/image`와 같은 파이프를 `imageFilePipe()`로 공유). 키는 `tmp/post/<userId>/<uuid>.<ext>`이고, 확장자는 **파일명이 아니라 검증된 MIME**에서 정한다(`evil.php`라도 PNG면 `.png`).
+- **저장 때만 승격**(`BlogService.update`, `publish: true`): 본문의 내 tmp 이미지를 `post/<userId>/<postId>/<uuid>.<ext>`로 복사하고 본문 `src`를 바꿔 저장한 뒤 tmp 원본을 지운다. 자동 임시저장(publish 없음)은 tmp 주소 그대로 둔다. `publish: true`인데 `content`가 없으면 DB의 기존 본문 기준.
+- **`R2Service.copy/delete`**: S3 API에는 "이동"이 없어 복사 + 삭제. 키는 서버가 만든 값만 들어와 `CopySource`를 따로 인코딩하지 않는다.
+- **`post-images.ts`(순수 함수)**: `planPromotions`(승격 계획)·`applyPromotions`(본문 주소 교체). `<img>` 파싱은 정규식 — Tiptap 출력이 결정적이고, 대상은 `<공개URL>/tmp/post/<내 userId>/<uuid>.<허용확장자>`에 **정확히 맞는 것만**이라 `../` 조작·남의 폴더·외부 URL·`<a href>` 속 주소는 애초에 매칭되지 않는다(별도 HTML 파서는 얻는 게 없어 쓰지 않음).
+- **복사 실패는 저장을 막지 않는다(fail-open)**: 그 이미지는 tmp 주소 그대로 저장하고 warn 로그만 남긴다(다음 저장 때 다시 시도). 이미지 문제로 글 저장이 실패하는 쪽이 더 나쁘다는 판단 — 요약·임베딩 호출과 같은 패턴.
+- **tmp 원본 삭제는 DB 저장이 성공한 뒤에**: 저장이 실패했는데 먼저 지우면 임시저장본의 이미지가 깨진다. 삭제가 실패해도 저장은 성공(warn만).
+- **알려진 한계**: 에디터에서 지운 이미지·저장 안 하고 나간 업로드는 `tmp/`에 남는다(정리 배치는 후속).
+
+##### 같은 날 추가 — 로컬 통합 테스트에서 나온 문제 2건
+- **글을 삭제해도 R2 이미지가 남았다**(임시저장 글·저장된 글 모두): `remove()`가 R2를 건드리지 않았다. DB 삭제 뒤에 (1) `post/<userId>/<postId>/` 폴더째(`R2Service.deletePrefix`, 목록 조회 → 1000개씩 `DeleteObjects`, 비었거나 `/`로 안 끝나는 접두어는 거절해 버킷 통째 삭제 방지) (2) 본문의 **내 tmp** 이미지 개별 삭제(승격과 같은 `planPromotions` 규칙)를 하고, 실패해도 글 삭제는 막지 않는다. 본문에서 지웠거나 저장 없이 나간 업로드는 못 지운다(정리 배치). 관리자 사용자 삭제·회원 탈퇴 때의 이미지 정리는 후속.
+- **로컬 테스트가 운영 버킷에 섞였다**: `R2_KEY_PREFIX`를 추가 — 있으면 `R2Service`가 모든 키(업로드·복사·삭제·목록) 앞에 붙이고 `publicBaseUrl()`도 `<공개URL>/dev`가 된다. 호출하는 쪽은 접두어를 모르는 키만 다룬다. `.env`가 아니라 `scripts/dev-db.sh start`가 주입(DB 주소 덮어쓰기와 같은 방식)해서 로컬 BE에서는 빠질 수 없고, 운영(Render)은 설정하지 않으면 기존과 같다.
+- 확인: 재현 A(임시저장→저장)는 정상 — `src`가 `post/<userId>/<postId>/`로 바뀌고 tmp 원본이 삭제됨, 경고 없음. 처음 "tmp에 남았다"고 본 것은 본문에 없던 파일(고아)이었다.
+
+#### 테스트
+- `post-images.spec`(15), `blog.service.post-images.spec`(10), `uploads.controller.spec`(5) 추가. 기존 `blog.service.spec`에는 `R2Service` mock provider 한 줄과 발행 시각 테스트 2개의 mock 글에 `content: ''`만 추가(실제 글은 항상 `content`가 있다).
+- 컨트롤러 테스트는 `AuthGuard`가 `better-auth`(순수 ESM)를 import해 ts-jest에서 못 불러오므로 `jest.mock('../auth/auth.guard')`로 대체.
+- 단위테스트 29 스위트 / 271개 통과, `pnpm run build` 통과. E2E는 로컬·운영이 같은 DB를 쓰는 구조라 돌리지 않음.
+
+#### 로컬 통합 테스트 환경 메모
+- `.env`의 `DATABASE_URL`은 운영(Supabase)이라 BE는 반드시 `scripts/dev-db.sh start`(로컬 Docker DB 5435)로 띄운다. R2는 개발용 버킷이 따로 없어 로컬 테스트도 운영 버킷(`inote-storage`)에 쓴다 — 새 경로(`tmp/post/`, `post/`)라 기존 파일은 덮어쓰지 않으며 테스트 객체는 끝나고 지운다.
+- FE는 `inote/apps/web/.env.local`이 운영 BE를 가리켜서, 실행 시 `NEXT_PUBLIC_API_URL=http://localhost:3200 pnpm dev`로 덮어쓴다(파일은 그대로).
+- `scripts/dev-db.sh seed`가 `Unknown argument id`로 실패한다 — 스키마 변경을 시드가 따라가지 못한 것으로 보이며 미조치.
+
+---
+
 ### 2026-10-12 — KURE 임베딩: 글 벡터 동기화·후보 id·비슷한 글 API (A6·B2·B3)
 
 설계·결정은 `inote` 레포 `docs/kure/PLAN.md`, 진행·실행법은 `docs/kure/HANDOFF.md`. 여기는 BE에서 한 일과 이유.
