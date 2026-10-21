@@ -329,11 +329,11 @@ role 기반 권한, `usesInote`/`usesInoteMoney` 컬럼, 이메일/구글 계정
 | Blog 모듈 (`inote` 글쓰기, AI 요약 연동) | ✅ 완료 |
 | Mandalart 모듈 (role 기반 권한) | ✅ 완료 |
 | Admin 모듈 (회원 목록/상세/삭제) | ✅ 완료 |
-| Uploads 모듈 (Cloudflare R2 이미지 업로드) | ✅ 완료 (2026-09-28, `POST /uploads/image`) |
+| Uploads 모듈 (Cloudflare R2 이미지 업로드) | ✅ 완료 (2026-09-28, `POST /uploads/image`) · 2026-10-21 `POST /uploads/post-image`(글 이미지 tmp 업로드) 추가 — 글 저장(`publish: true`) 때 BlogService가 본문의 내 tmp 이미지를 `post/<userId>/<postId>/`로 복사·삭제 (실패는 fail-open). 고아 파일 정리 배치는 후속 |
 | ReadingLogs 모듈 (독서 기록 CRUD + AI 책 정보) | ✅ 완료 (2026-09-28, draft/발행 패턴 + 발행 시 inote-ai `/book-info` 연동) |
 | AUTH_POLICY 1~6번 | ✅ 완료 |
 | AUTH_POLICY 7번 (타 서비스 연동 확인 화면) | 🔜 `inote-money` 회원 기능 대기 |
-| 단위테스트 | ✅ 108개 통과 |
+| 단위테스트 | ✅ 271개 통과 (2026-10-21, todo 154개 별도) |
 | E2E 테스트 | ✅ 5개 통과 |
 | Render 배포 | ✅ 완료 (https://inote-server-5a63.onrender.com) |
 | Sentry 연결 | 🔜 예정 |
