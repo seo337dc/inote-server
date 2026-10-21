@@ -20,6 +20,8 @@ import {
   readableCandidatesWhere,
 } from '../embeddings/embedding-candidates';
 import { findSimilarPosts } from '../embeddings/similar-posts';
+import { R2Service } from '../uploads/r2.service';
+import { applyPromotions, planPromotions, type Promotion } from './post-images';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { ListPostsQueryDto } from './dto/list-posts-query.dto';
 
@@ -115,7 +117,10 @@ const EMPTY_DRAFT: Prisma.PostWhereInput = {
 export class BlogService {
   private readonly logger = new Logger(BlogService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly r2: R2Service,
+  ) {}
 
   // 고정 글과 일반 글을 각각 따로 페이지네이션한다.
   // - 고정 글: PINNED_PAGE_SIZE(3)개씩, pinnedPage 페이지 (기본 1)
@@ -590,6 +595,18 @@ export class BlogService {
       throw new ForbiddenException('본인이 작성한 글만 수정할 수 있습니다.');
     }
     const { publish, category, categoryId, ...fields } = dto;
+    // 저장(발행)할 때만 본문의 내 tmp 이미지를 post/<userId>/<postId>/로 옮기고 본문 주소를 바꾼다.
+    // 자동 임시저장은 tmp 주소 그대로 둔다 (계약: inote 레포 docs/EDITOR_IMAGE_UPLOAD.md)
+    let promoted: Promotion[] = [];
+    if (publish) {
+      const result = await this.promotePostImages(
+        userId,
+        id,
+        fields.content ?? post.content,
+      );
+      promoted = result.promoted;
+      if (promoted.length > 0) fields.content = result.content;
+    }
     // 카테고리는 id로 가리킨다 — 이름 사본(Post.category)은 서버가 채운다. 안 보냈으면 카테고리는 건드리지 않는다
     const categoryData = await this.resolveCategory(userId, {
       category,
@@ -609,6 +626,9 @@ export class BlogService {
       include: DETAIL_INCLUDE,
     });
 
+    // 옮긴 이미지의 tmp 원본은 글이 저장된 뒤에야 지운다 — 저장이 실패했는데 먼저 지우면 임시저장본의 이미지가 깨진다
+    await this.deleteTmpImages(promoted);
+
     if (publish) {
       // 임베딩은 기다리지 않는다(약 5초) — 요약과 동시에 시작만 하고, 실패해도 저장 응답엔 영향이 없다
       this.syncEmbedding(updated);
@@ -616,6 +636,47 @@ export class BlogService {
     }
 
     return updated;
+  }
+
+  // 본문의 내 tmp 이미지를 영구 위치로 복사한다. 복사가 실패한 이미지는 tmp 주소 그대로 두고(저장은 막지 않는다 —
+  // 이미지 문제로 글 저장이 실패하는 쪽이 더 나쁘다) 경고만 남긴다. 다음 저장 때 다시 시도된다.
+  private async promotePostImages(
+    userId: string,
+    postId: string,
+    content: string,
+  ): Promise<{ content: string; promoted: Promotion[] }> {
+    const plan = planPromotions(content, {
+      publicUrl: process.env.CF_R2_PUBLIC_URL ?? '',
+      userId,
+      postId,
+    });
+    const copied = await Promise.all(
+      plan.map(async (promotion) => {
+        try {
+          await this.r2.copy(promotion.fromKey, promotion.toKey);
+          return promotion;
+        } catch (e) {
+          this.logger.warn(
+            `failed to promote image ${promotion.fromKey} for post ${postId}: ${e}`,
+          );
+          return null;
+        }
+      }),
+    );
+    const promoted = copied.filter((p): p is Promotion => p !== null);
+    return { content: applyPromotions(content, promoted), promoted };
+  }
+
+  private async deleteTmpImages(promoted: Promotion[]) {
+    await Promise.all(
+      promoted.map(async ({ fromKey }) => {
+        try {
+          await this.r2.delete(fromKey);
+        } catch (e) {
+          this.logger.warn(`failed to delete tmp image ${fromKey}: ${e}`);
+        }
+      }),
+    );
   }
 
   async remove(userId: string, id: string) {
