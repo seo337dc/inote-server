@@ -31,6 +31,15 @@ npm run start:dev
 
 ## 작업 로그
 
+### 2026-10-21 (이어서) — 글 목록 정렬을 수정시간순 → 생성시간순으로 변경
+
+- `blog.service.ts`의 `LIST_ORDER`를 `[{ lastEditedAt desc nulls last }, { createdAt desc }]`에서 `[{ createdAt desc }]`로 변경. 글을 고치면 목록 맨 위로 올라오던 동작이 사라지고, 새로 쓴 글이 위에 온다.
+- 적용 범위: 공개 글 목록(홈, 고정 글·일반 글), 작성자별 글 목록, 카테고리별 글 목록(모두 `listPage`), 내 글 상세 왼쪽 카테고리 트리(`findMyOutline`). 공개 글 트리(`findOutline`)·글 이동 탭 목록은 원래 `createdAt desc`였고, 임시저장 목록(`mine/drafts`)은 `updatedAt desc`라 그대로.
+- `lastEditedAt` 컬럼과 화면의 "수정일" 표시는 그대로다(정렬에만 쓰지 않는다). 임베딩 후보 id 계산(`embedding-candidates.ts`)의 최근 저장순 상한 자르기도 목록 정렬이 아니라 그대로 둔다.
+- 테스트: `blog.service.spec`의 `LIST_ORDER` 기대값과 케이스 이름 3개 수정. 단위테스트 289개 통과, 빌드 통과.
+
+---
+
 ### 2026-10-21 — 글 에디터 이미지 업로드: tmp 업로드 + 저장 시 영구 위치로 승격
 
 설계·계약은 `inote` 레포 `docs/EDITOR_IMAGE_UPLOAD.md`, 남긴 것은 `inote` 레포 `docs/todo/editor-image-upload.md`. 여기는 BE에서 한 일과 이유.
