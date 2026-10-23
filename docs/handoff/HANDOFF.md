@@ -73,10 +73,18 @@
 
 | 항목 | 값 |
 |------|-----|
-| 날짜 | 2026-10-12 |
+| 날짜 | 2026-10-23 |
 | 작성자 | Claude Code |
-| 브랜치 | `main` |
-| 다음 수신자 | 사람(내일 이어서) |
+| 브랜치 | `docs/monitoring-strategy` (문서만, 코드 변경 없음) |
+| 다음 수신자 | 사람(다른 PC에서 이어서) |
+
+### 보류 중: BE 요청/응답 로깅·모니터링 (2026-10-23)
+- **상태**: 전략·결정(D1~D5)까지 끝, **구현 미착수**. 다른 작업을 먼저 하기로 해서 보류. 결정과 S1 설계안은 [`docs/adr/0002-backend-monitoring.md`](../adr/0002-backend-monitoring.md)의 "결정 결과"에 있음. 개념 학습은 [`docs/learning/MONITORING.md`](../learning/MONITORING.md)
+- **결정 요약**: stdout JSON 유지 + Grafana Cloud Loki 푸시(전송은 환경변수 있을 때만) · 본문은 마스킹 + 길이 제한(차단 목록) · `/auth/*`는 메타만 · 메트릭 제외 · 이번 범위는 S1만
+- **이어서 할 일**: ① ADR의 S1 미결 질문 3개 답하기(`email` 차단 여부, 금융 필드를 S2에서 `/money/*` 본문 제외로 다룰지, 임시값) ② main에서 `feat/log-redact` 브랜치 → `src/common/logging/redact.ts`·`redact.spec.ts` 구현 ③ `pnpm test` → `pnpm run build`(e2e는 운영 DB에 닿아 보류) ④ 이후 S2(인터셉터)·S3(auth 메타 미들웨어), S4(Loki 전송)는 Grafana 학습 후
+- **하지 말 것**: 이번 범위에서 Promtail/Alloy·docker-compose·`prom-client` 추가. Render 빌드 메모리(512MB, 10/23 힙 부족 실패 이력) 때문에 의존성 추가는 신중히
+- **주의**: 이 문서와 ADR 0002는 `docs/monitoring-strategy` 브랜치(아직 main에 병합 전)에만 있다. 서브에이전트 `strategist`(`.claude/agents/strategist.md`)도 같은 브랜치에 있으며 새 세션에서만 호출 가능
+- **Grafana 학습**: 별도 채팅용 학습 프롬프트를 작성했으나 파일로 저장하지 않음(채팅에만 있음). 필요하면 새로 요청
 
 ### BE 상태 요약
 - 운영 BE는 Render 무료(서비스 1개만 상시, 월 750시간 한도에 거의 붙어 있음), DB는 **Supabase**(Session pooler 5432, 단일 baseline 마이그레이션)로 이전 완료 — 자세한 상태·환경 변수·주의는 `inote` 레포의 `docs/handoff/HANDOFF.md`가 기준. cron-job의 Inote Server 작업 켜기 확인 필요

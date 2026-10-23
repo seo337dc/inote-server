@@ -1,6 +1,6 @@
 # 0002 — BE 요청/응답 로깅·모니터링 전략
 
-> 상태: **제안 (미결정)** — 결정 항목이 정해지면 "결정됨"으로 바꾸고 결과를 아래에 기록한다.
+> 상태: **결정됨 (2026-10-23, D1~D5 — 아래 "결정 결과" 참고), 구현 미착수**
 > 작성: 2026-10-23 · 짝 문서: [`docs/learning/MONITORING.md`](../learning/MONITORING.md) (개념 학습)
 > 범위: `inote-server`(BE)만. FE(Next.js + Sentry)는 `inote`·`inote-money` 레포 작업이라 제외.
 
@@ -46,6 +46,24 @@
 - 추천: **이번 범위에서 제외**, 로그가 자리 잡은 뒤 재검토.
 
 **D5. 이번 작업 범위**: 1단계만 / 1+2단계 / 설계 문서만 (아래 단계 참고).
+
+### 결정 결과 (2026-10-23)
+
+| 결정 | 선택 | 비고 |
+|---|---|---|
+| D1 | stdout JSON 유지 + Grafana Cloud Loki 푸시 | Render는 임시 호스트(실무에선 안 씀)라 호스트와 무관한 앱 직접 푸시. Loki 전송은 환경변수가 있을 때만 켠다. S1·S2는 목적지와 무관하게 먼저 가능 |
+| D2 | 마스킹 + 길이 제한, **차단 목록(denylist)** | 허용 목록은 채택하지 않음 |
+| D3 | `/api/v1/auth/*`는 **메타만** 기록 | 경로·상태·소요시간. 본문은 읽지 않음(S3) |
+| D4 | 메트릭(Prometheus, S6) **이번 범위 제외** | 로그가 자리 잡은 뒤 재검토 |
+| D5 | 이번 작업은 **S1만** | 이후 단계는 그때 다시 정함. S4(Loki 전송)는 Grafana 학습 후 |
+
+**S1 설계안 (사용자 확인 대기 중 — 아래 3개 질문에 답하면 구현 시작)**
+- 파일: `src/common/logging/redact.ts`, `redact.spec.ts` (외부 의존성 없는 순수 함수, 사용처 없음 → 배포 영향 없음). 브랜치는 main에서 `feat/log-redact`.
+- 인터페이스: `redact(value: unknown, options?: { maxStringLength?: number; maxDepth?: number }): unknown` — 입력을 변경하지 않고 복사본 반환.
+- 규칙: 차단 키는 대소문자·`_`·`-` 무시 비교 후 값을 `"***"`로, 재귀(중첩 객체·배열). 문자열 상한 초과는 앞부분 + `…(+N자)`. 깊이 초과 `"[깊이 초과]"`, 배열은 앞 N개만. 순환 참조 `"[순환]"`. `Buffer`·업로드 파일 `"[바이너리 N바이트]"`, `Date`는 ISO, `Error`는 `{name, message}`.
+- 차단 키 초안: `password`, `newPassword`, `currentPassword`, `token`, `accessToken`, `refreshToken`, `idToken`, `secret`, `authorization`, `cookie`, `set-cookie`, `phone`, `email`, `x-internal-secret`, `internalSecret`.
+- 임시값: 문자열 500자, 배열 20개, 깊이 5.
+- 미결 질문: (1) `email`을 차단 목록에 넣을지(추천: 넣음, 추적은 `userId`로) (2) 금융 필드는 키로 차단하지 않고 S2에서 `/money/*` 본문 제외 방식으로 다룰지 (3) 임시값 괜찮은지.
 
 ## 4. 단계별 작업 분할 (제안 — 파일명은 스케치)
 
