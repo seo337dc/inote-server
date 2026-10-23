@@ -71,8 +71,7 @@ API 문서      →  /api/docs (Swagger UI)
 ```
 inote-server/
 ├── CLAUDE.md
-├── AUTH_POLICY.md            ← 회원(가입/로그인/프로필/비밀번호) 정책
-├── API.md / DATABASE.md / TESTING_GUIDE.md / DEV_LOG.md / NESTJS_GUIDE.md
+├── API.md / DATABASE.md / DEV_LOG.md
 ├── README.md
 ├── src/
 │   ├── main.ts               ← 앱 진입점 (포트 3200, CORS, Swagger)
@@ -94,8 +93,12 @@ inote-server/
 │       ├── mini-game/        ← 캐시플로우 미니게임 결과
 │       ├── terms/            ← 금융 용어 + 좋아요
 │       └── books/            ← 금융 책 추천 + 좋아요
-├── scripts/                  ← dev-db.sh(로컬 개발 DB·시드·백필), backfill-embeddings.ts, backfill-post-category-id.ts(글의 categoryId 채우기 — docs/post-category-backfill.md)
-├── docs/                     ← handoff/HANDOFF.md, local-dev-db.md, embeddings-backfill.md
+├── scripts/                  ← dev-db.sh(로컬 개발 DB·시드·백필), backfill-embeddings.ts, backfill-post-category-id.ts(글의 categoryId 채우기 — docs/runbooks/post-category-backfill.md)
+├── docs/                     ← AUTH_POLICY.md(회원 정책), CURSOR.md(Cursor 역할), handoff/HANDOFF.md(세션 인수인계)
+│   ├── runbooks/             ← 작업 절차서(local-dev-db, embeddings-backfill, post-category-backfill)
+│   ├── adr/                  ← 결정 기록(0001-neon-to-supabase)
+│   ├── todo/                 ← 나중에 할 일
+│   └── learning/             ← 학습용 문서 전용 (LEARNING.md, NESTJS_GUIDE.md, TESTING_GUIDE.md)
 ├── prisma/
 │   ├── schema.prisma
 │   └── dbml/schema.dbml      ← `prisma generate`로 자동 생성, dbdiagram.io에 붙여넣는 용도
@@ -287,6 +290,22 @@ npm run test:cov      # 커버리지 리포트
   이 규칙이 있었는데도 자동으로 커밋·푸시까지 진행해서 사용자가 정정한 사례가 있으니 특히 주의.)
 - **커밋을 한 번에 몰아서 하지 않는다.** 여러 기능/파일을 한 세션에서 고쳤어도 커밋은 기능 단위로
   쪼개서 각각 따로 만든다 (2026-09-20 추가 — `inote-server`/`inote-money`/`inote` 공통 규칙).
+- **커밋할 때는 PR description도 함께 작성한다** (2026-10-23 추가) — 사용자가 커밋을 요청하면
+  커밋 직후, 그 브랜치의 PR description 초안을 [`.github/pull_request_template.md`](.github/pull_request_template.md)
+  형식(개요 / 변경 내용 / 배포 시 주의 / 테스트 / 문서 갱신 / 알려진 한계·후속)에 맞춰 작성해 사용자에게
+  보여준다. 규칙:
+  - 제목은 커밋과 같은 컨벤션(`feat:`/`fix:`/`docs:` + 한 줄 요약). 본문 끝에 시스템이 지정한 attribution 줄.
+  - "테스트"에는 **실제로 실행한 것만** 체크하고, 안 돌린 것(E2E 등)은 안 돌렸다고 이유와 함께 적는다.
+  - "배포 시 주의"는 마이그레이션·FE 동시 배포·환경변수·백필 중 해당하는 것을 반드시 확인해 적는다
+    (해당 없으면 "없음"). Render는 배포 때 `prisma migrate deploy`가 자동 실행된다.
+  - 초안은 사용자가 확인한 뒤에만 쓴다. **PR 생성·push는 사용자가 명시적으로 요청할 때만** 한다
+    (위 "커밋·PR·push" 규칙 그대로 — PR description 작성은 허락 없이 PR을 만들어도 된다는 뜻이 아님).
+  - 커밋을 기능 단위로 쪼갰다면 PR description의 "변경 내용"도 커밋 단위로 묶어서 적는다.
+- **학습용 문서는 무조건 `docs/learning/`에 둔다** (2026-10-23 추가) — 개념 설명·학습 노트·
+  튜토리얼·가이드(예: NestJS/Prisma/테스트 학습)처럼 "프로젝트 사실"이 아니라 "배우기 위한" 문서는
+  새로 만들 때도, 사용자가 학습 내용을 정리해 달라고 할 때도 항상 `docs/learning/` 아래에 만든다.
+  레포 루트나 `docs/` 바로 아래에 두지 않는다. 학습 문서가 늘면 `docs/learning/README.md` 목차에
+  한 줄 추가한다.
 - **`schema.prisma` 등 DB 스키마 관련 수정·추가가 있으면, 커밋하기 전에 반드시 dbdiagram을
   최신 상태로 업데이트한다** (2026-09-09 추가 — 예전에 만든 dbdiagram.io ERD가 그 이후 추가된
   모델들을 반영 못 해서 오래 방치된 채 낡아있던 걸 발견함). `pnpm exec prisma generate`를 돌리면
@@ -314,7 +333,7 @@ npm run test:cov      # 커버리지 리포트
 role 기반 권한, `usesInote`/`usesInoteMoney` 컬럼, 이메일/구글 계정 분리(accountLinking),
 계정 연결 실패 안내 메시지, 프로필 수정 API(닉네임/전화번호/이미지), 소셜 전용 계정 비밀번호
 생성 API까지. 단위테스트 108개, e2e 5개 통과. AUTH_POLICY 7번(`inote`↔`inote-money` 연동
-확인 화면)은 `inote-money` 쪽 회원 기능이 먼저 필요해서 보류 중. 상세: [`AUTH_POLICY.md`](AUTH_POLICY.md)
+확인 화면)은 `inote-money` 쪽 회원 기능이 먼저 필요해서 보류 중. 상세: [`docs/AUTH_POLICY.md`](docs/AUTH_POLICY.md)
 
 | 항목 | 상태 |
 |------|------|

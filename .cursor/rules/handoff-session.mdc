@@ -12,7 +12,7 @@ alwaysApply: true
 1. `git pull`
 2. **`docs/handoff/HANDOFF.md` 읽기** (규칙 + 「현재 상태」)
 3. `CLAUDE.md` TODO / 현재 단계
-4. `CURSOR.md` 역할 확인
+4. `docs/CURSOR.md` 역할 확인
 
 추측으로 이전 작업을 이어받지 않는다.
 
@@ -24,5 +24,5 @@ alwaysApply: true
 ## Notion (BE만)
 
 - MCP: `.cursor/mcp.json` → `https://mcp.notion.com/mcp`
-- URL은 `CURSOR.md` / `CLAUDE.md`의 BE Notion 표만 사용 (FE Notion 금지)
+- URL은 `docs/CURSOR.md` / `CLAUDE.md`의 BE Notion 표만 사용 (FE Notion 금지)
 - OAuth 전: Settings → Tools & MCP → `notion` → Connect

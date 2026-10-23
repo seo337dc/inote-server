@@ -40,7 +40,7 @@ cd inote-server
 pnpm install
 ```
 
-> 💡 **로컬에서 운영 DB를 건드리고 싶지 않다면** 도커 개발 DB를 쓴다 — `scripts/dev-db.sh up/migrate/seed/start` (상세·주의: [`docs/local-dev-db.md`](docs/local-dev-db.md)). 아래 `.env`의 `DATABASE_URL`은 기본적으로 운영 DB다.
+> 💡 **로컬에서 운영 DB를 건드리고 싶지 않다면** 도커 개발 DB를 쓴다 — `scripts/dev-db.sh up/migrate/seed/start` (상세·주의: [`docs/runbooks/local-dev-db.md`](docs/runbooks/local-dev-db.md)). 아래 `.env`의 `DATABASE_URL`은 기본적으로 운영 DB다.
 
 ### 2. 환경변수 설정
 
@@ -191,5 +191,5 @@ DB  →  Neon PostgreSQL
 
 - [CLAUDE.md](./CLAUDE.md) — AI 작업 컨텍스트 기준 문서
 - [DEV_LOG.md](./DEV_LOG.md) — 세션별 작업 기록
-- [LEARNING.md](./LEARNING.md) — NestJS / Prisma 개념 학습
-- [AUTH_POLICY.md](./AUTH_POLICY.md) — 회원(가입/로그인/프로필/비밀번호) 관련 정책
+- [docs/learning/](./docs/learning/README.md) — 학습용 문서 (NestJS / Prisma / 테스트)
+- [AUTH_POLICY.md](./docs/AUTH_POLICY.md) — 회원(가입/로그인/프로필/비밀번호) 관련 정책
