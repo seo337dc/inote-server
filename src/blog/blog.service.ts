@@ -31,10 +31,9 @@ const DETAIL_INCLUDE = {
   aiSummary: { select: { summary: true } },
 };
 
-// 목록·트리 정렬: 마지막으로 저장(발행)한 글이 위로. draft는 lastEditedAt이 null이라 맨 뒤로 보내고
-// (Postgres는 DESC에서 null을 맨 앞에 두므로 nulls: 'last' 명시), 같으면 생성순.
+// 목록·트리 정렬: 새로 쓴(생성한) 글이 위로. 예전에는 마지막 저장 시각(lastEditedAt)순이라 글을 고치면 맨 위로
+// 올라왔는데, 목록이 수정 때마다 뒤바뀌지 않게 생성순으로 바꿨다 (2026-10-21). lastEditedAt은 화면의 "수정일" 표시용으로만 남는다.
 const LIST_ORDER: Prisma.PostOrderByWithRelationInput[] = [
-  { lastEditedAt: { sort: 'desc', nulls: 'last' } },
   { createdAt: 'desc' },
 ];
 

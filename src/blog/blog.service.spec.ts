@@ -25,11 +25,8 @@ const SEARCH = (q: string) => ({
   ],
 });
 
-// 서비스의 LIST_ORDER와 같은 정렬 — 마지막 저장순, draft(null)는 맨 뒤, 같으면 생성순
-const LIST_ORDER = [
-  { lastEditedAt: { sort: 'desc', nulls: 'last' } },
-  { createdAt: 'desc' },
-];
+// 서비스의 LIST_ORDER와 같은 정렬 — 생성 최신순 (글을 고쳐도 순서가 바뀌지 않는다)
+const LIST_ORDER = [{ createdAt: 'desc' }];
 
 describe('BlogService', () => {
   let service: BlogService;
@@ -325,7 +322,7 @@ describe('BlogService', () => {
       expect(where).not.toHaveProperty('OR');
     });
 
-    it('고정 글·일반 글 모두 마지막 저장순(lastEditedAt)으로 정렬한다', async () => {
+    it('고정 글·일반 글 모두 생성 최신순(createdAt desc)으로 정렬한다', async () => {
       mockPrisma.post.findMany.mockResolvedValue([]);
       mockPrisma.post.count.mockResolvedValue(0);
 
@@ -360,7 +357,7 @@ describe('BlogService', () => {
       pinned: true,
     };
 
-    it('내가 발행한 글(비공개 포함)만 제목·카테고리(id 포함)만 골라 마지막 저장순으로 조회한다', async () => {
+    it('내가 발행한 글(비공개 포함)만 제목·카테고리(id 포함)만 골라 생성 최신순으로 조회한다', async () => {
       mockPrisma.post.findMany.mockResolvedValue([{ id: 'a' }]);
 
       const result = await service.findOutline('u1');
@@ -425,7 +422,7 @@ describe('BlogService', () => {
       expect(result.items).toEqual([{ id: 'a', categoryPath: [] }]);
     });
 
-    it('내 글도 마지막 저장순으로 정렬하고, draft(lastEditedAt null)는 맨 뒤로 보낸다', async () => {
+    it('내 글도 생성 최신순으로 정렬한다 (글을 고쳐도 순서가 바뀌지 않는다)', async () => {
       mockPrisma.post.findMany.mockResolvedValue([]);
       mockPrisma.post.count.mockResolvedValue(0);
       mockPrisma.post.groupBy.mockResolvedValue([]);
