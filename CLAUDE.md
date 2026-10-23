@@ -93,6 +93,7 @@ inote-server/
 │       ├── mini-game/        ← 캐시플로우 미니게임 결과
 │       ├── terms/            ← 금융 용어 + 좋아요
 │       └── books/            ← 금융 책 추천 + 좋아요
+├── .claude/agents/           ← 서브에이전트 정의 (strategist, code-reviewer, debugger, test-runner)
 ├── scripts/                  ← dev-db.sh(로컬 개발 DB·시드·백필), backfill-embeddings.ts, backfill-post-category-id.ts(글의 categoryId 채우기 — docs/runbooks/post-category-backfill.md)
 ├── docs/                     ← AUTH_POLICY.md(회원 정책), CURSOR.md(Cursor 역할), handoff/HANDOFF.md(세션 인수인계)
 │   ├── runbooks/             ← 작업 절차서(local-dev-db, embeddings-backfill, post-category-backfill)
@@ -272,6 +273,14 @@ npm run test:cov      # 커버리지 리포트
 
 - 기획·설계 판단이 필요한 순간에는 임의로 결정하지 않고 먼저 질문한다
 - 코드 리뷰·코드 분석·QA는 Cursor AI에게 넘기고 직접 수행하지 않는다
+  - 단, **커밋 전 자체 점검**은 서브에이전트(`code-reviewer`, `test-runner`, `debugger`)로 할 수 있다 (2026-10-23 추가).
+    이 결과는 참고용이며 PASS/FAIL 판정이 아니다. 정식 리뷰·QA 판정은 여전히 Cursor 몫.
+- **서브에이전트 사용 원칙** (2026-10-23 추가, 정의는 `.claude/agents/*.md`)
+  - 조사·점검·테스트 실행처럼 결과 요약만 필요한 일에 쓴다. 설계 결정, 사용자와 합의가 필요한 일, 몇 번의
+    도구 호출로 끝나는 작은 일은 메인 세션에서 직접 한다.
+  - 서브에이전트에게는 대화 맥락이 전달되지 않으므로 브리핑에 목표·범위·하지 말 것·출력 형식을 쓴다.
+  - 보고서는 근거(`파일:줄`)를 확인하고 사실로 받아들인다. 설계 결정은 사용자에게 돌려준다.
+  - `.claude/agents/`의 에이전트는 세션 시작 때 읽으므로, 새로 만들거나 고친 뒤에는 새 세션에서 반영된다.
 
 ### 작업 진행 원칙 (2026-09-04 추가 — 반드시 지킬 것)
 
