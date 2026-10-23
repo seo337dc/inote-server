@@ -93,7 +93,7 @@ inote-server/
 │       ├── mini-game/        ← 캐시플로우 미니게임 결과
 │       ├── terms/            ← 금융 용어 + 좋아요
 │       └── books/            ← 금융 책 추천 + 좋아요
-├── .claude/agents/           ← 서브에이전트 정의 (code-reviewer, debugger, test-runner)
+├── .claude/agents/           ← 서브에이전트 정의 (strategist, code-reviewer, debugger, test-runner)
 ├── scripts/                  ← dev-db.sh(로컬 개발 DB·시드·백필), backfill-embeddings.ts, backfill-post-category-id.ts(글의 categoryId 채우기 — docs/runbooks/post-category-backfill.md)
 ├── docs/                     ← AUTH_POLICY.md(회원 정책), CURSOR.md(Cursor 역할), handoff/HANDOFF.md(세션 인수인계)
 │   ├── runbooks/             ← 작업 절차서(local-dev-db, embeddings-backfill, post-category-backfill)
