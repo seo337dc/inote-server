@@ -13,7 +13,7 @@ import {
 //   scripts/dev-db.sh backfill-category [--apply] [--user ID]      로컬 개발 DB
 //   pnpm post-category:backfill --allow-remote [--apply]           .env의 DB (원격이면 --allow-remote 필요)
 //
-// 자세한 사용법·안전장치: docs/post-category-backfill.md
+// 자세한 사용법·안전장치: docs/runbooks/post-category-backfill.md
 
 async function main() {
   const options = parseBackfillArgs(process.argv.slice(2));

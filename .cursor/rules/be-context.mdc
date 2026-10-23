@@ -13,5 +13,5 @@ alwaysApply: false
 - 스키마: `prisma/schema.prisma`
 - 스펙 문서: `CLAUDE.md`, `API.md`, `DATABASE.md`
 - 세션 맥락: `docs/handoff/HANDOFF.md` 필독
-- Notion (BE만): `CURSOR.md` Notion 표 · MCP `.cursor/mcp.json` (OAuth 필요)
+- Notion (BE만): `docs/CURSOR.md` Notion 표 · MCP `.cursor/mcp.json` (OAuth 필요)
 - FE Notion URL 사용 금지

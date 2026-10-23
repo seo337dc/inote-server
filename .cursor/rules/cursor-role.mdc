@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Cursor 역할 (inote-server)
 
-상세: `CURSOR.md`. 세션 맥락: **`docs/handoff/HANDOFF.md` 필독**. TODO: `CLAUDE.md`.
+상세: `docs/CURSOR.md`. 세션 맥락: **`docs/handoff/HANDOFF.md` 필독**. TODO: `CLAUDE.md`.
 
 ## 담당
 

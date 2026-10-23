@@ -13,7 +13,7 @@ import { putPostEmbedding } from '../src/embeddings/inote-ai-embeddings';
 //   scripts/dev-db.sh backfill [--dry-run] [--limit N] [--only 글ID]       로컬 개발 DB → 로컬 AI 서버
 //   pnpm embeddings:backfill --dry-run                                     .env의 DB·AI 서버 (원격이면 --allow-remote 필요)
 //
-// 자세한 사용법·안전장치: docs/embeddings-backfill.md
+// 자세한 사용법·안전장치: docs/runbooks/embeddings-backfill.md
 
 async function main() {
   const options = parseBackfillArgs(process.argv.slice(2));

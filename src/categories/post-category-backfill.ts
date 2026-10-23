@@ -4,7 +4,7 @@
 //  - 둘 이상(ambiguous): 같은 이름이 여러 곳(예: 학습 > AI, 사이드프로젝트 기록 > AI) — 어느 쪽인지 알 수 없어 건드리지 않고
 //    후보와 함께 목록으로 보여준다 (글 이동 기능으로 직접 지정한다)
 // 쓰기는 기본이 아니다: dry-run이 기본이고 --apply를 줄 때만 쓴다. 이미 categoryId가 있는 글은 대상이 아니라 여러 번 실행해도 안전하다.
-// 설명: docs/post-category-backfill.md
+// 설명: docs/runbooks/post-category-backfill.md
 
 export type BackfillOptions = {
   apply: boolean;

@@ -3,7 +3,7 @@
 > PC·채팅·AI 메모리가 바뀌어도 이 파일 + git이 맥락의 단일 소스다.
 > **Claude Code / Cursor는 새 세션 시작 시 반드시 이 파일을 먼저 읽는다.**
 
-관련: `CLAUDE.md` (TODO·현재 단계) · `CURSOR.md` (Cursor 역할) · `.cursor/rules/`
+관련: `CLAUDE.md` (TODO·현재 단계) · `docs/CURSOR.md` (Cursor 역할) · `.cursor/rules/`
 
 ---
 
@@ -18,7 +18,7 @@
 1. `git pull`
 2. **`docs/handoff/HANDOFF.md` 읽기** ← 이 파일
 3. `CLAUDE.md`의 TODO / 현재 단계
-4. `CURSOR.md` (Cursor만) 또는 역할 확인
+4. `docs/CURSOR.md` (Cursor만) 또는 역할 확인
 5. 필요 시 `git log -5 --oneline`, 최근 변경 파일
 
 이 순서를 건너뛰고 추측으로 작업하지 않는다.
@@ -102,7 +102,7 @@
 ### 이어질 BE 작업
 - ✅ #7 `GET /blog/posts/mine/outline` — 구현 완료(10/7), 테스트만 남음
 - #8 카테고리 위치 이동 `PATCH /categories/:id/move` — 골격 `categories.move.spec.ts`(38 todo), `position` 컬럼 필요 → Supabase 기준선과 함께
-- Neon → Supabase 이전은 끝남(`docs/supabase-migration.md`). Neon은 롤백용으로 아직 삭제하지 않음
+- Neon → Supabase 이전은 끝남(`docs/adr/0001-neon-to-supabase.md`). Neon은 롤백용으로 아직 삭제하지 않음
 
 ### 알려진 이슈
 - 전체 `npx jest`(2026-10-12): **20 실패 / 172 통과 / 149 todo**. 실패 20건은 모두 기존 것 — 18건은 #6 구현 전에 일부러 먼저 쓴 테스트(`categories.rename.spec.ts` 11 + `rename-category.dto.spec.ts` 7, 정상), 2건은 `blog.service.spec.ts`의 `findOutline` 2개(`ed11399` 이후 기대값이 낡음, **누가 고칠지 미정**)

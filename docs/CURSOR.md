@@ -89,7 +89,7 @@
 1. `git pull`
 2. **`docs/handoff/HANDOFF.md` 필독**
 3. `CLAUDE.md` TODO / 현재 단계
-4. 이 파일(`CURSOR.md`) 역할 확인
+4. 이 파일(`docs/CURSOR.md`) 역할 확인
 5. 필요 시 `git log -5 --oneline`
 
 **세션 끝 (요청 시):** `HANDOFF.md` 「현재 상태」 갱신 → TODO 동기화 → commit → push
