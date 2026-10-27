@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -64,6 +65,20 @@ export class ListPostsQueryDto {
   @IsString()
   @MaxLength(SEARCH_QUERY_MAX)
   q?: string;
+
+  @ApiPropertyOptional({
+    description:
+      '보관함 보기 (나의 글 전용) — true면 보관한 글만 보관한 시각 최신순으로, 없거나 false면 보관한 글을 뺀 나의 글. 공개 목록(/blog/posts)에서는 무시된다',
+  })
+  // 쿼리스트링은 항상 문자열이라 'true'/'false'만 불리언으로 바꾼다 (그 외 값은 그대로 두어 IsBoolean이 거른다)
+  @Transform(({ value }: { value: unknown }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsOptional()
+  @IsBoolean()
+  archived?: boolean;
 
   @ApiPropertyOptional({
     description:

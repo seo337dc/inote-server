@@ -505,6 +505,8 @@ model Post {
   isPrivate    Boolean       @default(false)
   /// 고정 여부 — true면 홈/나의 글 목록 맨 위에 노출
   pinned       Boolean       @default(false)
+  /// 보관한 시각 (null = 일반 글) — 값이 있으면 홈·나의 글·검색·카테고리 개수에서 빠지고 보관함에서만 보인다. 직접 주소는 작성자만 열 수 있다. isPrivate(공개 범위)와 별개 축. 발행된 글만 보관할 수 있다
+  archivedAt   DateTime?
   /// 썸네일 이미지 URL (R2 업로드) — 출간 화면에서 지정, 없으면 null
   thumbnailUrl String?
   /// AI 요약 (1:1, inote-ai가 생성)

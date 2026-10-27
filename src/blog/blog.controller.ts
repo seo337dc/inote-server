@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -17,6 +18,7 @@ import { OptionalAuthGuard } from '../auth/optional-auth.guard';
 import { InternalSecretGuard } from '../auth/internal-secret.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { BlogService } from './blog.service';
+import { ArchivePostsDto } from './dto/archive-posts.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { ListPostsQueryDto } from './dto/list-posts-query.dto';
 import {
@@ -155,6 +157,31 @@ export class BlogController {
   })
   createDraft(@CurrentUser() user: { id: string }) {
     return this.blogService.createDraft(user.id);
+  }
+
+  // 아래 두 경로는 `:id`를 쓰는 경로보다 먼저 선언해 둔다 — 'archive'가 글 id로 해석되지 않게
+  @Post('archive')
+  @HttpCode(200)
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      '글 보관 (본인 글만, 일괄) — 목록·검색에서 빠지고 보관함에서만 보인다. 남의 글·없는 글·발행 전 글은 건너뛰고, 실제로 보관된 id만 돌려준다. 고정은 풀린다',
+  })
+  archive(@CurrentUser() user: { id: string }, @Body() dto: ArchivePostsDto) {
+    return this.blogService.archive(user.id, dto.ids);
+  }
+
+  @Post('unarchive')
+  @HttpCode(200)
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      '글 보관 해제 (본인 글만, 일괄) — 다시 목록에 나온다. 남의 글·없는 글·발행 전 글은 건너뛰고, 해제된 id만 돌려준다',
+  })
+  unarchive(@CurrentUser() user: { id: string }, @Body() dto: ArchivePostsDto) {
+    return this.blogService.unarchive(user.id, dto.ids);
   }
 
   @Patch(':id')

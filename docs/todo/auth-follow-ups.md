@@ -10,6 +10,7 @@
 - [ ] **`account.issuer` 컬럼 정리 검토** — 1.7.3 이상은 쓰지 않는다. nullable이라 해롭지 않지만, 남겨 둘지 마이그레이션으로 뺄지 정한다.
 - [ ] **로컬 개발 DB 컨테이너가 깨져 있음** — `docker compose up` 시 `RWLayer of container … is unexpectedly nil`. 데이터 볼륨을 건드리지 않고 컨테이너만 다시 만드는 방법을 정해서 고친다.
 - [ ] **FE `.env.local`이 운영 BE를 가리킴** — 로컬 구글 로그인 테스트 때 의도치 않게 운영 BE에 붙는다. `NEXT_PUBLIC_API_URL=http://localhost:3200 pnpm dev`로 덮어쓰는 안내를 `inote` README에 둔다(`inote/docs/todo/readme-update.md` 참고).
+- [ ] **Safari에서 구글 로그인 후 로그인 상태가 되지 않음** (2026-10-27 사용자 확인, 원인 미조사) — 구글 계정을 골라 돌아와도 로그인된 화면이 아니다. 가설(미확인): FE(`vercel.app`)와 BE(`onrender.com`)가 **서로 다른 사이트**라 세션 쿠키가 서드파티 쿠키로 취급되고, Safari의 ITP가 이를 막는다. 먼저 재현 조건(로컬/운영, 쿠키 설정 `SameSite`·`Secure`·도메인)과 응답의 `Set-Cookie`가 저장되는지부터 확인한다. 해결책이 같은 사이트(커스텀 도메인) 같은 구조 결정이면 사용자와 상의한다.
 - [ ] **`state_security_mismatch`("State not persisted correctly") 별도 확인** — 구글 로그인이 연달아 재시도될 때 한 번 찍힌 다른 에러. 중복 문제 해결 후 재현되는지 본다.
 
 ## 완료
