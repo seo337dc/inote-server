@@ -31,6 +31,34 @@ npm run start:dev
 
 ## 작업 로그
 
+### 2026-10-27 — 글 보관함(아카이브) BE
+
+설계·계약은 `inote` 레포 `docs/adr/0007-archive-posts.md`, 남긴 것은 `inote` 레포 `docs/todo/archive-posts.md`. 여기는 BE에서 한 일과 이유.
+
+- **`Post.archivedAt DateTime?`** (마이그레이션 `20261027000000_add_post_archived_at`): `null` = 일반 글, 값 = 보관한 시각. 보관 여부와 보관함 정렬을 한 컬럼이 맡아 `isArchived` 같은 중복 컬럼이 없다. 추가만 하는 마이그레이션이라 기존 글·기존 코드에 영향이 없다. `prisma migrate dev`는 운영 DB에 바로 적용돼서 쓰지 않고 SQL을 직접 만들었고, 배포 전 통합 테스트를 위해 로컬에서 `migrate deploy`로 먼저 적용했다(서버 시작 때 `migrate deploy`가 다시 돌지만 적용된 것은 건너뛴다).
+- **`POST /blog/posts/archive`·`/unarchive`**: `{ ids }` 1~100개, 응답 `{ archivedIds }`·`{ unarchivedIds }`(200). **내 글이 아니거나 없거나 발행 전인 id는 오류 없이 건너뛴다** — 응답으로 남의 글 존재 여부를 알 수 없게. 이미 보관한 글은 시각을 바꾸지 않고(멱등) 응답에는 포함한다. 보관하면 `pinned`가 풀린다(해제해도 복원하지 않음).
+- **보관한 글을 빼는 곳**(빠뜨리면 계속 노출된다): 홈·작성자별 목록(`findAll`), 작성자별 카테고리 개수, 나의 글(`findMine`)과 그 카테고리 개수, 내 글 트리(`findOutline`), 작성자 공개 글 트리, 글 이동 탭(`findMyOutline`), 공개 글 id 목록(`listPublicPostIds`). 서비스의 `NOT_ARCHIVED` 상수로 모아 두었다.
+- **보관함**: `GET /blog/posts/mine?archived=true` — 보관한 글만 `archivedAt` 최신순(`ARCHIVE_ORDER`), `categoryCounts`도 보관한 글 기준. 공개 목록(`/blog/posts`)은 `archived`를 받아도 무시한다.
+- **직접 주소**: `findOne`은 작성자만 200, 타인·비로그인은 404(비공개 글과 같은 방식).
+- **계약에 없던데 보탠 것**: ① 비슷한 글(`findSimilar`)의 원본 글이 보관한 글이면 작성자 외 404(안 막으면 존재가 드러남) ② 보관한 글을 수정 저장할 때 `pinned: true`는 무시(보관 시 풀린 고정이 수정으로 다시 켜지지 않게) ③ 응답 코드 200(`@HttpCode(200)`).
+- **하지 않은 것**: 임베딩 후보(`embedding-candidates.ts`)에서 보관한 글 제외 — 임베딩이 운영에서 꺼져 있어 보류(켜기 전에 반드시, `inote` 레포 `docs/todo/archive-posts.md`).
+- **테스트**: `blog.service.archive.spec.ts`·`archive-posts.dto.spec.ts` 신규, 기존 테스트 7개는 `where`에 `archivedAt: null`이 들어간 것에 맞춰 기대값만 수정. 서비스 코드를 일부러 망가뜨려(보관 조건 제거·보관 여부 무시·고정 유지·userId 조건 제거) 테스트가 실패하는지 확인했다. 전체 327개 통과, `tsc`(빌드 설정)·ESLint 통과.
+- **로컬 통합**: 로컬 FE·BE(운영 DB)에서 보관 → 목록에서 제외 → 보관함 → 직접 주소(작성자만) → 해제까지 사용자가 확인했다.
+- **배포 순서**: BE 먼저(마이그레이션은 서버 시작 때 적용) → FE.
+
+---
+
+### 2026-10-27 — 로컬 BE가 운영 DB에 붙지 못함: Supabase 세션 풀러 한도 초과
+
+- **증상**: 로컬 BE → 운영 DB에서 공개 API와 DB 조회는 되는데, 로그인 후 `나의 글`(`mine`)·`categories`만 500. BE 로그는 `EMAXCONNSESSION ... max clients are limited to pool_size: 15`, 응답은 500 "Failed to get session". 운영 BE는 같은 DB에서 정상이었다.
+- **원인**: 연결은 세 층을 지난다 — Prisma 풀(클라이언트 쪽 한도) → Supabase 풀러(프로젝트 전체가 나눠 쓰는 슬롯 15, 세션 모드 5432) → Postgres. 세션 모드는 연결 하나가 `idle`이어도 슬롯을 계속 쥔다. 그런데 앱은 `connection_limit`을 정하지 않아 Prisma 기본값(물리 코어 × 2 + 1 = 13)을 쓰고, **PrismaClient가 둘**(`auth.ts` 하나, `PrismaService` 하나)이라 BE 하나가 최대 26개를 요구한다. 운영 BE가 9개를 쥔 상태에서 로컬 BE가 붙으면 6개밖에 못 받는다. 로그인이 필요한 API만 실패한 것은 `auth.ts`의 클라이언트가 `$connect()` 없이 첫 쿼리 때 처음 연결을 열기 때문으로 **추정**한다(미확정).
+- **왜 전에는 괜찮았나**: 이전의 로컬 테스트는 `scripts/dev-db.sh`로 로컬 Docker DB에 붙어서 Supabase 슬롯을 쓰지 않았다. 이번에 처음 로컬 BE가 Supabase에 붙으면서 숨어 있던 한계(서버가 둘 이상 붙는 순간 한도를 넘는 구조)가 드러났다.
+- **조치**: `DATABASE_URL` 끝에 `?connection_limit=2`(로컬)를 붙여 BE 하나의 요구량을 4개로 줄였다. 코드 변경 없이 환경변수만 — 로컬 `.env` 적용·확인함. **Render 환경변수에도 `?connection_limit=3`을 적용해야 한다**(운영 BE의 9개를 6개로 줄여 로컬과 합쳐 15 안에 들게).
+- **후속(`docs/todo/db-connection.md`)**: PrismaClient 1개로 합치기, 트랜잭션 모드(6543 + `directUrl`) 전환, `start:prod`의 `PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1` 유지 여부, 개발 환경 분리, `session.cookieCache` 검토.
+- **알게 된 것**: `start:prod`의 서버 시작 때 `migrate deploy`는 Railway 배포 설정에서, `ADVISORY_LOCK` 끄기는 Neon 풀러 시절에 생긴 것(둘 다 지금도 쓰임). Supabase 직접 연결 주소(`db.<ref>.supabase.co`)는 IPv6 전용이라 IPv6가 안 되는 네트워크에서는 DataGrip 등이 붙지 못하고, 풀러 주소(IPv4)로 붙어야 한다.
+
+---
+
 ### 2026-10-27 — 구글 로그인 실패: 중복 account 행 + better-auth 버전 고정
 
 - **증상**: 로컬 FE에서 구글 계정 선택 직후 "문제가 발생했습니다…" 토스트(FE가 모르는 에러 코드). 이메일/비밀번호 로그인은 정상.
