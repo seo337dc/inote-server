@@ -10,8 +10,15 @@
 - [ ] **`account.issuer` 컬럼 정리 검토** — 1.7.3 이상은 쓰지 않는다. nullable이라 해롭지 않지만, 남겨 둘지 마이그레이션으로 뺄지 정한다.
 - [ ] **로컬 개발 DB 컨테이너가 깨져 있음** — `docker compose up` 시 `RWLayer of container … is unexpectedly nil`. 데이터 볼륨을 건드리지 않고 컨테이너만 다시 만드는 방법을 정해서 고친다.
 - [ ] **FE `.env.local`이 운영 BE를 가리킴** — 로컬 구글 로그인 테스트 때 의도치 않게 운영 BE에 붙는다. `NEXT_PUBLIC_API_URL=http://localhost:3200 pnpm dev`로 덮어쓰는 안내를 `inote` README에 둔다(`inote/docs/todo/readme-update.md` 참고).
-- [ ] **Safari에서 구글 로그인 후 로그인 상태가 되지 않음** (2026-10-27 사용자 확인, 원인 미조사) — 구글 계정을 골라 돌아와도 로그인된 화면이 아니다. 가설(미확인): FE(`vercel.app`)와 BE(`onrender.com`)가 **서로 다른 사이트**라 세션 쿠키가 서드파티 쿠키로 취급되고, Safari의 ITP가 이를 막는다. 먼저 재현 조건(로컬/운영, 쿠키 설정 `SameSite`·`Secure`·도메인)과 응답의 `Set-Cookie`가 저장되는지부터 확인한다. 해결책이 같은 사이트(커스텀 도메인) 같은 구조 결정이면 사용자와 상의한다.
-- [ ] **`state_security_mismatch`("State not persisted correctly") 별도 확인** — 구글 로그인이 연달아 재시도될 때 한 번 찍힌 다른 에러. 중복 문제 해결 후 재현되는지 본다.
+- [ ] **Safari에서 로그인 후 로그인 상태가 되지 않음 — 원인 확정, 해결 방안 결정 대기** (2026-10-27) — 운영(`inote-main.vercel.app`)에서 Safari로 **이메일·구글 로그인 모두** 로그인되지 않은 상태가 된다. **원인 확정**: FE(`vercel.app`)와 BE(`onrender.com`)가 서로 다른 사이트라, BE가 발급한 세션 쿠키(운영 `SameSite=None; Secure`, `auth.ts`의 `defaultCookieAttributes`)를 Safari의 크로스 사이트 추적 방지(ITP)가 서드파티 쿠키로 막는다. Safari 설정에서 "크로스 사이트 추적 방지"를 끄고 다시 로그인하면 **구글·이메일 모두 정상**이라 확인했다(웹 인스펙터로 쿠키 저장 여부까지 본 것은 아니다). 구글만 안 되는 게 아니라 이메일도 안 되므로 OAuth `state` 문제가 아니라 세션 쿠키 전반의 문제다. 로컬(`localhost` ↔ `localhost`)은 같은 사이트라 재현되지 않는다. **iPhone·iPad는 모든 브라우저가 WebKit이라 브라우저를 바꿔도 같은 증상일 것으로 예상**(직접 확인 못 함). 설정을 끄는 것은 진단용일 뿐 해결이 아니다.
+  - **해결 방안(사용자 결정 필요)** — 공통 원리는 쿠키를 FE와 같은 사이트의 것으로 만드는 것:
+    - A. **FE 프록시**: Vercel rewrites로 `/api/v1/*`를 BE로 넘긴다(무료). 구글 OAuth 리디렉션 URI·`BETTER_AUTH_URL`을 FE 도메인으로 바꾸고 FE 앱마다(inote, inote-money) 설정해야 한다. Render 콜드 스타트(30~50초)와 프록시 타임아웃의 상호작용은 먼저 실험으로 확인한다.
+    - B. **커스텀 도메인**: `app.<도메인>`·`api.<도메인>`처럼 같은 상위 도메인 + `crossSubDomainCookies`. 도메인 비용(연 1만원 안팎). 가장 정석이고 모바일 앱(WebView)·다른 FE에도 같은 구조로 통한다. CLAUDE.md의 "추후 Cloudflare 도메인" 계획과도 맞는다.
+    - C. **토큰 방식**(쿠키 대신 `Authorization` 헤더): 변경 범위가 가장 크고 HttpOnly 보호를 잃는다. 지금은 선택할 이유가 약하다.
+  - 결정 뒤: 변경 목록·환경변수·배포 순서·롤백을 먼저 정리 → 적용 → **Safari(Mac)와 iPhone에서 이메일·구글 로그인 확인**.
+  - 모바일 앱(RN WebView, `apps/app`)의 로그인 플로우(쿠키 교환)도 같은 제약(iOS WKWebView의 서드파티 쿠키 차단)을 받으므로, 쿠키 구조를 한 번에 정리한다.
+  - 글 초안: 이 이슈를 글로 정리할 때 `inote` 레포 `docs/blog/`에 둔다.
+- [ ] **`state_security_mismatch`("State not persisted correctly") 별도 확인** — 구글 로그인이 연달아 재시도될 때 한 번 찍힌 다른 에러. 중복 문제 해결 후 재현되는지 본다. (Safari의 서드파티 쿠키 차단과 같은 쿠키 구조에서 나올 수 있는 증상이라, 위 Safari 이슈를 해결한 뒤에 함께 사라지는지 확인한다 — 가설.)
 
 ## 완료
 (아직 없음)
