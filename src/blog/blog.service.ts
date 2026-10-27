@@ -38,6 +38,16 @@ const LIST_ORDER: Prisma.PostOrderByWithRelationInput[] = [
   { createdAt: 'desc' },
 ];
 
+// 보관함 목록 정렬: 보관한 시각이 최근인 글이 위로, 같으면 생성순. (설계: inote 레포 docs/adr/0007-archive-posts.md)
+const ARCHIVE_ORDER: Prisma.PostOrderByWithRelationInput[] = [
+  { archivedAt: 'desc' },
+  { createdAt: 'desc' },
+];
+
+// 보관한 글을 뺀 조건 — 홈·작성자별 목록, 검색, 카테고리 개수, 글 트리처럼 "보관함 밖"의 모든 조회에 붙인다.
+// 새 조회를 만들 때 이 조건을 빠뜨리면 보관한 글이 목록에 계속 나온다.
+const NOT_ARCHIVED: Prisma.PostWhereInput = { archivedAt: null };
+
 const EMPTY_CONTENT = ['', '<p></p>'];
 const PINNED_PAGE_SIZE = 3;
 const OUTLINE_LIMIT = 500;
@@ -129,6 +139,7 @@ export class BlogService {
   private async listPage(
     baseWhere: Prisma.PostWhereInput,
     { page = 1, pageSize = 10, pinnedPage = 1 }: ListPostsQueryDto,
+    orderBy: Prisma.PostOrderByWithRelationInput[] = LIST_ORDER,
   ) {
     const pinnedWhere: Prisma.PostWhereInput = { ...baseWhere, pinned: true };
     const listWhere: Prisma.PostWhereInput = { ...baseWhere, pinned: false };
@@ -137,7 +148,7 @@ export class BlogService {
     const [pinned, pinnedTotal, items, listTotal] = await Promise.all([
       this.prisma.post.findMany({
         where: pinnedWhere,
-        orderBy: LIST_ORDER,
+        orderBy,
         skip: (pinnedPage - 1) * PINNED_PAGE_SIZE,
         take: PINNED_PAGE_SIZE,
         include: AUTHOR_SELECT,
@@ -145,7 +156,7 @@ export class BlogService {
       this.prisma.post.count({ where: pinnedWhere }),
       this.prisma.post.findMany({
         where: listWhere,
-        orderBy: LIST_ORDER,
+        orderBy,
         skip: (page - 1) * pageSize,
         take: pageSize,
         include: AUTHOR_SELECT,
@@ -173,10 +184,12 @@ export class BlogService {
 
   // 전체 공개 글. userId를 주면 그 작성자의 공개 글만 보고, 응답에 그 작성자(author)를 함께 준다 —
   // 글이 0개(검색 결과 없음 포함)여도 화면 제목에 이름을 쓸 수 있고, 없는 사용자면 author가 null이다.
+  // 보관한 글은 항상 뺀다 (query.archived는 나의 글 전용이라 여기서는 무시).
   async findAll(query: ListPostsQueryDto) {
     const where: Prisma.PostWhereInput = {
       publishedAt: { not: null },
       isPrivate: false,
+      ...NOT_ARCHIVED,
       ...(query.userId ? { userId: query.userId } : {}),
       ...combineWhere(
         await this.categoryFilter(query.categoryId),
@@ -203,7 +216,12 @@ export class BlogService {
     const [grouped, rows] = await Promise.all([
       this.prisma.post.groupBy({
         by: ['categoryId'],
-        where: { userId, publishedAt: { not: null }, isPrivate: false },
+        where: {
+          userId,
+          publishedAt: { not: null },
+          isPrivate: false,
+          ...NOT_ARCHIVED,
+        },
         _count: { _all: true },
       }),
       this.prisma.postCategory.findMany({
@@ -295,10 +313,10 @@ export class BlogService {
   }
 
   // 내 글 상세 왼쪽 카테고리 트리용 — 본문 없이 제목·카테고리만 가볍게 내려준다.
-  // 내가 발행한 글만(비공개 포함). draft는 제외. 다른 사람의 글 상세는 findUserOutline이 맡는다.
+  // 내가 발행한 글만(비공개 포함). draft·보관한 글은 제외. 다른 사람의 글 상세는 findUserOutline이 맡는다.
   findOutline(userId: string) {
     return this.prisma.post.findMany({
-      where: { userId, publishedAt: { not: null } },
+      where: { userId, publishedAt: { not: null }, ...NOT_ARCHIVED },
       select: {
         id: true,
         title: true,
@@ -323,11 +341,12 @@ export class BlogService {
     return post;
   }
 
-  // 공개 조회 — 발행+ 비공개 아닌 글은 누구나, draft·비공개 글은 작성자 본인만
+  // 공개 조회 — 발행+ 비공개 아닌 글은 누구나, draft·비공개·보관한 글은 작성자 본인만
   // (그 외엔 404로 존재 자체를 숨김)
   async findOne(id: string, requesterUserId?: string) {
     const post = await this.findRaw(id);
-    const hiddenFromOthers = !post.publishedAt || post.isPrivate;
+    const hiddenFromOthers =
+      !post.publishedAt || post.isPrivate || !!post.archivedAt;
     if (hiddenFromOthers && post.userId !== requesterUserId) {
       throw new NotFoundException('글을 찾을 수 없습니다.');
     }
@@ -335,11 +354,11 @@ export class BlogService {
   }
 
   // 공개 글 id 목록 — inote-ai의 글 목록 채팅("글 찾기")이 검색 후보로 쓴다(내부 전용, 비밀키 필요). 공개 여부의 판정은 항상 BE가 한다:
-  // 발행됨 AND 공개인 글만. 최근 저장순, 최대 5000개(embedding-candidates의 상한). 설계: inote 레포 docs/kure/PLAN.md 결정 17.
+  // 발행됨 AND 공개 AND 보관 안 한 글만. 최근 저장순, 최대 5000개(embedding-candidates의 상한). 설계: inote 레포 docs/kure/PLAN.md 결정 17.
   async listPublicPostIds() {
     const ids = await findCandidateIds(
       this.prisma,
-      publicCandidatesWhere(),
+      { AND: [publicCandidatesWhere(), NOT_ARCHIVED] },
       this.logger,
     );
     return { ids };
@@ -356,9 +375,15 @@ export class BlogService {
   ) {
     const source = await this.prisma.post.findUnique({
       where: { id },
-      select: { userId: true, publishedAt: true, isPrivate: true },
+      select: {
+        userId: true,
+        publishedAt: true,
+        isPrivate: true,
+        archivedAt: true,
+      },
     });
-    const hiddenFromOthers = !source || !source.publishedAt || source.isPrivate;
+    const hiddenFromOthers =
+      !source || !source.publishedAt || source.isPrivate || !!source.archivedAt;
     if (!source || (hiddenFromOthers && source.userId !== requesterUserId)) {
       throw new NotFoundException('글을 찾을 수 없습니다.');
     }
@@ -478,7 +503,12 @@ export class BlogService {
         select: { id: true, name: true },
       }),
       this.prisma.post.findMany({
-        where: { userId, publishedAt: { not: null }, isPrivate: false },
+        where: {
+          userId,
+          publishedAt: { not: null },
+          isPrivate: false,
+          ...NOT_ARCHIVED,
+        },
         select: {
           id: true,
           title: true,
@@ -495,11 +525,11 @@ export class BlogService {
     return { author, categories: summary.categories, posts };
   }
 
-  // 카테고리 관리의 '글 이동' 탭용 — 내 글 전부(임시저장 포함, 빈 임시저장 제외)를 본문 없이 가볍게. 최신순, 최대 OUTLINE_LIMIT개.
+  // 카테고리 관리의 '글 이동' 탭용 — 내 글 전부(임시저장 포함, 빈 임시저장·보관한 글 제외)를 본문 없이 가볍게. 최신순, 최대 OUTLINE_LIMIT개.
   // 공개 글 트리용 findOutline과 달리 내 글만이고 임시저장(publishedAt null)도 담긴다.
   findMyOutline(userId: string) {
     return this.prisma.post.findMany({
-      where: { userId, NOT: EMPTY_DRAFT },
+      where: { userId, NOT: EMPTY_DRAFT, ...NOT_ARCHIVED },
       select: {
         id: true,
         title: true,
@@ -520,28 +550,85 @@ export class BlogService {
     });
   }
 
-  // 나의 글 목록 — 발행·비공개 여부 상관없이 내가 쓴 글 전부 (/my-posts에서 사용).
-  // 사이드바 카테고리별 개수는 페이지와 무관한 전체 기준이라 categoryCounts로 따로 내려줌.
+  // 나의 글 목록 — 발행·비공개 여부 상관없이 내가 쓴 글 전부 (/my-posts에서 사용). 보관한 글은 뺀다.
+  // query.archived가 true면 반대로 **보관한 글만** 보관한 시각 최신순으로 준다 (/my-posts/archive의 보관함).
+  // 사이드바 카테고리별 개수는 페이지와 무관한 전체 기준이라 categoryCounts로 따로 내려주고, 보관함이면 보관한 글 기준으로 센다.
   async findMine(userId: string, query: ListPostsQueryDto) {
+    const archived = query.archived === true;
+    const archiveWhere: Prisma.PostWhereInput = archived
+      ? { archivedAt: { not: null } }
+      : NOT_ARCHIVED;
     const categoryFilter = await this.categoryFilter(query.categoryId, userId);
     const [page, grouped] = await Promise.all([
       this.listPage(
         {
           userId,
           NOT: EMPTY_DRAFT,
+          ...archiveWhere,
           ...combineWhere(categoryFilter, searchWhere(query.q)),
         },
         query,
+        archived ? ARCHIVE_ORDER : LIST_ORDER,
       ),
       this.prisma.post.groupBy({
         by: ['categoryId'],
-        where: { userId, NOT: EMPTY_DRAFT },
+        where: { userId, NOT: EMPTY_DRAFT, ...archiveWhere },
         _count: { _all: true },
       }),
     ]);
     // 카테고리 id → 직속 글 수 (아직 지정 안 된 글은 'unassigned')
     const categoryCounts = countsByCategoryId(grouped);
     return { ...page, categoryCounts };
+  }
+
+  // 글 보관 — 내 글 중 발행된 글만 보관함으로 옮긴다. 남의 글·없는 글·발행 전(draft) id는 오류 없이 건너뛴다
+  // (응답으로 그 존재 여부를 알 수 없게). 이미 보관한 글은 시각을 바꾸지 않고(멱등) 응답에는 포함한다.
+  // 보관하면 고정은 풀린다 — 보관한 글은 목록에서 빠지므로 고정이 의미 없고, 해제해도 고정은 돌아오지 않는다.
+  async archive(userId: string, ids: string[]) {
+    const uniqueIds = [...new Set(ids)];
+    await this.prisma.post.updateMany({
+      where: {
+        id: { in: uniqueIds },
+        userId,
+        publishedAt: { not: null },
+        archivedAt: null,
+      },
+      data: { archivedAt: new Date(), pinned: false },
+    });
+    const archived = await this.prisma.post.findMany({
+      where: {
+        id: { in: uniqueIds },
+        userId,
+        publishedAt: { not: null },
+        archivedAt: { not: null },
+      },
+      select: { id: true },
+    });
+    return { archivedIds: archived.map((p) => p.id) };
+  }
+
+  // 글 보관 해제 — 내 글만 다시 목록으로 되돌린다. 남의 글·없는 글·발행 전 id는 건너뛰고, 이미 보관 안 한 글은 그대로 응답에 포함한다(멱등).
+  async unarchive(userId: string, ids: string[]) {
+    const uniqueIds = [...new Set(ids)];
+    await this.prisma.post.updateMany({
+      where: {
+        id: { in: uniqueIds },
+        userId,
+        publishedAt: { not: null },
+        archivedAt: { not: null },
+      },
+      data: { archivedAt: null },
+    });
+    const unarchived = await this.prisma.post.findMany({
+      where: {
+        id: { in: uniqueIds },
+        userId,
+        publishedAt: { not: null },
+        archivedAt: null,
+      },
+      select: { id: true },
+    });
+    return { unarchivedIds: unarchived.map((p) => p.id) };
   }
 
   // 글쓰기 화면에 들어올 때마다 새 행이 쌓이지 않도록, 이미 비어 있는 draft가 있으면 그걸 재사용.
@@ -595,6 +682,8 @@ export class BlogService {
       throw new ForbiddenException('본인이 작성한 글만 수정할 수 있습니다.');
     }
     const { publish, category, categoryId, ...fields } = dto;
+    // 보관한 글은 고정할 수 없다 (보관할 때 고정이 풀리므로, 수정 저장으로 다시 켜지지 않게 막는다) — 보관 상태 자체는 수정으로 바뀌지 않는다
+    if (post.archivedAt && fields.pinned) fields.pinned = false;
     // 저장(발행)할 때만 본문의 내 tmp 이미지를 post/<userId>/<postId>/로 옮기고 본문 주소를 바꾼다.
     // 자동 임시저장은 tmp 주소 그대로 둔다 (계약: inote 레포 docs/EDITOR_IMAGE_UPLOAD.md)
     let promoted: Promotion[] = [];

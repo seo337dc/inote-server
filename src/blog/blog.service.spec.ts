@@ -284,6 +284,7 @@ describe('BlogService', () => {
             where: {
               publishedAt: { not: null },
               isPrivate: false,
+              archivedAt: null,
               ...SEARCH('리액트'),
               pinned: n === 1,
             },
@@ -366,7 +367,7 @@ describe('BlogService', () => {
       const result = await service.findOutline('u1');
 
       expect(mockPrisma.post.findMany).toHaveBeenCalledWith({
-        where: { userId: 'u1', publishedAt: { not: null } },
+        where: { userId: 'u1', publishedAt: { not: null }, archivedAt: null },
         select: SELECT,
         orderBy: LIST_ORDER,
         take: 500,
@@ -407,12 +408,17 @@ describe('BlogService', () => {
       expect(mockPrisma.post.findMany).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({
-          where: { userId: 'user-1', NOT: EMPTY_DRAFT, pinned: true },
+          where: {
+            userId: 'user-1',
+            NOT: EMPTY_DRAFT,
+            archivedAt: null,
+            pinned: true,
+          },
         }),
       );
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith({
         by: ['categoryId'],
-        where: { userId: 'user-1', NOT: EMPTY_DRAFT },
+        where: { userId: 'user-1', NOT: EMPTY_DRAFT, archivedAt: null },
         _count: { _all: true },
       });
       // 카테고리 id → 직속 글 수. 아직 지정 안 된 글(categoryId null)은 'unassigned'
@@ -454,6 +460,7 @@ describe('BlogService', () => {
             where: {
               userId: 'user-1',
               NOT: EMPTY_DRAFT,
+              archivedAt: null,
               ...SEARCH('리액트'),
               pinned: n === 1,
             },
@@ -471,7 +478,7 @@ describe('BlogService', () => {
 
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: 'user-1', NOT: EMPTY_DRAFT },
+          where: { userId: 'user-1', NOT: EMPTY_DRAFT, archivedAt: null },
         }),
       );
     });
@@ -486,7 +493,7 @@ describe('BlogService', () => {
 
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: 'user-1', NOT: EMPTY_DRAFT },
+          where: { userId: 'user-1', NOT: EMPTY_DRAFT, archivedAt: null },
         }),
       );
     });
