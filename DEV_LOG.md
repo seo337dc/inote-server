@@ -31,6 +31,18 @@ npm run start:dev
 
 ## 작업 로그
 
+### 2026-10-27 — 구글 로그인 실패: 중복 account 행 + better-auth 버전 고정
+
+- **증상**: 로컬 FE에서 구글 계정 선택 직후 "문제가 발생했습니다…" 토스트(FE가 모르는 에러 코드). 이메일/비밀번호 로그인은 정상.
+- **원인(서버 로그)**: `Better auth was unable to query your database.` 바로 뒤의 `Multiple accounts match the same accountId for provider "google"`. `account`에 같은 사용자·같은 `accountId`의 구글 행이 2개(`issuer`가 `local:oauth:google` / `https://accounts.google.com`)였다. 이메일 로그인은 이 조회를 하지 않아 영향이 없었다.
+- **왜 생겼나**: better-auth **1.7.2**는 `issuer`+`accountId`로 계정을 찾아서(옛 `issuer`와 달라 못 찾고 새 행을 추가) 중복이 조용히 쌓였고, **1.7.3 이상**은 `providerId`+`accountId`로 찾으며 2개 이상이면 에러를 낸다. 1.7.2/1.7.14 소스를 내려받아 비교해 확인. **Render의 실제 빌드 명령은 `render.yaml`이 아니라 대시보드에 직접 설정된 `npm install --include=dev && npx prisma generate && npm run build`**였다(Render 빌드 로그로 확인). npm은 `pnpm-lock.yaml`을 읽지 않아서 `package.json`의 범위(`^1.6.16`)대로 **배포 때마다 그 시점의 최신 버전**이 설치됐고(모든 의존성이 해당), 그래서 로컬 lock(1.7.2)과 달리 1.7.3 이상이 깔려 중복이 처음 드러났다. (로컬 재현: lockfile 있으면 1.7.2, 없으면 1.7.13)
+- **데이터 조치(운영 DB, 사용자가 직접 실행)**: 중복 중 옛 `issuer`(`local:oauth:google`) 행만 삭제 — 조회로 대상 1행 확인 후 같은 조건으로 DELETE. 같은 사용자 소유라 사용자·글에는 영향 없음. 중복은 이 계정 하나뿐이었다. 이후 로그인 정상.
+- **코드 조치**: `better-auth`를 `^1.6.16` → 정확한 `1.7.12`로 고정(lockfile 갱신) — `package.json` 자체의 값이라 npm 빌드에서도 효과가 있다. `render.yaml`에는 `--frozen-lockfile`을 넣었지만 **Render가 이 파일을 쓰지 않아(대시보드 명령 사용) 적용되지 않는다.** 또 `scripts/print-deps.js` + `prebuild`를 추가해 빌드 로그에 설치된 의존성 버전(`[deps] better-auth 1.7.12 -> …`)이 찍히게 했다(`npm run build` 앞에서 자동 실행, Render 설정 변경 불필요). 최신 1.7.14는 pnpm의 `minimumReleaseAge`(릴리스 후 1일 미만)에 걸려 `minimumReleaseAgeExclude` 우회가 필요해서, 우회하지 않고 며칠 지난 1.7.12로 정했다(10월 21일 배포 시점의 최신이라 배포본과 같을 가능성이 높음 — Render 빌드 로그로 확인 필요).
+- 테스트: 단위 289개 통과, `pnpm run build` 통과. E2E·실제 구글 로그인은 이 변경에서 돌리지 않음.
+- 글 초안: `inote` 레포 `docs/blog/better-auth-duplicate-account.md`
+
+---
+
 ### 2026-10-21 — 글 에디터 이미지 업로드: tmp 업로드 + 저장 시 영구 위치로 승격
 
 설계·계약은 `inote` 레포 `docs/EDITOR_IMAGE_UPLOAD.md`, 남긴 것은 `inote` 레포 `docs/todo/editor-image-upload.md`. 여기는 BE에서 한 일과 이유.
