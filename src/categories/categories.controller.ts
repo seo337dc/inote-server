@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiNotFoundResponse,
@@ -18,6 +19,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { MoveCategoryDto } from './dto/move-category.dto';
 import { RenameCategoryDto } from './dto/rename-category.dto';
 
 @ApiTags('Categories')
@@ -64,5 +66,28 @@ export class CategoriesController {
     @Body() dto: RenameCategoryDto,
   ) {
     return this.categoriesService.rename(user.id, id, dto);
+  }
+
+  @Patch(':id/move')
+  @ApiOperation({
+    summary:
+      '카테고리 위치 이동 — 새 부모(parentId, null이면 최상위) 밑의 index번째로. 같은 부모 안 순서 변경과 다른 카테고리 안으로 옮기기를 모두 처리. 정리된 전체 목록(position 순)을 돌려줌',
+  })
+  @ApiBadRequestResponse({
+    description:
+      '자기 자신·자기 하위 밑으로 이동, 또는 이동 후 (하위 포함) 3단계 초과',
+  })
+  @ApiNotFoundResponse({
+    description: '옮길 카테고리 또는 새 부모가 없거나 내 것이 아님',
+  })
+  @ApiConflictResponse({
+    description: '옮길 곳(다른 부모)에 같은 이름의 카테고리가 이미 있음',
+  })
+  move(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() dto: MoveCategoryDto,
+  ) {
+    return this.categoriesService.move(user.id, id, dto);
   }
 }
