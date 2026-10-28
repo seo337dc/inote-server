@@ -298,6 +298,7 @@ Table PostCategory {
   name String [not null, note: '카테고리 이름']
   parentId String [note: '상위 카테고리 ID (없으면 최상위)']
   depth Int [not null, default: 1, note: '트리 깊이 (1~3, 상위 없으면 1)']
+  position Int [not null, default: 0, note: '같은 부모 안에서의 순서 (0부터)']
   createdAt DateTime [default: `now()`, not null, note: '생성일']
   updatedAt DateTime [not null, note: '수정일']
 

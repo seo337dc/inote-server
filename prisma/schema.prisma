@@ -610,6 +610,8 @@ model PostCategory {
   posts     Post[]
   /// 트리 깊이 (1~3, 상위 없으면 1)
   depth     Int            @default(1)
+  /// 같은 부모 안에서의 순서 (0부터)
+  position  Int            @default(0)
   /// 생성일
   createdAt DateTime       @default(now())
   /// 수정일

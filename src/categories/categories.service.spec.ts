@@ -17,6 +17,7 @@ describe('CategoriesService', () => {
       findFirst: jest.fn(),
       createMany: jest.fn(),
       create: jest.fn(),
+      count: jest.fn(),
     },
   };
 
@@ -24,6 +25,8 @@ describe('CategoriesService', () => {
     jest.clearAllMocks();
     // 기본: 같은 위치에 같은 이름의 형제가 없다
     mockPrisma.postCategory.findFirst.mockResolvedValue(null);
+    // 기본: 같은 부모 아래 형제가 없다 → 새 카테고리는 position 0
+    mockPrisma.postCategory.count.mockResolvedValue(0);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -55,11 +58,11 @@ describe('CategoriesService', () => {
 
       expect(mockPrisma.postCategory.createMany).toHaveBeenCalledWith({
         data: [
-          { userId: 'u1', name: '학습', depth: 1 },
-          { userId: 'u1', name: '이직', depth: 1 },
-          { userId: 'u1', name: '일기', depth: 1 },
-          { userId: 'u1', name: '블로그', depth: 1 },
-          { userId: 'u1', name: '기록', depth: 1 },
+          { userId: 'u1', name: '학습', depth: 1, position: 0 },
+          { userId: 'u1', name: '이직', depth: 1, position: 1 },
+          { userId: 'u1', name: '일기', depth: 1, position: 2 },
+          { userId: 'u1', name: '블로그', depth: 1, position: 3 },
+          { userId: 'u1', name: '기록', depth: 1, position: 4 },
         ],
       });
       expect(result).toEqual([{ id: 'c1' }, { id: 'c2' }]);
@@ -73,7 +76,13 @@ describe('CategoriesService', () => {
       await service.create('u1', { name: '새 카테고리' });
 
       expect(mockPrisma.postCategory.create).toHaveBeenCalledWith({
-        data: { userId: 'u1', name: '새 카테고리', parentId: null, depth: 1 },
+        data: {
+          userId: 'u1',
+          name: '새 카테고리',
+          parentId: null,
+          depth: 1,
+          position: 0,
+        },
       });
     });
 
@@ -88,7 +97,13 @@ describe('CategoriesService', () => {
       await service.create('u1', { name: '하위', parentId: 'p1' });
 
       expect(mockPrisma.postCategory.create).toHaveBeenCalledWith({
-        data: { userId: 'u1', name: '하위', parentId: 'p1', depth: 2 },
+        data: {
+          userId: 'u1',
+          name: '하위',
+          parentId: 'p1',
+          depth: 2,
+          position: 0,
+        },
       });
     });
 
@@ -193,7 +208,13 @@ describe('CategoriesService', () => {
         await service.create('u1', { name: 'AI', parentId: 'p2' });
 
         expect(mockPrisma.postCategory.create).toHaveBeenCalledWith({
-          data: { userId: 'u1', name: 'AI', parentId: 'p2', depth: 2 },
+          data: {
+            userId: 'u1',
+            name: 'AI',
+            parentId: 'p2',
+            depth: 2,
+            position: 0,
+          },
         });
       });
 
