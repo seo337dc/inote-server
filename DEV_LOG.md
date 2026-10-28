@@ -31,6 +31,23 @@ npm run start:dev
 
 ## 작업 로그
 
+### 2026-10-27 — 카테고리 위치 이동 API (`PATCH /categories/:id/move`)
+
+- **증상**: 카테고리 화면에서 카테고리를 드래그해 옮기면 에러. 응답은 `Cannot PATCH /api/v1/categories/<id>/move` 404이고 Render 로그에는 아무것도 안 남는다.
+- **원인**: FE는 2026-09-30에 이 API를 호출하도록 만들어 두었는데 **BE에 경로·서비스·`position` 컬럼이 아직 없었다**(핸드오프의 "#8 미구현", 골격 `categories.move.spec.ts`의 `it.todo` 38개만 있었다). `Cannot PATCH …`는 NestJS가 라우트를 못 찾을 때 내는 기본 404라 컨트롤러에 닿기 전에 끝나고 4xx는 기본으로 로그에 남기지 않는다. 버그가 아니라 보류해 둔 기능이었다.
+- **구현**: 계약은 골격 주석(`PATCH /categories/:id/move`, body `{ parentId: string | null, index: number }`, 응답은 정리된 전체 목록)을 그대로 따른다.
+  - **`PostCategory.position Int @default(0)`**(마이그레이션 `20261027120000_add_post_category_position`): 같은 부모 안에서의 순서. 추가만 하는 마이그레이션이라 기존 코드에 영향이 없다(옛 코드가 카테고리를 만들어도 0으로 들어감). **기존 카테고리는 같은 부모(최상위끼리 포함) 안에서 만든 순서대로 0, 1, 2…로 채운다**(`ROW_NUMBER() OVER (PARTITION BY userId, parentId ORDER BY createdAt, id)` — NULL `parentId`도 한 묶음).
+  - **`MoveCategoryDto`**: `parentId`는 문자열 또는 `null`(키가 없거나 빈 문자열은 거절 — 서비스가 `""`를 최상위로 착각하지 않게), `index`는 0 이상 정수(숫자 문자열은 변환하지 않고 거절).
+  - **`CategoriesService.move`**: 내 카테고리 전부를 한 번에 읽어 메모리에서 계산한다. 내 목록에 없으면 404(남의 것 포함 — 존재를 알려 주지 않음), 자기 자신·자기 하위 밑이거나 하위까지 포함해 3단계를 넘으면 400. `index`는 "옮기는 것을 뺀 새 부모의 자식 목록" 기준이고 범위를 넘으면 맨 뒤·음수면 맨 앞으로 맞춘다(FE의 `moveCategory`와 같은 규칙). 다른 부모로 옮기면 원래 부모에 남은 형제의 position도 0부터 다시 메우고, 하위가 딸린 카테고리는 하위의 depth도 같은 만큼 바꾼다. **값이 바뀐 행만 한 `$transaction`으로** 갱신하고(제자리면 아무것도 쓰지 않음), 응답은 `position → createdAt` 순으로 다시 조회한 전체 목록이다.
+  - **`findAll`은 `position → createdAt` 순으로 정렬**하고 기본 5개를 만들 때 position 0~4를 채운다. **`create`는 같은 부모 아래 맨 끝**(형제 수)에 놓는다.
+- **계약에 없던데 보탠 것 — 409**: 다른 부모로 옮길 곳에 같은 이름이 이미 있으면 `ConflictException`. create·rename이 이미 "같은 부모 아래 같은 이름은 불가"를 지키는데, 이동으로 그 규칙이 조용히 깨지면 나중에 이름을 바꿀 때 이상하게 충돌한다. 같은 부모 안에서 순서만 바꿀 때는 이름이 그대로라 검사하지 않는다. FE는 이 응답을 별도로 처리하지 않아 낙관적 이동이 되돌아가며 일반 오류로 보인다(필요하면 FE에서 메시지를 다듬는다).
+- **테스트**: 골격의 `it.todo` 38개를 실제 테스트로 채웠고(`categories.move.spec.ts`, `dto/move-category.dto.spec.ts`), 기존 `findAll`·`create` 테스트는 `position`/`count`/`orderBy`가 들어간 것에 맞춰 기대값만 고쳤다. 전체 369개 통과, `tsc`(빌드 설정)·ESLint 통과. 서비스 코드를 일부러 망가뜨려(원래 부모 빈틈 안 메움 / 하위 depth 안 바꿈 / 자기 하위 검증 제거 / 3단계 검증 제거 / 이름 충돌 검사 제거 / `createdAt` 정렬 제거) 테스트가 실패하는지 확인했다.
+- **테스트를 쓰면서 알게 된 것**: ① `jest.clearAllMocks()`는 `mockResolvedValueOnce`로 쌓아 둔 값을 지우지 않아서, 예외로 끝나 두 번째 값을 안 쓰는 테스트의 값이 다음 테스트로 샌다 → `resetAllMocks()`로 바꾸고 `arrange()`가 시작할 때 대기열을 비운다. ② 3단계 제한 때문에 "자기 하위 밑으로 옮기기"는 깊이 검사가 먼저 걸러서, 그 검사를 따로 확인하려면 하위 없는 얕은 카테고리를 자기 자신 밑에 넣는 입력이 필요하다. ③ 입력 목록이 이미 생성순이면 `sort`가 안정 정렬이라 `createdAt` 비교를 빼도 결과가 같다 → 입력 순서를 섞어서 확인.
+- **`prisma-dbml-generator` 버그**: `schema.prisma`에 새 `///` 주석을 넣으면 그 길이에 따라 **기존의 관련 없는 한글 몇 글자가 `schema.dbml`에서 깨진다**(U+FFFD, 주석 길이를 바꿔 가며 재현 — 로케일과 무관). 이번에는 깨지지 않는 짧은 주석(`같은 부모 안에서의 순서 (0부터)`)으로 정했다. 스키마를 바꾼 뒤에는 `schema.dbml`에 `�`가 없는지, diff가 추가한 줄뿐인지 확인한다.
+- **배포**: BE만(FE는 이미 준비됨). 마이그레이션은 서버 시작 때 `migrate deploy`로 적용되며 기존 코드에 영향이 없다.
+
+---
+
 ### 2026-10-27 — 글 보관함(아카이브) BE
 
 설계·계약은 `inote` 레포 `docs/adr/0007-archive-posts.md`, 남긴 것은 `inote` 레포 `docs/todo/archive-posts.md`. 여기는 BE에서 한 일과 이유.

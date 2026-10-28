@@ -84,6 +84,7 @@ inote-server/
 │   │   └── users/            ← 관리자 전용 회원 목록/상세/삭제
 │   ├── blog/                 ← inote 글쓰기 CRUD, draft/발행, AI 요약 연동, 비슷한 글(`GET :id/similar`)
 │   ├── embeddings/           ← KURE 글 벡터 동기화(inote-ai 호출, fail-open)·후보 글 id(비공개 유출 방지)·유사 글 조회·백필 로직
+│   ├── categories/           ← 글 카테고리 트리(최대 3단계) 조회·생성·이름 변경·위치 이동(`PATCH :id/move`, `position`으로 형제 순서 관리)
 │   ├── mandalart/            ← 만다르트 로드맵 (공개 조회, 관리자만 수정)
 │   └── money/                ← inote-money API
 │       ├── expenses/         ← 가계부 CRUD
@@ -361,7 +362,7 @@ role 기반 권한, `usesInote`/`usesInoteMoney` 컬럼, 이메일/구글 계정
 | ReadingLogs 모듈 (독서 기록 CRUD + AI 책 정보) | ✅ 완료 (2026-09-28, draft/발행 패턴 + 발행 시 inote-ai `/book-info` 연동) |
 | AUTH_POLICY 1~6번 | ✅ 완료 |
 | AUTH_POLICY 7번 (타 서비스 연동 확인 화면) | 🔜 `inote-money` 회원 기능 대기 |
-| 단위테스트 | ✅ 289개 통과 (2026-10-21, todo 154개 별도) |
+| 단위테스트 | ✅ 369개 통과 (2026-10-28, todo 124개 별도) |
 | E2E 테스트 | ✅ 5개 통과 |
 | Render 배포 | ✅ 완료 (https://inote-server-5a63.onrender.com) |
 | Sentry 연결 | 🔜 예정 |
