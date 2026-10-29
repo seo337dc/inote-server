@@ -2,7 +2,7 @@
 
 > 2026-10-23 점검. 문서 내용을 실제 코드(`src/`, `prisma/schema.prisma`, `.env.example`, `git log`)와 대조한 결과.
 > 아직 아무것도 지우거나 고치지 않았다. 항목마다 승인받고 한 단위씩 진행한다.
-> 2026-10-29: 세 레포 문서 위치 통일(개발일지 → `docs/devlog/`, 이전 기록 → `docs/adr/`) 및 A의 `API.md`·`DATABASE.md` 삭제를 진행.
+> 2026-10-29: B(사실 수정)도 진행 — HANDOFF 갱신만 남았다(#10). 세 레포 문서 위치 통일(개발일지 → `docs/devlog/`, 이전 기록 → `docs/adr/`) 및 A의 `API.md`·`DATABASE.md` 삭제를 진행.
 > 같은 날(10/23) 완료: 파일 위치 정리(`docs/learning`, `docs/runbooks`, `docs/adr`, `AUTH_POLICY`·`CURSOR` → `docs/`).
 
 ## A. 제거 (코드·다른 문서와 중복이거나 쓸모가 끝남)
@@ -14,14 +14,14 @@
 
 ## B. 수정 (사실과 다름)
 
-- [ ] **Neon → Supabase** — 남은 곳: `README.md`(기술 스택·환경변수 주석·`channel_binding` 경고·인프라), `CLAUDE.md`(32·45·179·215·332행), `docs/CURSOR.md`(BE 컨텍스트), `docs/learning/TESTING_GUIDE.md`(E2E 표). 상세 목록은 `readme-update.md` 참고.
-- [ ] **README.md** — `docs/todo/readme-update.md`의 체크리스트를 처리 (Users 완료 표시, `points/` 삭제, 구조·환경변수 보강, `migrate dev` 위험 안내 교체, `dev-db.sh` 기준 로컬 실행).
-- [ ] **CLAUDE.md** — ① "현재 단계" 본문이 2026-09-22 기준이라 낡음(Users/Admin/AUTH_POLICY 중심) → 현황 표만 남기고 본문 삭제, ② 모듈 목록·레포 구조에 `categories/`·`todos/` 추가(`reading-logs`는 현황 표에만 있음), ③ 모델 목록에 `ReadingLog`·`ReadingLogSummary`·`Todo`·`PostCategory` 추가, ④ 환경변수에 `NODE_ENV`·`CF_*`·`R2_KEY_PREFIX` 추가, ⑤ 단위테스트 289개는 재측정 필요, ⑥ 미결정 항목의 `API.md/DATABASE.md/TESTING_GUIDE.md` 줄 삭제(A에서 처리됨).
-- [ ] **`docs/adr/0001-neon-to-supabase.md`** — 상태가 "🟡 준비 중(아직 이전 시작 전)"인데 이전 완료됨. "Neon은 롤백용으로 보존" 사실과 함께 상태를 "✅ 완료"로. 파일 앞에 ADR 형식(상태·결정·이유·결과) 요약 추가.
+- [x] **Neon → Supabase** — 남은 곳: `README.md`(기술 스택·환경변수 주석·`channel_binding` 경고·인프라), `CLAUDE.md`(32·45·179·215·332행), `docs/CURSOR.md`(BE 컨텍스트), `docs/learning/TESTING_GUIDE.md`(E2E 표). 상세 목록은 `readme-update.md` 참고.
+- [x] **README.md** — `docs/todo/readme-update.md`의 체크리스트를 처리 (Users 완료 표시, `points/` 삭제, 구조·환경변수 보강, `migrate dev` 위험 안내 교체, `dev-db.sh` 기준 로컬 실행).
+- [x] **CLAUDE.md** — ① "현재 단계" 본문이 2026-09-22 기준이라 낡음(Users/Admin/AUTH_POLICY 중심) → 현황 표만 남기고 본문 삭제, ② 모듈 목록·레포 구조에 `categories/`·`todos/` 추가(`reading-logs`는 현황 표에만 있음), ③ 모델 목록에 `ReadingLog`·`ReadingLogSummary`·`Todo`·`PostCategory` 추가, ④ 환경변수에 `NODE_ENV`·`CF_*`·`R2_KEY_PREFIX` 추가, ⑤ 단위테스트 289개는 재측정 필요, ⑥ 미결정 항목의 `API.md/DATABASE.md/TESTING_GUIDE.md` 줄 삭제(A에서 처리됨).
+- [x] **`docs/adr/0001-neon-to-supabase.md`** — 상태가 "🟡 준비 중(아직 이전 시작 전)"인데 이전 완료됨. "Neon은 롤백용으로 보존" 사실과 함께 상태를 "✅ 완료"로. 파일 앞에 ADR 형식(상태·결정·이유·결과) 요약 추가.
 - [ ] **HANDOFF.md** — 날짜 2026-10-12 → 갱신. 카테고리 이름 수정·`Post.categoryId`·이미지 업로드·글 삭제 이미지 정리가 빠져 있음. "다음 BE 작업"의 #8 이동 API(`categories.move.spec.ts` todo)만 남기기.
-- [ ] **`docs/CURSOR.md`** — 주요 모듈이 money/auth/users뿐. 참고 문서의 `API.md`/`DATABASE.md` 줄 교체.
-- [ ] **`docs/AUTH_POLICY.md`** — 1~6번 완료·7번 보류 상태를 문서 맨 위에 한 줄로 명시(지금은 CLAUDE.md에만 있음).
-- [ ] **`docs/learning/TESTING_GUIDE.md`** — "실제 서비스 코드에 대한 테스트는 아직 없음(2026-08-07)"은 사실과 다름(단위테스트 289개).
+- [x] **`docs/CURSOR.md`** — 주요 모듈이 money/auth/users뿐. 참고 문서의 `API.md`/`DATABASE.md` 줄 교체.
+- [x] **`docs/AUTH_POLICY.md`** — 1~6번 완료·7번 보류 상태를 문서 맨 위에 한 줄로 명시(지금은 CLAUDE.md에만 있음).
+- [x] **`docs/learning/TESTING_GUIDE.md`** — "실제 서비스 코드에 대한 테스트는 아직 없음(2026-08-07)"은 사실과 다름(단위테스트 289개).
 
 ## C. 완료 처리 (끝났으니 기록만 남기고 목록에서 뺀다)
 
