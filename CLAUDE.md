@@ -71,7 +71,6 @@ API 문서      →  /api/docs (Swagger UI)
 ```
 inote-server/
 ├── CLAUDE.md
-├── API.md / DATABASE.md / docs/devlog/be.md
 ├── README.md
 ├── src/
 │   ├── main.ts               ← 앱 진입점 (포트 3200, CORS, Swagger)
@@ -375,9 +374,8 @@ role 기반 권한, `usesInote`/`usesInoteMoney` 컬럼, 이메일/구글 계정
 - [ ] Sentry 프로젝트 생성
 - [ ] 포인트 시스템 정책
 - [ ] Expense API FE 연동 — `inote-money` 쪽에서 이미 붙었을 수도 있음, 실제 상태 재확인 필요
-- [ ] **`API.md`/`DATABASE.md`/`TESTING_GUIDE.md`도 이 파일과 같은 이유로 몇 달째 낡아있음**
-      (blog/mandalart/admin/terms/books 등 반영 안 됨) — 2026-09-22에 CLAUDE.md만 먼저
-      정리하고 이건 별도 작업으로 미룸.
+- [ ] **`docs/learning/TESTING_GUIDE.md`도 이 파일과 같은 이유로 낡아있음** (`API.md`·`DATABASE.md`는 코드와
+      어긋나서 삭제함 — 소스는 Swagger `/api/docs`와 `prisma/schema.prisma`)
 - [ ] **(고도화, 지금 착수 안 함) Kafka 도입 검토** — 서비스가 여러 개로 쪼개지고 "이벤트 하나가
       여러 곳에 영향을 줘야 하는" 상황이 될 때 고려. 예: `inote-blog` "글 발행" 이벤트 하나로
       검색 인덱싱·LLM 임베딩 생성·알림 발송이 서로 독립적으로 반응하게 만들기. 지금 규모(개인

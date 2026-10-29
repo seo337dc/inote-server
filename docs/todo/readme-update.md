@@ -19,7 +19,7 @@
   - categories(GET/POST/PATCH), reading-logs, todos, uploads(`image`, `post-image`), mandalart, money(`books`·`terms` 좋아요 포함, `mini-game/results`, `reviews`, `settings/history`), users(`set-password`, `DELETE me`), admin(`admin/users`)
 - [ ] **환경변수**에 추가: `NODE_ENV`, `AUTH_ERROR_FALLBACK_URL`, `CF_ACCOUNT_ID`, `CF_ACCESS_KEY_ID`, `CF_SECRET_ACCESS_KEY`, `CF_R2_BUCKET`, `CF_R2_PUBLIC_URL`, `R2_KEY_PREFIX`, `SENTRY_DSN`.
 - [ ] **새 섹션**: 테스트 실행법(`pnpm test`, `pnpm test:e2e`), 스크립트(마이그레이션·시드·백필), R2 이미지 업로드와 `R2_KEY_PREFIX=dev` 규칙, 검증 방식(`class-validator` + 전역 `ValidationPipe`).
-- [ ] **관련 문서** 목록에 추가: `API.md`, `DATABASE.md`, `docs/learning/`(TESTING_GUIDE·NESTJS_GUIDE·LEARNING — 2026-10-23 이동), `CURSOR.md`, `docs/`(`local-dev-db`, `post-category-backfill`, `embeddings-backfill`, `supabase-migration`, `handoff`).
+- [ ] **관련 문서** 목록에 추가: `docs/learning/`(TESTING_GUIDE·NESTJS_GUIDE·LEARNING — 2026-10-23 이동), `docs/CURSOR.md`, `docs/`(`runbooks/`, `adr/`, `devlog/be.md`, `handoff`). (`API.md`·`DATABASE.md`는 삭제됨 — Swagger와 `prisma/schema.prisma`가 소스)
 
 ## 위험하거나 오해를 부르는 안내
 - [ ] **"3. DB 마이그레이션"이 `prisma migrate dev`** — `.env`의 `DATABASE_URL`이 운영 DB라 그대로 따라 하면 운영 DB에 실행될 수 있다. `scripts/dev-db.sh migrate`(로컬 DB 전용)를 기본 안내로 바꾼다.
@@ -32,8 +32,8 @@
 
 ## 같이 고칠 것 (README 밖)
 - [ ] `CLAUDE.md`에도 같은 낡은 Neon 정보가 있다(기술 스택 표, 배포 다이어그램, 환경변수 주석, E2E 표, 구현 현황 등).
-- [ ] `API.md`는 `categories`, `reading-logs`, `todos`, `uploads`가 하나도 없다(마지막 갱신 2026-10-12). 갱신하거나 Swagger로 대체한다.
-- [ ] README·`CLAUDE.md`·`API.md`가 같은 내용을 중복으로 들고 있어 매번 어긋난다 — 한 곳을 기준으로 정하고 나머지는 링크로 줄이는 것을 검토한다.
+- [x] `API.md`는 Swagger로 대체하기로 하고 삭제함 (docs 정리, `docs-cleanup.md` A).
+- [ ] README·`CLAUDE.md`가 같은 내용을 중복으로 들고 있어 매번 어긋난다 — 한 곳을 기준으로 정하고 나머지는 링크로 줄이는 것을 검토한다.
 
 ## 완료
 (아직 없음)
