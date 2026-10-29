@@ -137,8 +137,8 @@ DB  →  Supabase PostgreSQL (BE용 / AI용 프로젝트 별도)
 ```
 
 - Neon에서 Supabase로 옮긴 경위: [`docs/adr/0001-neon-to-supabase.md`](docs/adr/0001-neon-to-supabase.md), 호스팅 전체 정리: `inote` 레포 `docs/adr/0003-hosting-migration.md`.
-- **Render 무료 플랜 콜드 스타트 방지**: [cron-job.org](https://cron-job.org)에서 10분마다 `/api/v1/health`를 호출하도록 설정한다(15분 무활동 시 슬립). cron-job.org 대시보드 설정이라 레포에는 설정 파일이 없고, **지금도 켜져 있는지는 확인이 필요하다.**
-- ⚠️ [`render.yaml`](./render.yaml)의 `INOTE_AI_URL`은 옛 Render 주소(`inote-ai.onrender.com`)이고 `CF_*`·`EMBEDDINGS_ENABLED`가 없다. 대시보드에서 따로 넣었을 수 있어서 **실제 Render 환경변수 확인이 필요하다.**
+- **Render 무료 플랜 콜드 스타트 방지**: [cron-job.org](https://cron-job.org)에서 10분마다 `/api/v1/health`를 호출하도록 설정한다(15분 무활동 시 슬립). cron-job.org 대시보드 설정이라 레포에는 설정 파일이 없다. 운영은 정상 동작 중이다(2026-10-29 사용자 확인).
+- [`render.yaml`](./render.yaml)의 환경변수는 실제 Render 대시보드 값과 다르다 — `INOTE_AI_URL`이 옛 Render 주소(`inote-ai.onrender.com`)이고 `CF_*`·`EMBEDDINGS_ENABLED`가 없다. 운영은 대시보드 값으로 정상 동작 중이라(2026-10-29 사용자 확인) 이 파일의 값은 **참고용**이다.
 
 ---
 

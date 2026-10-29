@@ -24,16 +24,16 @@
 ## 위험하거나 오해를 부르는 안내
 - [x] **"3. DB 마이그레이션"이 `prisma migrate dev`** — `.env`의 `DATABASE_URL`이 운영 DB라 그대로 따라 하면 운영 DB에 실행될 수 있다. `scripts/dev-db.sh migrate`(로컬 DB 전용)를 기본 안내로 바꾼다.
 - [x] **로컬 실행이 `pnpm run start:dev`뿐** — 이렇게 띄우면 운영 DB·R2 운영 경로를 쓴다. 로컬은 `scripts/dev-db.sh start`(개발 DB + R2 `dev/`)를 기본으로 안내한다.
-- [ ] **`render.yaml`에 `CF_*`, `EMBEDDINGS_ENABLED`, `SIMILAR_MIN_SCORE`가 없다** — Render 대시보드에서 직접 넣었다면 괜찮다. 이미지 업로드(`post-image`)가 운영에서 동작하려면 `CF_*`가 필요하니 확인한다.
+- [x] **`render.yaml`에 `CF_*`, `EMBEDDINGS_ENABLED`, `SIMILAR_MIN_SCORE`가 없다** — Render 대시보드에서 직접 넣었다면 괜찮다. 이미지 업로드(`post-image`)가 운영에서 동작하려면 `CF_*`가 필요하니 확인한다.
 
 ## 확인이 필요한 것
-- [ ] cron-job.org 콜드스타트 방지 설정이 지금도 유효한지 (`docs/adr/0001-neon-to-supabase.md`에 한때 "BE가 Render 정지 상태"라는 언급이 있었다).
-- [ ] 인프라 섹션의 AI 서버 위치(Render/Vercel) — `inote` 레포 `docs/adr/0003-hosting-migration.md`는 Vercel로 옮긴다고 하는데 `render.yaml`의 `INOTE_AI_URL`은 `inote-ai.onrender.com`이다.
+- [x] cron-job.org 콜드스타트 방지 설정이 지금도 유효한지 (`docs/adr/0001-neon-to-supabase.md`에 한때 "BE가 Render 정지 상태"라는 언급이 있었다).
+- [x] 인프라 섹션의 AI 서버 위치(Render/Vercel) — `inote` 레포 `docs/adr/0003-hosting-migration.md`는 Vercel로 옮긴다고 하는데 `render.yaml`의 `INOTE_AI_URL`은 `inote-ai.onrender.com`이다.
 
 ## 같이 고칠 것 (README 밖)
 - [x] `CLAUDE.md`에도 같은 낡은 Neon 정보가 있다(기술 스택 표, 배포 다이어그램, 환경변수 주석, E2E 표, 구현 현황 등).
 - [x] `API.md`는 Swagger로 대체하기로 하고 삭제함 (docs 정리, `docs-cleanup.md` A).
-- [ ] README·`CLAUDE.md`가 같은 내용을 중복으로 들고 있어 매번 어긋난다 — 한 곳을 기준으로 정하고 나머지는 링크로 줄이는 것을 검토한다.
+- [x] README·`CLAUDE.md`가 같은 내용을 중복으로 들고 있어 매번 어긋난다 — **2026-10-29 결정: README·`.env.example`이 기준, CLAUDE.md는 링크로 줄임**(기술 스택·인프라·환경변수 절).
 
 ## 완료
-2026-10-29: README를 현행화했다(위 체크 항목). 남은 것은 아래 "확인이 필요한 것"과 "`render.yaml`에 `CF_*`…" 항목 — README에 확인 필요로 명시만 했다.
+2026-10-29: README를 현행화했다(위 체크 항목). Render 환경변수·cron-job·AI 서버 주소는 운영이 정상 동작 중이라는 사용자 확인으로 정리했다(`render.yaml` 값은 참고용).

@@ -21,32 +21,9 @@ iNote 시리즈 서비스의 공통 백엔드 서버.
 
 ---
 
-## 기술 스택
+## 기술 스택·인프라
 
-| 영역 | 기술 | 비고 |
-|------|------|------|
-| 언어 | TypeScript | strict mode |
-| 프레임워크 | NestJS | 모듈/컨트롤러/서비스 구조 |
-| ORM | Prisma | 타입 자동생성, 마이그레이션 관리 |
-| 인증 | Better Auth | Google OAuth + 이메일/비밀번호, 쿠키 기반 세션 |
-| DB | PostgreSQL (Supabase) | 무료, Session pooler(5432). Neon에서 이전 — [`docs/adr/0001-neon-to-supabase.md`](docs/adr/0001-neon-to-supabase.md) |
-| BE 배포 | Render | 영구 무료 (슬립 있음), GitHub 연동 자동 배포 |
-| FE 배포 | Vercel | Next.js 무료 배포 |
-| 에러 로그 | Sentry | 영구 무료 5K/월 |
-| API 문서 | Swagger | @nestjs/swagger, 자동 생성 |
-
----
-
-## 인프라 구성
-
-```
-FE (Next.js)  →  Vercel
-BE (NestJS)   →  Render
-AI (FastAPI)  →  Vercel (inote-ai)
-DB            →  Supabase PostgreSQL (BE용 / AI용 프로젝트 별도). 로컬 개발은 도커 Postgres(`scripts/dev-db.sh`)
-에러 추적      →  Sentry (예정)
-API 문서      →  /api/docs (Swagger UI)
-```
+NestJS + Prisma + PostgreSQL(Supabase) + Better Auth, BE는 Render·FE와 AI는 Vercel. 표와 다이어그램은 [`README.md`](./README.md)의 "기술 스택"·"인프라"가 기준이다(여기에 복사해 두면 어긋난다). 에러 로그(Sentry)는 아직 미연결.
 
 ---
 
@@ -184,28 +161,7 @@ inote-server/
 
 ## 환경변수
 
-```bash
-# .env
-DATABASE_URL="postgresql://..."           # Supabase Session pooler(5432). 기본값은 운영 DB — 로컬은 scripts/dev-db.sh가 개발 DB 주소로 덮어쓴다
-BETTER_AUTH_SECRET="..."                  # 랜덤 시크릿 키
-BETTER_AUTH_URL="http://localhost:3200"   # 로컬은 3200, 배포는 실제 도메인
-GOOGLE_CLIENT_ID="..."
-GOOGLE_CLIENT_SECRET="..."
-INOTE_AI_URL="..."                        # inote-ai 베이스 URL (blog AI 요약 호출용)
-INTERNAL_SECRET="..."                     # inote-ai와 동일한 값이어야 함 (서비스 간 인증)
-EMBEDDINGS_ENABLED="false"                # "true"일 때만 글 저장·삭제를 inote-ai 임베딩 API에 알림(기본 꺼짐, 운영 미설정)
-SIMILAR_MIN_SCORE="0.6"                   # 비슷한 글의 최소 유사도(0~1, 임시값 — 평가 세트로 확정 예정)
-AUTH_ERROR_FALLBACK_URL="..."             # OAuth state 재사용 등 에러 시 최종 fallback (inote 로그인 페이지)
-SENTRY_DSN="..."                          # 아직 미연결
-NODE_ENV="..."                           # production이면 쿠키 SameSite=None; Secure 등 운영 설정
-CF_ACCOUNT_ID="..."                       # Cloudflare R2 (글 이미지 업로드)
-CF_ACCESS_KEY_ID="..."
-CF_SECRET_ACCESS_KEY="..."
-CF_R2_BUCKET="..."
-CF_R2_PUBLIC_URL="..."
-R2_KEY_PREFIX=""                          # 비우면 운영 경로. 로컬은 dev-db.sh start가 "dev"를 주입
-PORT=3200
-```
+항목과 설명은 [`.env.example`](./.env.example)이 기준이다. 로컬 `DATABASE_URL`은 기본이 **운영 DB**라 개발 DB 주소로 덮어쓴다 — [`README.md`](./README.md)의 "로컬 실행", [`docs/runbooks/local-dev-db.md`](docs/runbooks/local-dev-db.md).
 
 ---
 
