@@ -102,10 +102,10 @@
 
 | 항목 | 내용 |
 |------|------|
-| 스택 | NestJS + Prisma + PostgreSQL (Neon) |
+| 스택 | NestJS + Prisma + PostgreSQL (Supabase) |
 | 배포 | Render (무료, cold start 있음) |
 | 인증 | Better Auth |
-| 주요 모듈 | `src/money/` (expenses, settings, reviews), `src/auth/`, `src/users/` |
+| 주요 모듈 | `src/auth/`, `src/users/`, `src/admin/`, `src/blog/`, `src/categories/`, `src/reading-logs/`, `src/todos/`, `src/uploads/`, `src/embeddings/`, `src/mandalart/`, `src/money/` (목록은 `src/`가 소스) |
 | Health | `GET /api/v1/health` |
 | API 문서 | Swagger (`/api/docs`) |
 | 스키마 | `prisma/schema.prisma` |

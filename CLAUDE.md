@@ -21,31 +21,9 @@ iNote 시리즈 서비스의 공통 백엔드 서버.
 
 ---
 
-## 기술 스택
+## 기술 스택·인프라
 
-| 영역 | 기술 | 비고 |
-|------|------|------|
-| 언어 | TypeScript | strict mode |
-| 프레임워크 | NestJS | 모듈/컨트롤러/서비스 구조 |
-| ORM | Prisma | 타입 자동생성, 마이그레이션 관리 |
-| 인증 | Better Auth | Google OAuth + 이메일/비밀번호, 쿠키 기반 세션 |
-| DB | PostgreSQL (Neon) | 영구 무료, dev/prod 브랜치 분리 |
-| BE 배포 | Render | 영구 무료 (슬립 있음), GitHub 연동 자동 배포 |
-| FE 배포 | Vercel | Next.js 무료 배포 |
-| 에러 로그 | Sentry | 영구 무료 5K/월 |
-| API 문서 | Swagger | @nestjs/swagger, 자동 생성 |
-
----
-
-## 인프라 구성
-
-```
-FE (Next.js)  →  Vercel
-BE (NestJS)   →  Render
-DB            →  Neon PostgreSQL (dev 브랜치 / prod 브랜치)
-에러 추적      →  Sentry (예정)
-API 문서      →  /api/docs (Swagger UI)
-```
+NestJS + Prisma + PostgreSQL(Supabase) + Better Auth, BE는 Render·FE와 AI는 Vercel. 표와 다이어그램은 [`README.md`](./README.md)의 "기술 스택"·"인프라"가 기준이다(여기에 복사해 두면 어긋난다). 에러 로그(Sentry)는 아직 미연결.
 
 ---
 
@@ -84,6 +62,9 @@ inote-server/
 │   ├── blog/                 ← inote 글쓰기 CRUD, draft/발행, AI 요약 연동, 비슷한 글(`GET :id/similar`)
 │   ├── embeddings/           ← KURE 글 벡터 동기화(inote-ai 호출, fail-open)·후보 글 id(비공개 유출 방지)·유사 글 조회·백필 로직
 │   ├── categories/           ← 글 카테고리 트리(최대 3단계) 조회·생성·이름 변경·위치 이동(`PATCH :id/move`, `position`으로 형제 순서 관리)
+│   ├── reading-logs/         ← 독서 기록 CRUD (draft/발행, 발행 시 inote-ai `/book-info` 연동)
+│   ├── todos/                ← 할 일 목록
+│   ├── uploads/              ← Cloudflare R2 이미지 업로드 (`image`, `post-image`)
 │   ├── mandalart/            ← 만다르트 로드맵 (공개 조회, 관리자만 수정)
 │   └── money/                ← inote-money API
 │       ├── expenses/         ← 가계부 CRUD
@@ -124,6 +105,10 @@ inote-server/
 
 ### 서비스별
 - **Blog** (`inote`) — 글쓰기 CRUD, draft/발행, AI 요약 연동, 비슷한 글
+- **Categories** (`inote`) — 글 카테고리 트리(최대 3단계)
+- **ReadingLogs** (`inote`) — 독서 기록 CRUD, 발행 시 AI 책 정보 연동
+- **Todos** (`inote`) — 할 일 목록
+- **Uploads** (`inote`) — Cloudflare R2 이미지 업로드
 - **Embeddings** (`inote`) — KURE 임베딩: 글 저장·삭제 때 벡터 동기화, 후보 글 id 계산(공개 여부는 BE가 판정), 유사 글 조회. 설계 `inote` 레포 `docs/kure/PLAN.md`·`HANDOFF.md`
 - **Mandalart** (`inote`) — 로드맵 항목, 공개 조회·관리자만 수정
 - **Money** (`inote-money`) — 가계부, 주식, 내 정보 설정, 리뷰, 미니게임, 금융 용어/책
@@ -169,28 +154,14 @@ inote-server/
 | 구분 | 모델 |
 |------|------|
 | Better Auth 관리 | `user`, `session`, `account`, `verification` |
-| 공통 | `Post`, `PostSummary`, `MandalartItem` |
+| 공통 | `Post`, `PostSummary`, `PostCategory`, `ReadingLog`, `ReadingLogSummary`, `Todo`, `MandalartItem` |
 | Money (`inote-money`) | `UserSetting`, `SettingHistory`, `Expense`, `StockHolding`, `Review`, `MiniGameResult`, `Term`, `TermLike`, `Book`, `BookLike` |
 
 ---
 
 ## 환경변수
 
-```bash
-# .env
-DATABASE_URL="postgresql://..."           # Neon 연결 문자열
-BETTER_AUTH_SECRET="..."                  # 랜덤 시크릿 키
-BETTER_AUTH_URL="http://localhost:3200"   # 로컬은 3200, 배포는 실제 도메인
-GOOGLE_CLIENT_ID="..."
-GOOGLE_CLIENT_SECRET="..."
-INOTE_AI_URL="..."                        # inote-ai 베이스 URL (blog AI 요약 호출용)
-INTERNAL_SECRET="..."                     # inote-ai와 동일한 값이어야 함 (서비스 간 인증)
-EMBEDDINGS_ENABLED="false"                # "true"일 때만 글 저장·삭제를 inote-ai 임베딩 API에 알림(기본 꺼짐, 운영 미설정)
-SIMILAR_MIN_SCORE="0.6"                   # 비슷한 글의 최소 유사도(0~1, 임시값 — 평가 세트로 확정 예정)
-AUTH_ERROR_FALLBACK_URL="..."             # OAuth state 재사용 등 에러 시 최종 fallback (inote 로그인 페이지)
-SENTRY_DSN="..."                          # 아직 미연결
-PORT=3200
-```
+항목과 설명은 [`.env.example`](./.env.example)이 기준이다. 로컬 `DATABASE_URL`은 기본이 **운영 DB**라 개발 DB 주소로 덮어쓴다 — [`README.md`](./README.md)의 "로컬 실행", [`docs/runbooks/local-dev-db.md`](docs/runbooks/local-dev-db.md).
 
 ---
 
@@ -214,7 +185,7 @@ PORT=3200
 | 종류 | 대상 | DB 연결 |
 |------|------|---------|
 | 단위 테스트 | 서비스 로직 (계산, 필터, 검증) | ❌ Mock 사용 |
-| E2E 테스트 | API 엔드포인트 전체 흐름 | ✅ Neon dev 브랜치 |
+| E2E 테스트 | API 엔드포인트 전체 흐름 (`AppModule`을 그대로 띄움) | ✅ `.env`의 `DATABASE_URL` 사용 — 기본값이 **운영 DB**라 `scripts/dev-db.sh`의 개발 DB 주소로 덮어써 돌린다. POST가 포함돼 있는데 인증 없이 호출해 거절되는 케이스인지는 확인하지 못했다 |
 
 ### 우선순위
 
@@ -339,18 +310,14 @@ npm run test:cov      # 커버리지 리포트
 
 ## 현재 단계
 
-**회원 관리자 페이지(목록/상세/삭제) + AUTH_POLICY 1~6번 구현 완료** (2026-09-22 기준) —
-role 기반 권한, `usesInote`/`usesInoteMoney` 컬럼, 이메일/구글 계정 분리(accountLinking),
-계정 연결 실패 안내 메시지, 프로필 수정 API(닉네임/전화번호/이미지), 소셜 전용 계정 비밀번호
-생성 API까지. 단위테스트 108개, e2e 5개 통과. AUTH_POLICY 7번(`inote`↔`inote-money` 연동
-확인 화면)은 `inote-money` 쪽 회원 기능이 먼저 필요해서 보류 중. 상세: [`docs/AUTH_POLICY.md`](docs/AUTH_POLICY.md)
+> 기능별 구현 현황 표. 세션 단위 현재 상태는 [`docs/handoff/HANDOFF.md`](docs/handoff/HANDOFF.md), AUTH_POLICY 상세는 [`docs/AUTH_POLICY.md`](docs/AUTH_POLICY.md).
 
 | 항목 | 상태 |
 |------|------|
 | NestJS 11 초기화 | ✅ 완료 |
 | Swagger (`/api/docs`) | ✅ 완료 |
 | CORS / ValidationPipe | ✅ 완료 |
-| Prisma + Neon DB 연결 | ✅ 완료 |
+| Prisma + Supabase DB 연결 | ✅ 완료 (Neon에서 이전) |
 | Better Auth (Google OAuth + 이메일/비밀번호) | ✅ 완료 |
 | DB 다이어그램 (dbdiagram.io) | ✅ 완료 (스키마 바뀔 때마다 수동 갱신 필요) |
 | Users 모듈 (프로필/비밀번호 생성/탈퇴) | ✅ 완료 |

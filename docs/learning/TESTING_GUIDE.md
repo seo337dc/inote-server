@@ -1,7 +1,7 @@
 # 테스트 학습 가이드 — iNote Server 기준
 
 > API를 어떻게 테스트하는지 정리한 문서.
-> Jest, supertest는 NestJS 생성 시 이미 세팅되어 있지만, 실제 서비스 코드에 대한 테스트는 아직 없음(2026-08-07 기준).
+> Jest, supertest는 NestJS 생성 시 이미 세팅되어 있지만, 이 가이드를 쓴 2026-08-07 시점에는 서비스 코드 테스트가 없었다. 지금은 단위 테스트 369개·E2E 5개가 있다(2026-10-28, `CLAUDE.md` 기준).
 > **금융 지식(용어/도서) CRUD를 만들면서 이 문서 순서대로 하나씩 직접 작성해보는 게 목표.**
 
 ---
@@ -12,7 +12,7 @@
 |------|------|-----------|---------|
 | 1. 수동 테스트 | Swagger UI, curl | 개발 중 눈으로 빠르게 확인 | 실제 DB |
 | 2. 단위 테스트 (Unit) | Jest + mock | 서비스 로직(계산·필터·검증)만 격리해서 검증 | ❌ 가짜(mock) |
-| 3. E2E 테스트 | Jest + supertest | 실제 HTTP 요청으로 API 전체 흐름 검증 | ✅ 실제 DB (Neon dev 브랜치) |
+| 3. E2E 테스트 | Jest + supertest | 실제 HTTP 요청으로 API 전체 흐름 검증 | ✅ 실제 DB (`.env`의 `DATABASE_URL` — 기본이 운영 DB라 개발 DB 주소로 덮어써 사용) |
 
 이 프로젝트 컨벤션(CLAUDE.md 기준): 단위 테스트는 서비스 파일 옆에, E2E는 `test/` 폴더에.
 
@@ -108,7 +108,7 @@ npm run test:watch                    # 저장할 때마다 자동 재실행
 ## 3단계 — E2E 테스트 (supertest)
 
 ### 핵심 개념
-앱을 통째로 띄워서, 진짜 HTTP 요청을 라우트에 보낸다. DB도 실제로 씀(Neon dev 브랜치). "이 API가 실제로 200을 주는가", "인증 없이 호출하면 401이 뜨는가" 같은 걸 검증.
+앱을 통째로 띄워서, 진짜 HTTP 요청을 라우트에 보낸다. DB도 실제로 씀(`.env`의 `DATABASE_URL` — 기본이 운영 DB라 `scripts/dev-db.sh`의 개발 DB로 돌린다). "이 API가 실제로 200을 주는가", "인증 없이 호출하면 401이 뜨는가" 같은 걸 검증.
 
 ### 예시 — 인증 없는 라우트
 ```ts
@@ -196,14 +196,14 @@ npm run test:e2e
 ### 이 프로젝트(1인 사이드 프로젝트)에 맞는 현실적인 버전
 
 - PR 단계는 생략 가능(오버킬) → `main` push 시 GitHub Actions가 바로 실행
-- 파이프라인 단계: **lint → build → 단위 테스트 → E2E 테스트(Neon dev 브랜치 DB 사용) → (전부 통과 시) Render 배포**
+- 파이프라인 단계: **lint → build → 단위 테스트 → E2E 테스트(개발 DB 사용) → (전부 통과 시) Render 배포**
 - 각 단계는 이전 단계가 성공해야만 실행되도록 구성 (`needs:` 또는 `if: success()`)
 - 배포는 Render의 GitHub 연동 자동배포를 그대로 쓰되, **CI가 실패하면 애초에 그 커밋이 배포 브랜치까지 못 가게** 구성하는 게 이상적 (현재는 push하면 바로 Render가 배포를 트리거하므로, 추후 "CI 통과 후에만 배포되는 브랜치 전략"으로 보완 필요)
 
 ### 인프라 구성 체크리스트 (착수 전 To-do)
 
 - [ ] `.github/workflows/ci.yml` 작성 — lint/build/test job
-- [ ] CI용 테스트 DB 연결 — Neon dev 브랜치 URL을 GitHub Actions Secret으로 등록
+- [ ] CI용 테스트 DB 연결 — Neon은 더 쓰지 않으므로 CI 안의 Postgres 서비스 컨테이너 등 방식을 정한다 (미정)
 - [ ] E2E 테스트가 실제로 존재해야 CI에서 의미가 있음 → 금융 지식 CRUD E2E부터 작성
 - [ ] 브랜치 전략 결정 — `main` 바로 push 유지할지, `dev` 브랜치 두고 CI 통과 후 `main` 머지할지
 - [ ] Render 배포 트리거 방식 재검토 — 지금은 push 즉시 배포, CI 게이트를 실제로 걸지 결정
