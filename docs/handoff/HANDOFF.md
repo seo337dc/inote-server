@@ -73,9 +73,9 @@
 
 | 항목 | 값 |
 |------|-----|
-| 날짜 | 2026-10-27 |
+| 날짜 | 2026-10-29 |
 | 작성자 | Claude Code |
-| 브랜치 | `feat/category-move` (푸시됨, PR 대기 — 아래 "진행 중" 참고) |
+| 브랜치 | `main` (#8 카테고리 이동 PR 병합 완료) |
 | 다음 수신자 | 사람(내일 이어서) |
 
 ### BE 상태 요약
@@ -85,23 +85,23 @@
 - **2026-10-07 추가**: 글 상세·목록 응답의 `categoryPath`(작성자 카테고리 트리 기준 경로), 목록 `category` 필터가 하위 카테고리 글까지 포함(`categoryFilter`, 검색과는 `combineWhere`로 AND), 내 글 목록 `GET /blog/posts/mine/outline`(#7). **테스트는 아직 없고 목록이 `src/blog/blog.service.spec.ts`의 `TODO(테스트)` 주석에 있다**; 공개 글 목록 작성자 필터 `GET /blog/posts?userId=`(그 작성자의 공개 글만, 응답에 `author {id,name}` — 없는 사용자면 null). 작성자 목록 응답의 `categories`·`categoryCounts`(공개 글이 있는 카테고리와 공개 글 직속 개수), 다른 사람의 글 상세용 `GET /blog/posts/outline/user/:userId`(로그인 불필요, 공개 글·카테고리·author). **카테고리 이름 중복**: 같은 부모 아래 같은 이름은 BE가 막는다(`create`·`rename`·`move` 모두 409, 다른 부모 아래의 같은 이름은 허용)
 
 ### KURE 임베딩 작업 (2026-10-12) — 관련 글 추천용 BE 완료
-> 4개 레포에 걸친 전체 상태·로컬 실행법·다음 할 일은 `inote` 레포 `docs/kure/HANDOFF.md`(브랜치 `docs/kure-handoff`, `main` 병합 전)를 먼저 읽는다. 아래는 BE 관점 요약.
+> 4개 레포에 걸친 전체 상태·로컬 실행법·다음 할 일은 `inote` 레포 `docs/kure/HANDOFF.md`를 먼저 읽는다. 아래는 BE 관점 요약.
 
 - **완료·푸시됨**: A6-1 개발 DB(`612b3a8`) · A6-2·3 AI 호출 모듈·후보 id 함수(`d06e622`) · A6-4 저장·삭제·관리자 사용자 삭제 훅(`500af37`) · A6-5 백필 스크립트(`fe6bbe0`) · B2 유사 글 조회 함수(`43a9524`) · B3 `GET /blog/posts/:id/similar`(`4e9e12d`). 코드는 `src/embeddings/`와 `blog.service.ts`·`blog.controller.ts`·`admin-users.service.ts`.
 - **운영 영향 없음**: `EMBEDDINGS_ENABLED`는 기본 **꺼짐**이고 운영에 설정하지 않았다. 새 엔드포인트는 꺼져 있으면 `200 {"items":[]}`(볼 수 없는 글은 404)만 돌려준다. 운영에서 켜는 순서는 PLAN 8절(AI DB 확장·임베딩 서비스 호스팅이 먼저).
 - **환경변수(추가)**: `EMBEDDINGS_ENABLED`(기본 false) · `SIMILAR_MIN_SCORE`(기본 0.6, 임시 — A7 평가로 확정) · 기존 `INOTE_AI_URL`·`INTERNAL_SECRET`.
-- **로컬**: `scripts/dev-db.sh up|migrate|seed|backfill|psql|url` (개발 DB는 localhost:5435, 비밀번호는 gitignore된 `.env.dev`). 시드 사용자 `dev-user-a`·`dev-user-b`, 테스트 글 `dev-seed-…`. 백필은 BE DB·AI 서버의 짝이 어긋나면 거절한다(`docs/embeddings-backfill.md`).
+- **로컬**: `scripts/dev-db.sh up|migrate|seed|backfill|psql|url` (개발 DB는 localhost:5435, 비밀번호는 gitignore된 `.env.dev`). 시드 사용자 `dev-user-a`·`dev-user-b`, 테스트 글 `dev-seed-…`. 백필은 BE DB·AI 서버의 짝이 어긋나면 거절한다(`docs/runbooks/embeddings-backfill.md`).
 - **테스트**: 이번 작업은 **`it.todo` 목록**(사용자가 직접 작성, 각 spec 맨 위 주석에 준비·약속·함정): `embedding-candidates`(**유출 방지 핵심, 가장 먼저**) · `similar-posts` · `inote-ai-embeddings` · `embedding-backfill` · `similar-posts-query.dto` · `blog.service.spec`(임베딩 연동·비슷한 글) · `admin-users.service.spec`.
 - **다음 BE 작업**: A7 평가용 후보 쌍 목록 스크립트(공개 글만) · FE(B4)가 시작되면 계약 변경 요청 대응 · C 단계(카테고리 제안·유사 글 알림)는 UX 승인 후.
 
-### 진행 중: 카테고리 위치 이동 API (#8) — **확인 완료, PR·배포 대기** (2026-10-28)
+### 카테고리 위치 이동 API (#8) — **구현·확인·main 병합 완료** (운영 배포 여부는 확인 필요)
 - **상태**: 구현·테스트 완료(jest 369 통과, `tsc`·ESLint·E2E 5개 통과). 로컬 BE + 운영 DB + FE(3011)에서 ① 같은 부모 안 순서 ② 다른 카테고리 안으로 ③ 최상위로 ④ 하위 딸린 카테고리 ⑤ 3단계 초과 되돌아감, 그리고 409(옮길 곳에 같은 이름)를 사용자가 확인했다. **409는 유지로 결정**했고 FE 처리도 끝났다. 운영 DB에는 마이그레이션 `20261027120000_add_post_category_position`이 이미 적용돼 있다. dbdiagram(`Post.archivedAt`·`PostCategory.position`)도 반영됨.
-- **남은 일**: PR 생성·머지 → **BE 먼저 배포**(FE는 준비됨, 마이그레이션은 서버 시작 때 `migrate deploy`로 적용되며 이미 적용돼 있으면 건너뜀). 별개로 Render `DATABASE_URL` 끝에 `?connection_limit=3` 적용(서비스 재시작됨, `docs/todo/db-connection.md`).
+- **남은 일**: 운영(Render) 배포 여부 확인 — **BE 먼저 배포**(FE는 준비됨, 마이그레이션은 서버 시작 때 `migrate deploy`로 적용되며 이미 적용돼 있으면 건너뜀). Render `DATABASE_URL` 끝의 `?connection_limit=3`은 `docs/todo/db-connection.md`.
 - **주의 — `prisma-dbml-generator` 버그**: `schema.prisma`에 새 `///` 주석을 넣으면 길이에 따라 `schema.dbml`의 관련 없는 한글이 깨질 수 있다. 스키마를 바꾼 뒤 `schema.dbml`에 `\ufffd`가 없는지, diff가 추가한 줄뿐인지 확인한다.
 
 ### 이어질 BE 작업
 - ✅ #7 `GET /blog/posts/mine/outline` — 구현 완료(10/7), 테스트만 남음
-- ✅ #8 카테고리 위치 이동 `PATCH /categories/:id/move` — **구현 완료(10/27)**: `PostCategory.position` 마이그레이션(기존 행은 생성순으로 채움) + `MoveCategoryDto` + `CategoriesService.move`, `findAll` 정렬·`create` 맨 끝 배치. 테스트 골격의 `it.todo`는 모두 채움. 다른 부모로 옮길 곳에 같은 이름이 있으면 409(계약에 없던 것, `docs/devlog/be.md` 참고). 로컬 통합 확인 완료(10/28), PR·배포 대기
+- ✅ #8 카테고리 위치 이동 `PATCH /categories/:id/move` — **구현 완료(10/27)**: `PostCategory.position` 마이그레이션(기존 행은 생성순으로 채움) + `MoveCategoryDto` + `CategoriesService.move`, `findAll` 정렬·`create` 맨 끝 배치. 테스트 골격의 `it.todo`는 모두 채움. 다른 부모로 옮길 곳에 같은 이름이 있으면 409(계약에 없던 것, `docs/devlog/be.md` 참고). 로컬 통합 확인 완료(10/28), main 병합됨
 - Neon → Supabase 이전은 끝남(`docs/adr/0001-neon-to-supabase.md`). Neon은 롤백용으로 아직 삭제하지 않음
 
 ### 알려진 이슈
