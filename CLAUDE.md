@@ -97,7 +97,8 @@ inote-server/
 ├── scripts/                  ← dev-db.sh(로컬 개발 DB·시드·백필), backfill-embeddings.ts, backfill-post-category-id.ts(글의 categoryId 채우기 — docs/runbooks/post-category-backfill.md)
 ├── docs/                     ← AUTH_POLICY.md(회원 정책), CURSOR.md(Cursor 역할), handoff/HANDOFF.md(세션 인수인계)
 │   ├── runbooks/             ← 작업 절차서(local-dev-db, embeddings-backfill, post-category-backfill)
-│   ├── adr/                  ← 결정 기록(0001-neon-to-supabase)
+│   ├── adr/                  ← 결정 기록 (번호 순)
+│   ├── devlog/be.md          ← 개발 일지 (최신 항목이 위)
 │   ├── todo/                 ← 나중에 할 일
 │   └── learning/             ← 학습용 문서 전용 (LEARNING.md, NESTJS_GUIDE.md, TESTING_GUIDE.md)
 ├── prisma/
