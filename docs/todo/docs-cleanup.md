@@ -9,7 +9,7 @@
 
 - [x] **`API.md` 삭제** — 컨트롤러 15개 중 users·money 일부만 있고 blog·categories·reading-logs·todos·uploads·mandalart·admin 등 대부분 없음. Swagger(`/api/docs`)가 진짜 소스. README·CLAUDE.md·CURSOR.md의 `API.md` 링크는 Swagger로 교체.
 - [x] **`DATABASE.md` 삭제** — 모델 20개 중 9개만 있고 `Review`를 "예정"으로 적음, DB도 Neon. `prisma/schema.prisma` + `prisma/dbml/schema.dbml`이 소스. 링크는 schema.prisma로 교체.
-- [ ] **`DEV_LOG.md`의 낡은 상단부 제거** — "빠른 현황 파악"(현재 단계가 2026-09-11 기준), "다음 작업 예정"(체크박스가 거의 완료인데 낡음), "다른 노트북에서 작업 이어받기"(`DATABASE_URL = Neon`), "주요 기술 결정/인프라 결정 배경"(Neon·Amplify·Railway — 실제와 다름). 결정 배경은 ADR로 옮기고 나머지는 삭제.
+- [x] **`DEV_LOG.md`의 낡은 상단부 제거** — "빠른 현황 파악"(현재 단계가 2026-09-11 기준), "다음 작업 예정"(체크박스가 거의 완료인데 낡음), "다른 노트북에서 작업 이어받기"(`DATABASE_URL = Neon`), "주요 기술 결정/인프라 결정 배경"(Neon·Amplify·Railway — 실제와 다름). 결정 배경은 ADR로 옮기고 나머지는 삭제.
 - [ ] **HANDOFF.md의 끝난 섹션 제거** — "진행 중: 카테고리 이름 수정 API (#6)"(a6cc584로 구현·테스트 통과), "알려진 이슈"의 `rename` 실패 20건(해결됨).
 
 ## B. 수정 (사실과 다름)

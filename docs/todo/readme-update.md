@@ -28,7 +28,7 @@
 
 ## 확인이 필요한 것
 - [ ] cron-job.org 콜드스타트 방지 설정이 지금도 유효한지 (`docs/adr/0001-neon-to-supabase.md`에 한때 "BE가 Render 정지 상태"라는 언급이 있었다).
-- [ ] 인프라 섹션의 AI 서버 위치(Render/Vercel) — `inote` 레포 `docs/infra/hosting-migration.md`는 Vercel로 옮긴다고 하는데 `render.yaml`의 `INOTE_AI_URL`은 `inote-ai.onrender.com`이다.
+- [ ] 인프라 섹션의 AI 서버 위치(Render/Vercel) — `inote` 레포 `docs/adr/0003-hosting-migration.md`는 Vercel로 옮긴다고 하는데 `render.yaml`의 `INOTE_AI_URL`은 `inote-ai.onrender.com`이다.
 
 ## 같이 고칠 것 (README 밖)
 - [ ] `CLAUDE.md`에도 같은 낡은 Neon 정보가 있다(기술 스택 표, 배포 다이어그램, 환경변수 주석, E2E 표, 구현 현황 등).
