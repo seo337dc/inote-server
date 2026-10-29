@@ -31,7 +31,7 @@
 - [ ] 인프라 섹션의 AI 서버 위치(Render/Vercel) — `inote` 레포 `docs/adr/0003-hosting-migration.md`는 Vercel로 옮긴다고 하는데 `render.yaml`의 `INOTE_AI_URL`은 `inote-ai.onrender.com`이다.
 
 ## 같이 고칠 것 (README 밖)
-- [ ] `CLAUDE.md`에도 같은 낡은 Neon 정보가 있다(기술 스택 표, 배포 다이어그램, 환경변수 주석, E2E 표, 구현 현황 등).
+- [x] `CLAUDE.md`에도 같은 낡은 Neon 정보가 있다(기술 스택 표, 배포 다이어그램, 환경변수 주석, E2E 표, 구현 현황 등).
 - [x] `API.md`는 Swagger로 대체하기로 하고 삭제함 (docs 정리, `docs-cleanup.md` A).
 - [ ] README·`CLAUDE.md`가 같은 내용을 중복으로 들고 있어 매번 어긋난다 — 한 곳을 기준으로 정하고 나머지는 링크로 줄이는 것을 검토한다.
 
