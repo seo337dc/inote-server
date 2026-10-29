@@ -6,10 +6,10 @@ alwaysApply: false
 
 # BE 컨텍스트
 
-- 스택: NestJS + Prisma + PostgreSQL (Neon)
+- 스택: NestJS + Prisma + PostgreSQL (Supabase)
 - 배포: Render (무료, cold start) · Health: `GET /api/v1/health`
 - 인증: Better Auth · API prefix: `/api/v1` · Swagger: `/api/docs`
-- 모듈: `src/auth/`, `src/users/`, `src/money/` (expenses, stocks, settings, reviews)
+- 모듈: `src/` 아래 폴더가 소스 (auth, users, admin, blog, categories, reading-logs, todos, uploads, embeddings, mandalart, money 등)
 - 스키마: `prisma/schema.prisma`
 - 스펙: `CLAUDE.md`, `prisma/schema.prisma`, Swagger(`/api/docs`)
 - 세션 맥락: `docs/handoff/HANDOFF.md` 필독
