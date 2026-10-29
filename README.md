@@ -190,6 +190,6 @@ DB  →  Neon PostgreSQL
 ## 관련 문서
 
 - [CLAUDE.md](./CLAUDE.md) — AI 작업 컨텍스트 기준 문서
-- [DEV_LOG.md](./DEV_LOG.md) — 세션별 작업 기록
+- [docs/devlog/be.md](./docs/devlog/be.md) — 세션별 작업 기록
 - [docs/learning/](./docs/learning/README.md) — 학습용 문서 (NestJS / Prisma / 테스트)
 - [AUTH_POLICY.md](./docs/AUTH_POLICY.md) — 회원(가입/로그인/프로필/비밀번호) 관련 정책

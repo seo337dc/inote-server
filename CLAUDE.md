@@ -71,7 +71,7 @@ API 문서      →  /api/docs (Swagger UI)
 ```
 inote-server/
 ├── CLAUDE.md
-├── API.md / DATABASE.md / DEV_LOG.md
+├── API.md / DATABASE.md / docs/devlog/be.md
 ├── README.md
 ├── src/
 │   ├── main.ts               ← 앱 진입점 (포트 3200, CORS, Swagger)
