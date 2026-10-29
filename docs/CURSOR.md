@@ -109,7 +109,7 @@
 | Health | `GET /api/v1/health` |
 | API 문서 | Swagger (`/api/docs`) |
 | 스키마 | `prisma/schema.prisma` |
-| 참고 문서 | `CLAUDE.md`, `API.md`, `DATABASE.md` |
+| 참고 문서 | `CLAUDE.md`, `prisma/schema.prisma`, Swagger(`/api/docs`) |
 
 ---
 
@@ -131,8 +131,8 @@
 |------|------|
 | `docs/handoff/HANDOFF.md` | PC·세션 전환 맥락 (필독) |
 | `CLAUDE.md` | 프로젝트 맥락, TODO, 현재 단계 (Claude Code 기준) |
-| `API.md` | API 엔드포인트 스펙 |
-| `DATABASE.md` | DB 스키마 설명 |
+| Swagger (`/api/docs`) | API 엔드포인트 스펙 (코드에서 자동 생성) |
+| `prisma/schema.prisma` | DB 스키마 (`prisma/dbml/schema.dbml`은 ERD용 생성물) |
 | `.cursor/rules/` | Cursor 세션에 항상 주입되는 규칙 |
 | `.cursor/mcp.json` | Notion MCP (OAuth) 설정 |
 

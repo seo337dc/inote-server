@@ -71,7 +71,6 @@ API 문서      →  /api/docs (Swagger UI)
 ```
 inote-server/
 ├── CLAUDE.md
-├── API.md / DATABASE.md / DEV_LOG.md
 ├── README.md
 ├── src/
 │   ├── main.ts               ← 앱 진입점 (포트 3200, CORS, Swagger)
@@ -98,7 +97,8 @@ inote-server/
 ├── scripts/                  ← dev-db.sh(로컬 개발 DB·시드·백필), backfill-embeddings.ts, backfill-post-category-id.ts(글의 categoryId 채우기 — docs/runbooks/post-category-backfill.md)
 ├── docs/                     ← AUTH_POLICY.md(회원 정책), CURSOR.md(Cursor 역할), handoff/HANDOFF.md(세션 인수인계)
 │   ├── runbooks/             ← 작업 절차서(local-dev-db, embeddings-backfill, post-category-backfill)
-│   ├── adr/                  ← 결정 기록(0001-neon-to-supabase)
+│   ├── adr/                  ← 결정 기록 (번호 순)
+│   ├── devlog/be.md          ← 개발 일지 (최신 항목이 위)
 │   ├── todo/                 ← 나중에 할 일
 │   └── learning/             ← 학습용 문서 전용 (LEARNING.md, NESTJS_GUIDE.md, TESTING_GUIDE.md)
 ├── prisma/
@@ -375,9 +375,8 @@ role 기반 권한, `usesInote`/`usesInoteMoney` 컬럼, 이메일/구글 계정
 - [ ] Sentry 프로젝트 생성
 - [ ] 포인트 시스템 정책
 - [ ] Expense API FE 연동 — `inote-money` 쪽에서 이미 붙었을 수도 있음, 실제 상태 재확인 필요
-- [ ] **`API.md`/`DATABASE.md`/`TESTING_GUIDE.md`도 이 파일과 같은 이유로 몇 달째 낡아있음**
-      (blog/mandalart/admin/terms/books 등 반영 안 됨) — 2026-09-22에 CLAUDE.md만 먼저
-      정리하고 이건 별도 작업으로 미룸.
+- [ ] **`docs/learning/TESTING_GUIDE.md`도 이 파일과 같은 이유로 낡아있음** (`API.md`·`DATABASE.md`는 코드와
+      어긋나서 삭제함 — 소스는 Swagger `/api/docs`와 `prisma/schema.prisma`)
 - [ ] **(고도화, 지금 착수 안 함) Kafka 도입 검토** — 서비스가 여러 개로 쪼개지고 "이벤트 하나가
       여러 곳에 영향을 줘야 하는" 상황이 될 때 고려. 예: `inote-blog` "글 발행" 이벤트 하나로
       검색 인덱싱·LLM 임베딩 생성·알림 발송이 서로 독립적으로 반응하게 만들기. 지금 규모(개인

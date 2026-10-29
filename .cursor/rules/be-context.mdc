@@ -11,7 +11,7 @@ alwaysApply: false
 - 인증: Better Auth · API prefix: `/api/v1` · Swagger: `/api/docs`
 - 모듈: `src/auth/`, `src/users/`, `src/money/` (expenses, stocks, settings, reviews)
 - 스키마: `prisma/schema.prisma`
-- 스펙 문서: `CLAUDE.md`, `API.md`, `DATABASE.md`
+- 스펙: `CLAUDE.md`, `prisma/schema.prisma`, Swagger(`/api/docs`)
 - 세션 맥락: `docs/handoff/HANDOFF.md` 필독
 - Notion (BE만): `docs/CURSOR.md` Notion 표 · MCP `.cursor/mcp.json` (OAuth 필요)
 - FE Notion URL 사용 금지

@@ -1,8 +1,8 @@
 # DB 이전 — Neon → Supabase
 
 > `inote-server`(Prisma) 기준의 DB 이전 기록·작업 리스트. Notion·블로그 정리용 원본.
-> AI 서버(`inote-ai`)에 해당하는 부분은 `inote-ai` 레포의 `docs/supabase-migration.md` 참고.
-> 전체 호스팅 정리(AI → Vercel, BE는 Render 유지)는 `inote` 레포의 `docs/infra/hosting-migration.md` 참고.
+> AI 서버(`inote-ai`)에 해당하는 부분은 `inote-ai` 레포의 `docs/adr/0002-neon-to-supabase.md` 참고.
+> 전체 호스팅 정리(AI → Vercel, BE는 Render 유지)는 `inote` 레포의 `docs/adr/0003-hosting-migration.md` 참고.
 > 작성: 2026-09-30 / 상태: 🟡 준비 중 (아직 이전 시작 전)
 
 ---
