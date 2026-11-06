@@ -22,6 +22,9 @@ describe('ReadingLogsService', () => {
     readingLogSummary: {
       upsert: jest.fn(),
     },
+    // 글/독서 기록을 지울 때 메모 삭제와 같은 $transaction으로 묶는다 — 배열로 받은 작업을 그대로 실행해 결과 배열을 돌려준다
+    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+    memo: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
   };
 
   beforeEach(async () => {
@@ -304,6 +307,8 @@ describe('ReadingLogsService', () => {
         ForbiddenException,
       );
       expect(mockPrisma.readingLog.delete).not.toHaveBeenCalled();
+      // 남의 기록을 지우려는 요청이 그 기록의 메모까지 지우면 안 된다
+      expect(mockPrisma.memo.deleteMany).not.toHaveBeenCalled();
     });
 
     it('본인 글이면 삭제한다', async () => {
@@ -320,6 +325,23 @@ describe('ReadingLogsService', () => {
         where: { id: 'r1' },
       });
       expect(result).toEqual({ id: 'r1' });
+    });
+
+    it('독서 기록을 지울 때 그 기록의 메모(targetType reading)도 같은 트랜잭션에서 지운다', async () => {
+      mockPrisma.readingLog.findUnique.mockResolvedValue({
+        id: 'r1',
+        userId: 'u1',
+        publishedAt: null,
+      });
+      mockPrisma.readingLog.delete.mockResolvedValue({ id: 'r1' });
+
+      await service.remove('u1', 'r1');
+
+      expect(mockPrisma.memo.deleteMany).toHaveBeenCalledWith({
+        where: { targetType: 'reading', targetId: 'r1' },
+      });
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.$transaction.mock.calls[0][0]).toHaveLength(2);
     });
   });
 });

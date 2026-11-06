@@ -12,6 +12,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { ReadingLogsModule } from './reading-logs/reading-logs.module';
 import { TodosModule } from './todos/todos.module';
 import { CategoriesModule } from './categories/categories.module';
+import { MemosModule } from './memos/memos.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CategoriesModule } from './categories/categories.module';
     ReadingLogsModule,
     TodosModule,
     CategoriesModule,
+    MemosModule,
   ],
   controllers: [AppController],
   providers: [AppService],
