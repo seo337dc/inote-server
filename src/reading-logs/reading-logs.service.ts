@@ -132,6 +132,13 @@ export class ReadingLogsService {
     if (log.userId !== userId) {
       throw new ForbiddenException('본인이 작성한 기록만 삭제할 수 있습니다.');
     }
-    return this.prisma.readingLog.delete({ where: { id } });
+    // 메모는 대상이 FK 없는 폴리모픽 참조라 독서 기록을 지울 때 같은 트랜잭션에서 같이 지운다
+    const [, deleted] = await this.prisma.$transaction([
+      this.prisma.memo.deleteMany({
+        where: { targetType: 'reading', targetId: id },
+      }),
+      this.prisma.readingLog.delete({ where: { id } }),
+    ]);
+    return deleted;
   }
 }

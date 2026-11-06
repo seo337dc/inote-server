@@ -62,6 +62,7 @@ model user {
   readingLogs      ReadingLog[]
   todos            Todo[]
   categories       PostCategory[]
+  memos            Memo[]
 }
 
 enum Role {
@@ -591,6 +592,27 @@ model Todo {
   createdAt DateTime  @default(now())
   /// 수정일
   updatedAt DateTime  @updatedAt
+}
+
+/// 메모 — 글·독서 기록 하나에 붙는, 작성자 본인만 보는 메모장 (대상은 FK 없는 폴리모픽 참조라 글·독서 기록을 지울 때 서비스가 같이 지운다)
+model Memo {
+  /// 고유 ID
+  id         String   @id @default(cuid())
+  /// 작성자 ID (FK) — 회원이 삭제되면 메모도 함께 삭제됨
+  userId     String
+  user       user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 대상 종류 — post(글) 또는 reading(독서 기록), 값 검증은 DTO에서
+  targetType String
+  /// 대상 ID (글 또는 독서 기록의 id, FK 아님)
+  targetId   String
+  /// 메모 내용 (일반 텍스트, 최대 10,000자는 DTO에서 검증, 빈 문자열 가능)
+  content    String   @default("")
+  /// 생성일
+  createdAt  DateTime @default(now())
+  /// 수정일
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, targetType, targetId])
 }
 
 /// 글 카테고리 — 유저별 개인 트리(최대 3단계, self-referential). 다른 유저와 공유 안 됨.

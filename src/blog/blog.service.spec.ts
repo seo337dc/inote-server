@@ -57,6 +57,9 @@ describe('BlogService', () => {
     postSummary: {
       upsert: jest.fn(),
     },
+    // 글/독서 기록을 지울 때 메모 삭제와 같은 $transaction으로 묶는다 — 배열로 받은 작업을 그대로 실행해 결과 배열을 돌려준다
+    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+    memo: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
   };
 
   beforeEach(async () => {
@@ -1288,6 +1291,9 @@ describe('BlogService', () => {
         ForbiddenException,
       );
       expect(mockPrisma.post.delete).not.toHaveBeenCalled();
+      // 남의 글을 지우려는 요청이 그 글의 메모까지 지우면 안 된다
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.memo.deleteMany).not.toHaveBeenCalled();
     });
 
     it('본인 글이면 삭제하고 inote-ai 세션 삭제도 요청한다', async () => {
@@ -1321,6 +1327,24 @@ describe('BlogService', () => {
       const result = await service.remove('user-1', 'p1');
 
       expect(result).toEqual({ id: 'p1' });
+    });
+
+    it('글을 지울 때 그 글의 메모(targetType post)도 같은 트랜잭션에서 지운다', async () => {
+      mockPrisma.post.findUnique.mockResolvedValue({
+        id: 'p1',
+        userId: 'user-1',
+        content: '',
+      });
+      mockPrisma.post.delete.mockResolvedValue({ id: 'p1' });
+
+      await service.remove('user-1', 'p1');
+
+      expect(mockPrisma.memo.deleteMany).toHaveBeenCalledWith({
+        where: { targetType: 'post', targetId: 'p1' },
+      });
+      // 메모 삭제와 글 삭제가 한 $transaction 안의 두 작업이다 (둘 중 하나만 성공하는 일이 없도록)
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.$transaction.mock.calls[0][0]).toHaveLength(2);
     });
   });
 

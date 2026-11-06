@@ -292,6 +292,18 @@ Table Todo {
   Note: '할 일 — 심플 체크리스트 항목 (draft/발행 개념 없이 CRUD만). 전부 비공개(본인만 조회 가능).'
 }
 
+Table Memo {
+  id String [pk, note: '고유 ID']
+  userId String [not null, note: '작성자 ID (FK) — 회원이 삭제되면 메모도 함께 삭제됨']
+  targetType String [not null, note: '대상 종류 — post(글) 또는 reading(독서 기록), 값 검증은 DTO에서']
+  targetId String [not null, note: '대상 ID (글 또는 독서 기록의 id, FK 아님)']
+  content String [not null, default: '', note: '메모 내용 (일반 텍스트, 최대 10,000자는 DTO에서 검증, 빈 문자열 가능)']
+  createdAt DateTime [default: `now()`, not null, note: '생성일']
+  updatedAt DateTime [not null, note: '수정일']
+
+  Note: '메모 — 글·독서 기록 하나에 붙는, 작성자 본인만 보는 메모장 (대상은 FK 없는 폴리모픽 참조라 글·독서 기록을 지울 때 서비스가 같이 지운다)'
+}
+
 Table PostCategory {
   id String [pk, note: '고유 ID']
   userId String [not null, note: '소유자 ID (FK)']
@@ -404,6 +416,8 @@ Ref: ReadingLog.userId > user.id [delete: Cascade]
 Ref: ReadingLogSummary.readingLogId - ReadingLog.id [delete: Cascade]
 
 Ref: Todo.userId > user.id [delete: Cascade]
+
+Ref: Memo.userId > user.id [delete: Cascade]
 
 Ref: PostCategory.userId > user.id [delete: Cascade]
 

@@ -24,6 +24,9 @@ describe('BlogService.update — 이미지 승격', () => {
     post: { findUnique: jest.fn(), update: jest.fn(), delete: jest.fn() },
     postCategory: { findMany: jest.fn(), findUnique: jest.fn() },
     postSummary: { upsert: jest.fn() },
+    // 글/독서 기록을 지울 때 메모 삭제와 같은 $transaction으로 묶는다 — 배열로 받은 작업을 그대로 실행해 결과 배열을 돌려준다
+    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+    memo: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
   };
   const mockR2 = {
     copy: jest.fn(),

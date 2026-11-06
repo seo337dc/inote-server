@@ -773,7 +773,13 @@ export class BlogService {
     if (post.userId !== userId) {
       throw new ForbiddenException('본인이 작성한 글만 삭제할 수 있습니다.');
     }
-    const deleted = await this.prisma.post.delete({ where: { id } });
+    // 메모는 대상이 FK 없는 폴리모픽 참조라 글을 지울 때 같은 트랜잭션에서 같이 지운다
+    const [, deleted] = await this.prisma.$transaction([
+      this.prisma.memo.deleteMany({
+        where: { targetType: 'post', targetId: id },
+      }),
+      this.prisma.post.delete({ where: { id } }),
+    ]);
     // 벡터 삭제는 기다리지 않는다 — 실패하면 고아 벡터가 남지만 후보 id에 없어서 노출되지 않는다
     void deletePostEmbedding(id, this.logger);
     await this.deleteAiSession(id);
