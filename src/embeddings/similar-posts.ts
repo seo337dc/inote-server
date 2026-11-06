@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import {
   describeError,
+  inoteAiBaseUrl,
   internalHeaders,
   isEmbeddingsEnabled,
 } from './inote-ai-embeddings';
@@ -54,7 +55,7 @@ export async function findSimilarPosts(
   // 꺼져 있거나 볼 수 있는 글이 없으면 부를 이유가 없다
   if (!isEmbeddingsEnabled() || candidates.length === 0) return [];
 
-  const url = process.env.INOTE_AI_URL;
+  const url = inoteAiBaseUrl();
   if (!url) {
     logger.warn(`skip similar posts for ${postId}: INOTE_AI_URL is not set`);
     return [];
@@ -63,7 +64,7 @@ export async function findSimilarPosts(
 
   let body: unknown;
   try {
-    const res = await fetch(`${url.replace(/\/+$/, '')}/embeddings/similar`, {
+    const res = await fetch(`${url}/embeddings/similar`, {
       method: 'POST',
       headers: internalHeaders(),
       body: JSON.stringify({
