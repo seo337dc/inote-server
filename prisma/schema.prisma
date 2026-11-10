@@ -605,6 +605,8 @@ model Memo {
   targetType String
   /// 대상 ID (글 또는 독서 기록의 id, FK 아님)
   targetId   String
+  /// 메모 제목 (최대 30자는 DTO에서 검증, 빈 문자열이면 화면에서 번호로 보여줌)
+  title      String   @default("")
   /// 메모 내용 (일반 텍스트, 최대 10,000자는 DTO에서 검증, 빈 문자열 가능)
   content    String   @default("")
   /// 생성일
