@@ -64,7 +64,7 @@ inote-server/
 │   ├── categories/           ← 글 카테고리 트리(최대 3단계) 조회·생성·이름 변경·위치 이동(`PATCH :id/move`, `position`으로 형제 순서 관리)
 │   ├── reading-logs/         ← 독서 기록 CRUD (draft/발행, 발행 시 inote-ai `/book-info` 연동)
 │   ├── todos/                ← 할 일 목록
-│   ├── memos/                ← 글·독서 기록에 붙는 본인 전용 메모 (`GET/POST /memos`, `PATCH /memos/:id`). 대상은 FK 없는 폴리모픽 참조라 글·독서 기록 삭제 때 서비스가 같은 `$transaction`에서 지운다
+│   ├── memos/                ← 글·독서 기록에 붙는 본인 전용 메모 (`GET/POST /memos`, `PATCH/DELETE /memos/:id`, 대상당 최대 10장·초과 409, 메모마다 `title`). 대상은 FK 없는 폴리모픽 참조라 글·독서 기록 삭제 때 서비스가 같은 `$transaction`에서 지운다
 │   ├── uploads/              ← Cloudflare R2 이미지 업로드 (`image`, `post-image`)
 │   ├── mandalart/            ← 만다르트 로드맵 (공개 조회, 관리자만 수정)
 │   └── money/                ← inote-money API
@@ -333,10 +333,10 @@ npm run test:cov      # 커버리지 리포트
 | Admin 모듈 (회원 목록/상세/삭제) | ✅ 완료 |
 | Uploads 모듈 (Cloudflare R2 이미지 업로드) | ✅ 완료 (2026-09-28, `POST /uploads/image`) · 2026-10-21 `POST /uploads/post-image`(글 이미지 tmp 업로드) 추가 — 글 저장(`publish: true`) 때 BlogService가 본문의 내 tmp 이미지를 `post/<userId>/<postId>/`로 복사·삭제 (실패는 fail-open). 글 삭제(`remove`) 때 `post/<userId>/<postId>/` 폴더와 본문의 내 tmp 이미지를 R2에서 삭제(fail-open). `R2_KEY_PREFIX`(로컬은 `dev-db.sh start`가 `dev` 주입)로 로컬은 버킷의 `dev/` 아래만 사용, 운영은 접두어 없음. 고아 파일 정리 배치·관리자/탈퇴 삭제 시 이미지 정리는 후속 |
 | ReadingLogs 모듈 (독서 기록 CRUD + AI 책 정보) | ✅ 완료 (2026-09-28, draft/발행 패턴 + 발행 시 inote-ai `/book-info` 연동) |
-| Memos 모듈 (글·독서 기록 메모 CRUD) | ✅ 완료 (2026-11-06, `Memo` 테이블 추가 마이그레이션 `20261106011422_add_memo`, 서비스 단위테스트 20개) |
+| Memos 모듈 (글·독서 기록 메모 CRUD) | ✅ 완료 (2026-11-06, `Memo` 테이블 추가 마이그레이션 `20261106011422_add_memo`). 2026-11-10 1:N 확장(`title` 컬럼 `20261110000000_add_memo_title`, 대상당 10장 상한 409, `DELETE`) — 개발 DB 통합 확인 전 |
 | AUTH_POLICY 1~6번 | ✅ 완료 |
 | AUTH_POLICY 7번 (타 서비스 연동 확인 화면) | 🔜 `inote-money` 회원 기능 대기 |
-| 단위테스트 | ✅ 391개 통과 (2026-11-06, todo 124개 별도) |
+| 단위테스트 | ✅ 417개 통과 (2026-11-10, todo 124개 별도) |
 | E2E 테스트 | ✅ 5개 통과 |
 | Render 배포 | ✅ 완료 (https://inote-server-5a63.onrender.com) |
 | Sentry 연결 | 🔜 예정 |

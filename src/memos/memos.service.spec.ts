@@ -1,5 +1,10 @@
 import { Test } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { MemosService } from './memos.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -9,6 +14,7 @@ const EXPECTED_SELECT = {
   id: true,
   targetType: true,
   targetId: true,
+  title: true,
   content: true,
   createdAt: true,
   updatedAt: true,
@@ -24,7 +30,11 @@ describe('MemosService', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(), // 대상당 메모 장 수 (상한 확인)
+      delete: jest.fn(),
     },
+    // 장 수 확인 + 만들기를 한 트랜잭션으로 묶는다. 기본은 같은 mock을 tx로 넘긴다(아래 beforeEach).
+    $transaction: jest.fn(),
     // 메모를 붙일 대상(글/독서 기록)의 작성자를 확인할 때 읽는다
     post: { findUnique: jest.fn() },
     readingLog: { findUnique: jest.fn() },
@@ -32,6 +42,11 @@ describe('MemosService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // 장 수 기본값 0 — 설정하지 않으면 undefined가 되어 "10장 미만"으로 우연히 통과하는 테스트가 생긴다
+    mockPrisma.memo.count.mockResolvedValue(0);
+    mockPrisma.$transaction.mockImplementation(
+      (fn: (tx: typeof mockPrisma) => unknown) => fn(mockPrisma),
+    );
 
     const module = await Test.createTestingModule({
       providers: [
@@ -219,6 +234,116 @@ describe('MemosService', () => {
       ).rejects.toThrow(NotFoundException);
       expect(mockPrisma.memo.create).not.toHaveBeenCalled();
     });
+
+    // ─ create: 제목, 장 수 상한(대상당 10장, 넘으면 409) ─────────────────
+    // 공통 Arrange: mockPrisma.post.findUnique.mockResolvedValue({ userId: 'u1' }) (본인 글)
+    describe('title과 장 수 상한 (2차)', () => {
+      // FE는 +를 누를 때 { targetType, targetId }만 보낸다 — title·content 없이도 만들어져야 한다.
+      const TARGET = { targetType: 'post', targetId: 'p1' } as const;
+
+      beforeEach(() => {
+        mockPrisma.post.findUnique.mockResolvedValue({ userId: 'u1' }); // 본인 글
+        mockPrisma.memo.create.mockResolvedValue({ id: 'm1' });
+      });
+
+      // data에 title이 들어간다. 안 주면(undefined) data.title도 없어야 DB 기본값('')이 쓰인다
+      it('title을 주면 data에 title을 담아 만든다', async () => {
+        await service.create('u1', {
+          ...TARGET,
+          title: '할 일',
+          content: '본문',
+        });
+
+        expect(mockPrisma.memo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: {
+              userId: 'u1',
+              targetType: 'post',
+              targetId: 'p1',
+              title: '할 일',
+              content: '본문',
+            },
+          }),
+        );
+      });
+
+      it('title과 content를 모두 생략해도 만든다 (data에 undefined로 넘겨 DB 기본값을 쓴다)', async () => {
+        const result = await service.create('u1', { ...TARGET });
+
+        // expect.anything()은 undefined·null이 아닌 값만 맞는다 → not이므로 "값이 없다"를 확인한다
+        expect(mockPrisma.memo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.not.objectContaining({
+              title: expect.anything() as unknown,
+              content: expect.anything() as unknown,
+            }) as unknown,
+          }),
+        );
+        expect(result).toEqual({ id: 'm1' });
+      });
+
+      // Arrange: mockPrisma.memo.count.mockResolvedValue(9) → 만들어진다 / (10) → 거절
+      it('이미 9장이면 10번째 메모를 만든다 (경계: 10장까지는 허용)', async () => {
+        mockPrisma.memo.count.mockResolvedValue(9);
+
+        const result = await service.create('u1', { ...TARGET });
+
+        expect(mockPrisma.memo.create).toHaveBeenCalledTimes(1);
+        expect(result).toEqual({ id: 'm1' });
+      });
+
+      it('이미 10장이면 ConflictException이고 메모를 만들지 않는다 (create 호출 없음)', async () => {
+        mockPrisma.memo.count.mockResolvedValue(10);
+
+        await expect(service.create('u1', { ...TARGET })).rejects.toThrow(
+          ConflictException,
+        );
+        expect(mockPrisma.memo.create).not.toHaveBeenCalled();
+      });
+
+      // count의 where가 { userId, targetType, targetId }인지 — 다른 글의 메모나 남의 메모를 세면 안 된다
+      it('장 수는 이 사용자·이 대상의 메모만 센다', async () => {
+        await service.create('u1', { ...TARGET });
+
+        expect(mockPrisma.memo.count).toHaveBeenCalledWith({
+          where: { userId: 'u1', targetType: 'post', targetId: 'p1' },
+        });
+      });
+
+      // 대상 검증(403/404)이 상한 확인(409)보다 먼저다 — 남의 글에 메모를 시도하면 Forbidden이지 Conflict가 아니다
+      it('남의 글이면 장 수가 가득 차 있어도 ForbiddenException이다 (대상 검증이 먼저)', async () => {
+        mockPrisma.post.findUnique.mockResolvedValue({
+          userId: 'someone-else',
+        });
+        mockPrisma.memo.count.mockResolvedValue(10);
+
+        await expect(service.create('u1', { ...TARGET })).rejects.toThrow(
+          ForbiddenException,
+        );
+        expect(mockPrisma.memo.count).not.toHaveBeenCalled();
+      });
+
+      // 동시에 두 번 눌러 11장이 되는 일을 줄이려는 장치: count와 create가 같은 tx를 쓴다
+      it('장 수 확인과 만들기는 같은 트랜잭션(tx) 안에서 한다', async () => {
+        const tx = {
+          memo: {
+            count: jest.fn().mockResolvedValue(0),
+            create: jest.fn().mockResolvedValue({ id: 'm1' }),
+          },
+        };
+        mockPrisma.$transaction.mockImplementation(
+          (fn: (t: typeof tx) => unknown) => fn(tx),
+        );
+
+        await service.create('u1', { ...TARGET });
+
+        expect(tx.memo.count).toHaveBeenCalledTimes(1);
+        expect(tx.memo.create).toHaveBeenCalledTimes(1);
+        // 트랜잭션 밖의 client로는 세지도 만들지도 않는다
+        expect(mockPrisma.memo.count).not.toHaveBeenCalled();
+        expect(mockPrisma.memo.create).not.toHaveBeenCalled();
+      });
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────
@@ -350,6 +475,121 @@ describe('MemosService', () => {
         .catch((e: Error) => e.message);
 
       expect(others).toBe(missing);
+    });
+
+    // ─ update: title 수정, 둘 중 하나는 있어야 한다 ─────────────────────
+    // 공통 Arrange: mockPrisma.memo.findUnique.mockResolvedValue({ userId: 'u1' }) (본인 메모)
+    describe('title과 content (2차)', () => {
+      beforeEach(() => {
+        mockPrisma.memo.findUnique.mockResolvedValue({ userId: 'u1' }); // 본인 메모
+        mockPrisma.memo.update.mockResolvedValue({ id: 'm1' });
+      });
+
+      it('title만 보내면 title만 수정한다 (content는 건드리지 않는다)', async () => {
+        await service.update('u1', 'm1', { title: '새 제목' });
+
+        // content를 보내지 않으므로 data에 content가 없어야 한다 (undefined면 Prisma가 건드리지 않는다)
+        expect(mockPrisma.memo.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: 'm1' },
+            data: { title: '새 제목' },
+          }),
+        );
+        expect(mockPrisma.memo.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.not.objectContaining({
+              content: expect.anything() as unknown,
+            }) as unknown,
+          }),
+        );
+      });
+
+      it('title과 content를 같이 보내면 둘 다 수정한다', async () => {
+        await service.update('u1', 'm1', { title: '제목', content: '본문' });
+
+        expect(mockPrisma.memo.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: { title: '제목', content: '본문' },
+          }),
+        );
+      });
+
+      // 제목을 지우는 것 = 빈 문자열. "보내지 않음(undefined)"과 구분되어야 한다 (|| 나 ?? 로 처리하면 틀린다)
+      it('title을 빈 문자열로 수정할 수 있다 (제목 지우기)', async () => {
+        await service.update('u1', 'm1', { title: '' });
+
+        expect(mockPrisma.memo.update).toHaveBeenCalledWith(
+          expect.objectContaining({ data: { title: '' } }),
+        );
+      });
+
+      // 둘 다 undefined면 바꿀 게 없다 → 400. DB를 읽기 전에 거절한다 (findUnique·update 호출 없음)
+      it('title도 content도 없으면 BadRequestException이고 DB를 읽지 않는다', async () => {
+        await expect(service.update('u1', 'm1', {})).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(mockPrisma.memo.findUnique).not.toHaveBeenCalled();
+        expect(mockPrisma.memo.update).not.toHaveBeenCalled();
+      });
+    });
+  });
+  // ═════════════════════════════════════════════════════════════════
+  // 2차: 메모 여러 장 (1:N) — 계약: inote 레포 docs/todo/memo.md "2차"
+  // create·update의 2차 케이스는 위 describe 안의 '(2차)' 묶음에 있고, 새 기능인 remove는 아래에 있다.
+  // ═════════════════════════════════════════════════════════════════
+
+  // ─ remove: 신규 DELETE /memos/:id ────────────────────────────────
+  describe('remove', () => {
+    beforeEach(() => {
+      mockPrisma.memo.delete.mockResolvedValue({ id: 'm1' });
+    });
+
+    it('본인 메모를 id로 삭제한다', async () => {
+      mockPrisma.memo.findUnique.mockResolvedValue({ userId: 'u1' });
+
+      await service.remove('u1', 'm1');
+
+      expect(mockPrisma.memo.delete).toHaveBeenCalledWith({
+        where: { id: 'm1' },
+      });
+    });
+
+    it('없는 메모면 NotFoundException이고 delete를 호출하지 않는다', async () => {
+      mockPrisma.memo.findUnique.mockResolvedValue(null);
+
+      await expect(service.remove('u1', 'nope')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrisma.memo.delete).not.toHaveBeenCalled();
+    });
+
+    it('남의 메모면 NotFoundException이고 delete를 호출하지 않는다 (없는 메모와 같은 예외)', async () => {
+      mockPrisma.memo.findUnique.mockResolvedValue({ userId: 'someone-else' });
+
+      await expect(service.remove('u1', 'm1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrisma.memo.delete).not.toHaveBeenCalled();
+    });
+
+    // update와 같은 메시지 — 존재 여부가 드러나지 않는다 ('메모를 찾을 수 없습니다.')
+    it('남의 메모와 없는 메모는 같은 메시지로 응답한다', async () => {
+      mockPrisma.memo.findUnique.mockResolvedValueOnce(null);
+      const missing = await service.remove('u1', 'nope').catch((e: Error) => e);
+      mockPrisma.memo.findUnique.mockResolvedValueOnce({
+        userId: 'someone-else',
+      });
+      const foreign = await service.remove('u1', 'm1').catch((e: Error) => e);
+
+      expect(missing).toBeInstanceOf(NotFoundException);
+      expect((foreign as Error).message).toBe((missing as Error).message);
+    });
+
+    // 계약: 204 No Content. 서비스는 값을 돌려주지 않는다
+    it('삭제하면 아무것도 돌려주지 않는다 (undefined)', async () => {
+      mockPrisma.memo.findUnique.mockResolvedValue({ userId: 'u1' });
+
+      await expect(service.remove('u1', 'm1')).resolves.toBeUndefined();
     });
   });
 });

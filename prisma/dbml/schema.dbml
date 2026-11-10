@@ -297,6 +297,7 @@ Table Memo {
   userId String [not null, note: '작성자 ID (FK) — 회원이 삭제되면 메모도 함께 삭제됨']
   targetType String [not null, note: '대상 종류 — post(글) 또는 reading(독서 기록), 값 검증은 DTO에서']
   targetId String [not null, note: '대상 ID (글 또는 독서 기록의 id, FK 아님)']
+  title String [not null, default: '', note: '메모 제목 (최대 30자는 DTO에서 검증, 빈 문자열이면 화면에서 번호로 보여줌)']
   content String [not null, default: '', note: '메모 내용 (일반 텍스트, 최대 10,000자는 DTO에서 검증, 빈 문자열 가능)']
   createdAt DateTime [default: `now()`, not null, note: '생성일']
   updatedAt DateTime [not null, note: '수정일']

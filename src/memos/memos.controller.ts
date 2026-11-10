@@ -1,14 +1,21 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConflictResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CreateMemoDto } from './dto/create-memo.dto';
@@ -33,15 +40,17 @@ export class MemosController {
   @Post()
   @ApiOperation({
     summary:
-      '메모 만들기 — 본인이 작성한 글·독서 기록에만 (임시저장 글 포함, 남의 글·작성자 없는 글은 403)',
+      '메모 만들기 — 본인이 작성한 글·독서 기록에만 (임시저장 글 포함, 남의 글·작성자 없는 글은 403). 대상당 최대 10장, 넘으면 409. title·content는 생략 가능',
   })
+  @ApiConflictResponse({ description: '대상당 메모 10장 상한을 넘음' })
   create(@CurrentUser() user: { id: string }, @Body() dto: CreateMemoDto) {
     return this.memosService.create(user.id, dto);
   }
 
   @Patch(':id')
   @ApiOperation({
-    summary: '메모 내용 수정 (본인 것만, 빈 문자열이면 내용을 지운 것)',
+    summary:
+      '메모 제목·내용 수정 (본인 것만, 보낸 필드만 고침, 둘 다 없으면 400, 빈 문자열이면 지운 것)',
   })
   update(
     @CurrentUser() user: { id: string },
@@ -49,5 +58,12 @@ export class MemosController {
     @Body() dto: UpdateMemoDto,
   ) {
     return this.memosService.update(user.id, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @ApiOperation({ summary: '메모 삭제 (본인 것만, 없거나 남의 메모는 404)' })
+  remove(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+    return this.memosService.remove(user.id, id);
   }
 }
