@@ -1,6 +1,7 @@
 import {
   BadGatewayException,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -550,7 +551,7 @@ export class BlogService {
     });
   }
 
-  // 나의 글 목록 — 발행·비공개 여부 상관없이 내가 쓴 글 전부 (/my-posts에서 사용). 보관한 글은 뺀다.
+  // 나의 글 목록 — 비공개 여부 상관없이 내가 **발행한** 글 전부 (/my-posts에서 사용). 임시저장 글은 빠지고(findMyDrafts가 따로 준다), 보관한 글도 뺀다.
   // query.archived가 true면 반대로 **보관한 글만** 보관한 시각 최신순으로 준다 (/my-posts/archive의 보관함).
   // 사이드바 카테고리별 개수는 페이지와 무관한 전체 기준이라 categoryCounts로 따로 내려주고, 보관함이면 보관한 글 기준으로 센다.
   async findMine(userId: string, query: ListPostsQueryDto) {
@@ -563,7 +564,7 @@ export class BlogService {
       this.listPage(
         {
           userId,
-          NOT: EMPTY_DRAFT,
+          publishedAt: { not: null },
           ...archiveWhere,
           ...combineWhere(categoryFilter, searchWhere(query.q)),
         },
@@ -572,7 +573,7 @@ export class BlogService {
       ),
       this.prisma.post.groupBy({
         by: ['categoryId'],
-        where: { userId, NOT: EMPTY_DRAFT, ...archiveWhere },
+        where: { userId, publishedAt: { not: null }, ...archiveWhere },
         _count: { _all: true },
       }),
     ]);
@@ -672,6 +673,26 @@ export class BlogService {
       };
     }
     return {};
+  }
+
+  // 발행한 글을 임시저장으로 되돌린다 — 발행일·마지막 수정일을 비우고(draft 규칙) 고정을 푼다. 비공개·카테고리·썸네일·요약은 그대로.
+  // 다시 발행하면(PATCH publish) 그 시각이 새 발행일이 된다. 보관한 글은 먼저 보관을 풀어야 한다(409).
+  // 이미 임시저장인 글은 같은 값을 다시 쓸 뿐이라 오류 없이 성공한다(멱등). 임베딩은 지우지 않는다 — 후보 조회가 발행된 글만 쓴다.
+  async unpublish(userId: string, id: string) {
+    const post = await this.findRaw(id);
+    if (post.userId !== userId) {
+      throw new ForbiddenException('본인이 작성한 글만 수정할 수 있습니다.');
+    }
+    if (post.archivedAt) {
+      throw new ConflictException(
+        '보관한 글은 임시저장으로 바꿀 수 없습니다. 보관을 해제한 뒤 다시 시도하세요.',
+      );
+    }
+    return this.prisma.post.update({
+      where: { id },
+      data: { publishedAt: null, lastEditedAt: null, pinned: false },
+      include: DETAIL_INCLUDE,
+    });
   }
 
   // publish가 true일 때만 진짜 저장(발행 + AI 요약 갱신). 그 외엔 임시저장 — 내용만 갱신하고

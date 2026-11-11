@@ -413,7 +413,7 @@ describe('BlogService', () => {
         expect.objectContaining({
           where: {
             userId: 'user-1',
-            NOT: EMPTY_DRAFT,
+            publishedAt: { not: null },
             archivedAt: null,
             pinned: true,
           },
@@ -421,7 +421,11 @@ describe('BlogService', () => {
       );
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith({
         by: ['categoryId'],
-        where: { userId: 'user-1', NOT: EMPTY_DRAFT, archivedAt: null },
+        where: {
+          userId: 'user-1',
+          publishedAt: { not: null },
+          archivedAt: null,
+        },
         _count: { _all: true },
       });
       // 카테고리 id → 직속 글 수. 아직 지정 안 된 글(categoryId null)은 'unassigned'
@@ -462,7 +466,7 @@ describe('BlogService', () => {
           expect.objectContaining({
             where: {
               userId: 'user-1',
-              NOT: EMPTY_DRAFT,
+              publishedAt: { not: null },
               archivedAt: null,
               ...SEARCH('리액트'),
               pinned: n === 1,
@@ -481,7 +485,11 @@ describe('BlogService', () => {
 
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: 'user-1', NOT: EMPTY_DRAFT, archivedAt: null },
+          where: {
+            userId: 'user-1',
+            publishedAt: { not: null },
+            archivedAt: null,
+          },
         }),
       );
     });
@@ -496,7 +504,11 @@ describe('BlogService', () => {
 
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: 'user-1', NOT: EMPTY_DRAFT, archivedAt: null },
+          where: {
+            userId: 'user-1',
+            publishedAt: { not: null },
+            archivedAt: null,
+          },
         }),
       );
     });
