@@ -41,5 +41,5 @@ BE를 개발 DB로 띄웠는지 확인하려면 `GET /api/v1/blog/posts`의 `tot
 - **시드는 운영 DB에 절대 실행되지 않는다.** `DATABASE_URL`의 호스트가 로컬(`127.0.0.1`/`localhost`)이 아니거나, DB 이름이 `_dev`로 끝나지 않거나, `NODE_ENV=production`이면 연결하기 전에 거절한다.
 - ⚠️ **`@prisma/client`는 `DATABASE_URL`이 없으면 `.env`(운영 주소)를 자동으로 읽는다.** 그래서 `npx ts-node prisma/seed-dev.ts`처럼 직접 실행하면 운영 주소가 잡힌다 — 안전장치가 거절하지만, 항상 `scripts/dev-db.sh seed`로 실행한다. 같은 이유로 `npx prisma migrate …`도 직접 부르지 말고 `scripts/dev-db.sh migrate`를 쓴다.
 - 로컬 BE를 개발 DB로 띄워도 `.env`의 다른 값(인증 시크릿, `INOTE_AI_URL=http://localhost:8000` 등)은 그대로다. 로그인(구글)이나 AI 호출이 필요한 시험은 그 값을 확인하고 한다.
-- `prisma/seed-dev.ts`는 **운영 빌드 대상에서 제외**했다(`tsconfig.build.json`의 `exclude`, 기존 `seed-mandalart.ts`와 같은 방식). 빼지 않으면 `nest build`가 `rootDir` 오류로 실패한다.
+- `prisma/seed-dev.ts`는 **운영 빌드 대상에서 제외**했다(`tsconfig.build.json`의 `exclude`, 기존 `seed-mandalart.ts`와 같은 방식). 빼지 않으면 `pnpm typecheck`(tsc)가 `rootDir` 오류로 실패한다. (빌드 자체는 SWC라 `src`만 컴파일한다.)
 - 개발 DB 포트: 5435 (참고: 5433은 `inote-embedder` 실험 DB, 5434는 `inote-ai` 개발 DB).

@@ -8,6 +8,7 @@
   "scripts": {
     "prebuild": "node scripts/print-deps.js",
     "build": "nest build",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit --incremental false",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -46,6 +47,7 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
+    "@swc/cli": "^0.8.2",
     "@swc/core": "^1.16.2",
     "@swc/jest": "^0.2.39",
     "@types/express": "^5.0.0",
