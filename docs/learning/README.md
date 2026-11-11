@@ -8,4 +8,5 @@
 | [LEARNING.md](./LEARNING.md) | 백엔드 기초 — 서버, Node.js, NestJS, Prisma, 인증, 테스트, Guard/DTO |
 | [NESTJS_GUIDE.md](./NESTJS_GUIDE.md) | NestJS + Prisma + Better Auth 핵심 개념 (이 프로젝트 기준) |
 | [TESTING_GUIDE.md](./TESTING_GUIDE.md) | 수동 → 단위 → E2E 테스트 학습 순서 |
+| [BUILD_MEMORY_OOM.md](./BUILD_MEMORY_OOM.md) | Render 빌드 힙 OOM 사례 — 원인 추적(`tsc --extendedDiagnostics`), 타입 체크 메모리, SWC 전환 근거와 주의점 |
 | [MONITORING.md](./MONITORING.md) | 로그·메트릭, Loki/Prometheus/Grafana, NestJS 요청 수명주기와 로깅, 마스킹 — 구현 단계(S1~S5)와 짝으로 보는 학습 |

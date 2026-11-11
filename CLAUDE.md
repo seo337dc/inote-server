@@ -222,7 +222,7 @@ npm run test:cov      # 커버리지 리포트
 기능/모듈 하나를 완성했을 때 — 커밋하기 직전, 예외 없이:
 
 - [ ] **단위 테스트** — 새로 만들거나 수정한 서비스 로직에 `*.service.spec.ts` 작성/보강 후 `pnpm test` 전체 통과
-- [ ] **빌드** — `pnpm run build`로 타입 에러 없는지 확인
+- [ ] **타입 체크 + 빌드** — `pnpm typecheck`(tsc `--noEmit`)와 `pnpm run build`. **빌드는 SWC라서 타입을 검사하지 않는다**(Render 512MB 빌드 OOM 때문에 2026-11-11 전환, [`docs/learning/BUILD_MEMORY_OOM.md`](docs/learning/BUILD_MEMORY_OOM.md)) — 타입 오류는 `pnpm typecheck`가 유일한 관문이다. 스키마가 바뀌었다면 `pnpm exec prisma generate`를 먼저(안 하면 오래된 Prisma 타입으로 오류가 난다)
 - [ ] **E2E 테스트** — `pnpm test:e2e`로 실제 DB까지 거치는 흐름이 안 깨졌는지 확인
 - [ ] **CLAUDE.md 문서 최신화** — 이번 작업으로 레포 구조/모듈 구조/환경변수/현재 단계/미결정
       항목 등 이 파일에 적힌 사실 정보가 바뀌었다면, 커밋 전에 해당 섹션을 그 자리에서 갱신한다
