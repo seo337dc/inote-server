@@ -98,7 +98,7 @@ export class BlogController {
   @UseGuards(AuthGuard)
   @ApiOperation({
     summary:
-      '내가 쓴 글 (로그인 필요, 발행+draft 전부) — 고정 글 최대 3개(1페이지만) + 페이지네이션 목록 + 카테고리별 개수',
+      '내가 발행한 글 (로그인 필요, 임시저장 제외 — 임시저장은 mine/drafts) — 고정 글 최대 3개(1페이지만) + 페이지네이션 목록 + 카테고리별 개수',
   })
   findMine(
     @CurrentUser() user: { id: string },
@@ -194,6 +194,18 @@ export class BlogController {
     @Body() dto: UpdatePostDto,
   ) {
     return this.blogService.update(user.id, id, dto);
+  }
+
+  @Post(':id/unpublish')
+  @HttpCode(200)
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary:
+      '발행한 글을 임시저장으로 되돌리기 (본인 글만) — 발행일·고정이 풀린다. 보관한 글은 409(먼저 보관 해제), 이미 임시저장이면 그대로 200',
+  })
+  unpublish(@CurrentUser() user: { id: string }, @Param('id') id: string) {
+    return this.blogService.unpublish(user.id, id);
   }
 
   @Post(':id/summarize')

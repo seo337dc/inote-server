@@ -195,7 +195,7 @@ describe('BlogService — 글 보관함', () => {
           expect.objectContaining({
             where: {
               userId: 'u1',
-              NOT: EMPTY_DRAFT,
+              publishedAt: { not: null },
               archivedAt: { not: null },
               pinned: n === 1,
             },
@@ -214,7 +214,11 @@ describe('BlogService — 글 보관함', () => {
 
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith({
         by: ['categoryId'],
-        where: { userId: 'u1', NOT: EMPTY_DRAFT, archivedAt: { not: null } },
+        where: {
+          userId: 'u1',
+          publishedAt: { not: null },
+          archivedAt: { not: null },
+        },
         _count: { _all: true },
       });
       expect(result.categoryCounts).toEqual({ c1: 4 });
@@ -254,7 +258,7 @@ describe('BlogService — 글 보관함', () => {
 
       expect(mockPrisma.post.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: 'u1', NOT: EMPTY_DRAFT, archivedAt: null },
+          where: { userId: 'u1', publishedAt: { not: null }, archivedAt: null },
         }),
       );
     });
