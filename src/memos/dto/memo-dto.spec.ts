@@ -9,10 +9,13 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateMemoDto } from './create-memo.dto';
 import { UpdateMemoDto } from './update-memo.dto';
+import { FindMemosQuery } from './find-memos.query';
 
 const BASE = { targetType: 'post', targetId: 'p1' };
 const create = (body: Record<string, unknown>) =>
   validate(plainToInstance(CreateMemoDto, { ...BASE, ...body }));
+const find = (query: Record<string, unknown>) =>
+  validate(plainToInstance(FindMemosQuery, query));
 const update = (body: Record<string, unknown>) =>
   validate(plainToInstance(UpdateMemoDto, body));
 
@@ -66,5 +69,73 @@ describe('UpdateMemoDto', () => {
 
   it('content가 10,001자면 실패한다 (기존 규칙 유지)', async () => {
     expect(await update({ content: 'a'.repeat(10001) })).not.toHaveLength(0);
+  });
+});
+
+// 3차 — 일반 메모(general)는 대상이 없다. 계약: inote 레포 docs/todo/memo.md '3차'
+describe('CreateMemoDto — general (3차)', () => {
+  it('general은 targetId 없이 통과한다', async () => {
+    expect(
+      await validate(plainToInstance(CreateMemoDto, { targetType: 'general' })),
+    ).toHaveLength(0);
+  });
+
+  it('general에 targetId를 보내도 DTO는 통과한다 (서비스가 무시한다)', async () => {
+    expect(
+      await validate(
+        plainToInstance(CreateMemoDto, {
+          targetType: 'general',
+          targetId: 'p1',
+        }),
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('post·reading은 targetId가 없거나 빈 문자열이면 실패한다', async () => {
+    for (const targetType of ['post', 'reading']) {
+      expect(
+        await validate(plainToInstance(CreateMemoDto, { targetType })),
+      ).not.toHaveLength(0);
+      expect(
+        await validate(
+          plainToInstance(CreateMemoDto, { targetType, targetId: '' }),
+        ),
+      ).not.toHaveLength(0);
+    }
+  });
+
+  it('general 메모도 title·content 길이 규칙을 따른다', async () => {
+    expect(
+      await validate(
+        plainToInstance(CreateMemoDto, {
+          targetType: 'general',
+          title: 'a'.repeat(31),
+        }),
+      ),
+    ).not.toHaveLength(0);
+  });
+});
+
+describe('FindMemosQuery (3차: 대상 없이도 조회)', () => {
+  it('아무것도 없는 쿼리는 통과한다 (내 메모 전체)', async () => {
+    expect(await find({})).toHaveLength(0);
+  });
+
+  it('targetType만 있어도 통과한다 (종류별)', async () => {
+    for (const targetType of ['general', 'post', 'reading']) {
+      expect(await find({ targetType })).toHaveLength(0);
+    }
+  });
+
+  it('targetType + targetId는 통과한다 (기존 호출)', async () => {
+    expect(await find({ targetType: 'post', targetId: 'p1' })).toHaveLength(0);
+  });
+
+  it('targetId만 있고 targetType이 없으면 실패한다 (어느 종류의 id인지 알 수 없다)', async () => {
+    expect(await find({ targetId: 'p1' })).not.toHaveLength(0);
+  });
+
+  it('targetType이 세 종류 밖이면 실패한다', async () => {
+    expect(await find({ targetType: 'comment' })).not.toHaveLength(0);
   });
 });
