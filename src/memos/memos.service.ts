@@ -9,7 +9,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateMemoDto } from './dto/create-memo.dto';
 import { FindMemosQuery } from './dto/find-memos.query';
 import { UpdateMemoDto } from './dto/update-memo.dto';
-import { MEMO_MAX_COUNT, type MemoTargetType } from './memo-target';
+import {
+  GENERAL_TARGET_ID,
+  MEMO_MAX_COUNT,
+  type MemoTargetType,
+} from './memo-target';
 
 // 응답에는 작성자(userId) 같은 내부 필드를 싣지 않는다
 const MEMO_SELECT = {
@@ -26,33 +30,88 @@ const MEMO_SELECT = {
 export class MemosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** 대상에 붙은 내 메모 — 생성순. 남의 메모는 where의 userId 조건으로 걸러진다. */
-  findAll(userId: string, query: FindMemosQuery) {
-    return this.prisma.memo.findMany({
+  /**
+   * 내 메모 목록 — 항상 최근 수정순. 남의 메모는 where의 userId 조건으로 걸러진다.
+   * - 인자 없음: 내 메모 전체 / targetType만: 그 종류 전체 / targetType+targetId: 그 대상의 메모
+   * - general은 대상이 없어 targetId를 빈 문자열로 고정해 묻는다(보내온 targetId는 무시)
+   * 메모장(탭)이 "만든 순서"가 필요하면 FE가 createdAt으로 다시 정렬한다.
+   * 각 메모에는 글·독서 기록의 제목을 targetTitle로 붙인다(일반 메모·대상이 사라진 메모는 null).
+   */
+  async findAll(userId: string, query: FindMemosQuery) {
+    const memos = await this.prisma.memo.findMany({
       where: {
         userId,
-        targetType: query.targetType,
-        targetId: query.targetId,
+        ...this.targetWhere(query),
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { updatedAt: 'desc' },
       select: MEMO_SELECT,
     });
+    const titles = await this.targetTitles(userId, memos);
+    return memos.map((memo) => ({
+      ...memo,
+      targetTitle: titles.get(`${memo.targetType}:${memo.targetId}`) ?? null,
+    }));
+  }
+
+  // 조회 대상 조건 — 안 준 값은 키 자체를 넣지 않는다(전체·종류별 조회). general은 targetId를 고정값으로 묻는다
+  private targetWhere(query: FindMemosQuery) {
+    if (query.targetType === 'general') {
+      return { targetType: 'general', targetId: GENERAL_TARGET_ID };
+    }
+    return {
+      ...(query.targetType !== undefined && { targetType: query.targetType }),
+      ...(query.targetId !== undefined && { targetId: query.targetId }),
+    };
+  }
+
+  // 글·독서 기록의 제목을 종류별로 한 번씩 읽는다 (내 글·내 독서 기록만). 키는 "종류:대상id"
+  private async targetTitles(
+    userId: string,
+    memos: { targetType: string; targetId: string }[],
+  ) {
+    const idsOf = (type: MemoTargetType) => [
+      ...new Set(
+        memos.filter((m) => m.targetType === type).map((m) => m.targetId),
+      ),
+    ];
+    const postIds = idsOf('post');
+    const readingIds = idsOf('reading');
+    const select = { id: true, title: true } as const;
+    const [posts, readings] = await Promise.all([
+      postIds.length > 0
+        ? this.prisma.post.findMany({
+            where: { id: { in: postIds }, userId },
+            select,
+          })
+        : [],
+      readingIds.length > 0
+        ? this.prisma.readingLog.findMany({
+            where: { id: { in: readingIds }, userId },
+            select,
+          })
+        : [],
+    ]);
+    const titles = new Map<string, string>();
+    for (const p of posts) titles.set(`post:${p.id}`, p.title);
+    for (const r of readings) titles.set(`reading:${r.id}`, r.title);
+    return titles;
   }
 
   /**
-   * 메모 만들기. 대상 검증(403·404)이 먼저이고, 그다음 대상당 10장 상한(409)을 확인한다.
+   * 메모 만들기. 대상 검증(403·404)이 먼저이고, 그다음 대상당 10장 상한(409)을 확인한다(일반 메모는 대상 검증 없이 전체 10장).
    * 장 수 확인과 만들기는 한 트랜잭션에 묶는다. 다만 기본 격리 수준(Read Committed)이라 같은 대상에 동시에 두 요청이
    * 들어오면 둘 다 9장으로 읽고 11장이 될 수 있다 — 개인 앱의 UX 상한이라 허용한다(보장이 필요하면 docs/todo/memos-followups.md).
    */
   async create(userId: string, dto: CreateMemoDto) {
-    await this.assertOwnTarget(userId, dto.targetType, dto.targetId);
+    // 일반 메모는 대상이 없다 — 소유 검증을 건너뛰고 targetId는 고정값. 상한 10장은 내 일반 메모 전체 기준
+    const targetId =
+      dto.targetType === 'general' ? GENERAL_TARGET_ID : (dto.targetId ?? '');
+    if (dto.targetType !== 'general') {
+      await this.assertOwnTarget(userId, dto.targetType, targetId);
+    }
     return this.prisma.$transaction(async (tx) => {
       const count = await tx.memo.count({
-        where: {
-          userId,
-          targetType: dto.targetType,
-          targetId: dto.targetId,
-        },
+        where: { userId, targetType: dto.targetType, targetId },
       });
       if (count >= MEMO_MAX_COUNT) {
         throw new ConflictException(
@@ -64,7 +123,7 @@ export class MemosService {
         data: {
           userId,
           targetType: dto.targetType,
-          targetId: dto.targetId,
+          targetId,
           title: dto.title,
           content: dto.content,
         },

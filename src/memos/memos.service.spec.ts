@@ -36,14 +36,17 @@ describe('MemosService', () => {
     // 장 수 확인 + 만들기를 한 트랜잭션으로 묶는다. 기본은 같은 mock을 tx로 넘긴다(아래 beforeEach).
     $transaction: jest.fn(),
     // 메모를 붙일 대상(글/독서 기록)의 작성자를 확인할 때 읽는다
-    post: { findUnique: jest.fn() },
-    readingLog: { findUnique: jest.fn() },
+    // findAll이 글·독서 기록의 제목(targetTitle)을 읽을 때는 findMany를 쓴다
+    post: { findUnique: jest.fn(), findMany: jest.fn() },
+    readingLog: { findUnique: jest.fn(), findMany: jest.fn() },
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     // 장 수 기본값 0 — 설정하지 않으면 undefined가 되어 "10장 미만"으로 우연히 통과하는 테스트가 생긴다
     mockPrisma.memo.count.mockResolvedValue(0);
+    mockPrisma.post.findMany.mockResolvedValue([]);
+    mockPrisma.readingLog.findMany.mockResolvedValue([]);
     mockPrisma.$transaction.mockImplementation(
       (fn: (tx: typeof mockPrisma) => unknown) => fn(mockPrisma),
     );
@@ -237,6 +240,75 @@ describe('MemosService', () => {
 
     // ─ create: 제목, 장 수 상한(대상당 10장, 넘으면 409) ─────────────────
     // 공통 Arrange: mockPrisma.post.findUnique.mockResolvedValue({ userId: 'u1' }) (본인 글)
+    describe('일반 메모 general (3차)', () => {
+      beforeEach(() => {
+        mockPrisma.memo.create.mockResolvedValue({ id: 'g1' });
+      });
+
+      it('글·독서 기록 소유 검증을 하지 않고 만든다 (대상이 없다)', async () => {
+        await service.create('u1', {
+          targetType: 'general',
+          content: '장보기',
+        });
+
+        expect(mockPrisma.post.findUnique).not.toHaveBeenCalled();
+        expect(mockPrisma.readingLog.findUnique).not.toHaveBeenCalled();
+        expect(mockPrisma.memo.create).toHaveBeenCalledTimes(1);
+      });
+
+      it('targetId는 빈 문자열로 저장한다', async () => {
+        await service.create('u1', { targetType: 'general', title: '장보기' });
+
+        expect(mockPrisma.memo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              userId: 'u1',
+              targetType: 'general',
+              targetId: '',
+              title: '장보기',
+            }),
+          }),
+        );
+      });
+
+      it('클라이언트가 targetId를 보내도 무시하고 빈 문자열로 저장한다', async () => {
+        await service.create('u1', {
+          targetType: 'general',
+          targetId: 'someone-elses-post',
+        });
+
+        const { data } = mockPrisma.memo.create.mock.calls[0][0] as {
+          data: { targetId: string };
+        };
+        expect(data.targetId).toBe('');
+      });
+
+      it('장 수는 내 일반 메모 전체를 센다 (userId + general + 빈 targetId)', async () => {
+        await service.create('u1', { targetType: 'general' });
+
+        expect(mockPrisma.memo.count).toHaveBeenCalledWith({
+          where: { userId: 'u1', targetType: 'general', targetId: '' },
+        });
+      });
+
+      it('일반 메모가 이미 10장이면 ConflictException이고 만들지 않는다', async () => {
+        mockPrisma.memo.count.mockResolvedValue(10);
+
+        await expect(
+          service.create('u1', { targetType: 'general' }),
+        ).rejects.toThrow(ConflictException);
+        expect(mockPrisma.memo.create).not.toHaveBeenCalled();
+      });
+
+      it('9장이면 10번째 일반 메모를 만든다 (경계)', async () => {
+        mockPrisma.memo.count.mockResolvedValue(9);
+
+        await service.create('u1', { targetType: 'general' });
+
+        expect(mockPrisma.memo.create).toHaveBeenCalledTimes(1);
+      });
+    });
+
     describe('title과 장 수 상한 (2차)', () => {
       // FE는 +를 누를 때 { targetType, targetId }만 보낸다 — title·content 없이도 만들어져야 한다.
       const TARGET = { targetType: 'post', targetId: 'p1' } as const;
@@ -347,13 +419,14 @@ describe('MemosService', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────
-  // findAll — 대상에 붙은 "내" 메모만, 생성순으로
+  // findAll — 대상에 붙은 "내" 메모만, 최근 수정순으로 (3차: 대상 없이 전체·종류별 조회도 된다)
   //
   // 남의 메모가 안 섞이는 보장은 서비스가 결과를 거르는 것이 아니라 where에 userId를 넣어 DB에 묻는 것이다.
   // 그래서 DB 결과가 아니라 findMany가 어떤 인자로 호출됐는지를 확인한다.
   // ─────────────────────────────────────────────────────────────────
   describe('findAll', () => {
-    it('userId + targetType + targetId로 조회하고 생성순(createdAt asc)으로 정렬한다', async () => {
+    // 3차: 정렬은 항상 최근 수정순이다. 메모장(탭)이 "만든 순서"가 필요하면 FE가 createdAt으로 다시 정렬한다.
+    it('userId + targetType + targetId로 조회하고 최근 수정순(updatedAt desc)으로 정렬한다', async () => {
       mockPrisma.memo.findMany.mockResolvedValue([]);
 
       await service.findAll('u1', { targetType: 'post', targetId: 'p1' });
@@ -361,7 +434,7 @@ describe('MemosService', () => {
       expect(mockPrisma.memo.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: 'u1', targetType: 'post', targetId: 'p1' },
-          orderBy: { createdAt: 'asc' },
+          orderBy: { updatedAt: 'desc' },
         }),
       );
     });
@@ -401,7 +474,7 @@ describe('MemosService', () => {
       expect(result).toEqual([]);
     });
 
-    it('DB가 돌려준 목록을 그대로 돌려준다 (순서 포함)', async () => {
+    it('DB가 돌려준 목록을 순서 그대로 돌려준다 (각 메모에 targetTitle만 더해진다)', async () => {
       const memos = [{ id: 'm1' }, { id: 'm2' }];
       mockPrisma.memo.findMany.mockResolvedValue(memos);
 
@@ -410,7 +483,136 @@ describe('MemosService', () => {
         targetId: 'p1',
       });
 
-      expect(result).toEqual(memos);
+      expect(result).toEqual([
+        { id: 'm1', targetTitle: null },
+        { id: 'm2', targetTitle: null },
+      ]);
+    });
+  });
+
+  // 3차 — 일반 메모(general)·전체 조회·targetTitle. 계약: inote 레포 docs/todo/memo.md '3차'
+  describe('findAll (3차: 전체·종류별·일반·targetTitle)', () => {
+    beforeEach(() => {
+      mockPrisma.memo.findMany.mockResolvedValue([]);
+    });
+
+    it('인자가 없으면 내 메모 전체다 — where는 userId뿐이고 최근 수정순', async () => {
+      await service.findAll('u1', {});
+
+      expect(mockPrisma.memo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'u1' },
+          orderBy: { updatedAt: 'desc' },
+        }),
+      );
+    });
+
+    it('targetType만 주면 그 종류의 메모 전체다 (targetId 조건 없음)', async () => {
+      await service.findAll('u1', { targetType: 'post' });
+
+      const { where } = mockPrisma.memo.findMany.mock.calls[0][0] as {
+        where: Record<string, unknown>;
+      };
+      expect(where).toEqual({ userId: 'u1', targetType: 'post' });
+      expect(where).not.toHaveProperty('targetId');
+    });
+
+    it('general은 targetId를 빈 문자열로 조회한다 (일반 메모는 대상 id가 없다)', async () => {
+      await service.findAll('u1', { targetType: 'general' });
+
+      expect(mockPrisma.memo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'u1', targetType: 'general', targetId: '' },
+        }),
+      );
+    });
+
+    it('general에 targetId를 보내도 무시하고 빈 문자열로 조회한다', async () => {
+      await service.findAll('u1', { targetType: 'general', targetId: 'p1' });
+
+      expect(mockPrisma.memo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'u1', targetType: 'general', targetId: '' },
+        }),
+      );
+    });
+
+    it('글·독서 메모에는 대상의 제목을 targetTitle로 붙인다', async () => {
+      mockPrisma.memo.findMany.mockResolvedValue([
+        { id: 'm1', targetType: 'post', targetId: 'p1' },
+        { id: 'm2', targetType: 'reading', targetId: 'r1' },
+      ]);
+      mockPrisma.post.findMany.mockResolvedValue([
+        { id: 'p1', title: '글 제목' },
+      ]);
+      mockPrisma.readingLog.findMany.mockResolvedValue([
+        { id: 'r1', title: '책 제목' },
+      ]);
+
+      const result = await service.findAll('u1', {});
+
+      expect(result).toEqual([
+        expect.objectContaining({ id: 'm1', targetTitle: '글 제목' }),
+        expect.objectContaining({ id: 'm2', targetTitle: '책 제목' }),
+      ]);
+    });
+
+    it('일반 메모와 대상이 사라진 메모의 targetTitle은 null이다', async () => {
+      mockPrisma.memo.findMany.mockResolvedValue([
+        { id: 'm1', targetType: 'general', targetId: '' },
+        { id: 'm2', targetType: 'post', targetId: 'gone' },
+      ]);
+
+      const result = await service.findAll('u1', {});
+
+      expect(result).toEqual([
+        expect.objectContaining({ id: 'm1', targetTitle: null }),
+        expect.objectContaining({ id: 'm2', targetTitle: null }),
+      ]);
+    });
+
+    it('제목은 종류별로 한 번씩 id 목록(중복 제거)으로 읽고, 내 글·내 독서 기록만 읽는다', async () => {
+      mockPrisma.memo.findMany.mockResolvedValue([
+        { id: 'm1', targetType: 'post', targetId: 'p1' },
+        { id: 'm2', targetType: 'post', targetId: 'p1' },
+        { id: 'm3', targetType: 'post', targetId: 'p2' },
+        { id: 'm4', targetType: 'reading', targetId: 'r1' },
+      ]);
+
+      await service.findAll('u1', {});
+
+      expect(mockPrisma.post.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.post.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ['p1', 'p2'] }, userId: 'u1' },
+        select: { id: true, title: true },
+      });
+      expect(mockPrisma.readingLog.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.readingLog.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ['r1'] }, userId: 'u1' },
+        select: { id: true, title: true },
+      });
+    });
+
+    it('목록에 없는 종류(또는 일반 메모만 있을 때)는 제목을 읽지 않는다', async () => {
+      mockPrisma.memo.findMany.mockResolvedValue([
+        { id: 'm1', targetType: 'general', targetId: '' },
+      ]);
+
+      await service.findAll('u1', {});
+
+      expect(mockPrisma.post.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.readingLog.findMany).not.toHaveBeenCalled();
+    });
+
+    it('메모 순서는 DB가 준 그대로 유지한다 (제목을 붙여도 순서가 바뀌지 않는다)', async () => {
+      mockPrisma.memo.findMany.mockResolvedValue([
+        { id: 'b', targetType: 'general', targetId: '' },
+        { id: 'a', targetType: 'post', targetId: 'p1' },
+      ]);
+
+      const result = await service.findAll('u1', {});
+
+      expect(result.map((m) => m.id)).toEqual(['b', 'a']);
     });
   });
 

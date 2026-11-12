@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 import {
   MEMO_MAX_LENGTH,
@@ -14,14 +15,21 @@ import {
 } from '../memo-target';
 
 export class CreateMemoDto {
-  @ApiProperty({ description: '대상 종류', enum: MEMO_TARGET_TYPES })
+  @ApiProperty({
+    description: '메모 종류 (post·reading·general=대상 없는 일반 메모)',
+    enum: MEMO_TARGET_TYPES,
+  })
   @IsIn(MEMO_TARGET_TYPES)
   targetType: MemoTargetType;
 
-  @ApiProperty({ description: '대상 ID (본인이 작성한 글 또는 독서 기록)' })
+  @ApiPropertyOptional({
+    description:
+      '대상 ID (본인이 작성한 글 또는 독서 기록). post·reading은 필수, general은 보내도 무시한다',
+  })
+  @ValidateIf((o: CreateMemoDto) => o.targetType !== 'general')
   @IsString()
   @IsNotEmpty()
-  targetId: string;
+  targetId?: string;
 
   @ApiPropertyOptional({
     description: `메모 제목 (최대 ${MEMO_TITLE_MAX_LENGTH}자, 생략하면 빈 문자열)`,
