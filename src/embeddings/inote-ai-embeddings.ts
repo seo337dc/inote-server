@@ -65,19 +65,24 @@ async function run(
   }
 }
 
+/** inote-ai 주소(INOTE_AI_URL)에서 끝의 슬래시를 뗀 값. 설정돼 있지 않으면 null — 경고는 부른 쪽이 문맥에 맞게 남긴다. */
+export function inoteAiBaseUrl(): string | null {
+  const url = process.env.INOTE_AI_URL;
+  return url ? url.replace(/\/+$/, '') : null;
+}
+
 function baseUrl(
   logger: Logger,
   action: string,
   postId: string,
 ): string | null {
-  const url = process.env.INOTE_AI_URL;
+  const url = inoteAiBaseUrl();
   if (!url) {
     logger.warn(
       `skip ${action} embedding for post ${postId}: INOTE_AI_URL is not set`,
     );
-    return null;
   }
-  return url.replace(/\/+$/, '');
+  return url;
 }
 
 export function internalHeaders(): Record<string, string> {
@@ -177,19 +182,16 @@ export async function putPostEmbedding(
   title: string,
   content: string,
 ): Promise<'embedded' | 'unchanged'> {
-  const url = process.env.INOTE_AI_URL;
+  const url = inoteAiBaseUrl();
   if (!url) throw new Error('INOTE_AI_URL is not set');
   let res: Response;
   try {
-    res = await fetch(
-      `${url.replace(/\/+$/, '')}/embeddings/posts/${encodeURIComponent(postId)}`,
-      {
-        method: 'PUT',
-        headers: internalHeaders(),
-        body: JSON.stringify({ title, content }),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      },
-    );
+    res = await fetch(`${url}/embeddings/posts/${encodeURIComponent(postId)}`, {
+      method: 'PUT',
+      headers: internalHeaders(),
+      body: JSON.stringify({ title, content }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
   } catch (e) {
     throw new Error(describeError(e));
   }

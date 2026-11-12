@@ -58,7 +58,8 @@ inote-server/
 │   ├── auth/                 ← Better Auth 설정, AuthGuard/AdminGuard, setPassword 래퍼
 │   ├── users/                ← 내 프로필 조회/수정, 비밀번호 생성, 회원 탈퇴
 │   ├── admin/
-│   │   └── users/            ← 관리자 전용 회원 목록/상세/삭제
+│   │   ├── users/            ← 관리자 전용 회원 목록/상세/삭제
+│   │   └── embeddings/       ← 관리자 전용 글 임베딩 상태 목록(`GET /admin/embeddings`) — inote-ai의 `/embeddings/status`·`/health`를 읽어 글 목록과 합친다(읽기 전용)
 │   ├── blog/                 ← inote 글쓰기 CRUD, draft/발행, AI 요약 연동, 비슷한 글(`GET :id/similar`)
 │   ├── embeddings/           ← KURE 글 벡터 동기화(inote-ai 호출, fail-open)·후보 글 id(비공개 유출 방지)·유사 글 조회·백필 로직
 │   ├── categories/           ← 글 카테고리 트리(최대 3단계) 조회·생성·이름 변경·위치 이동(`PATCH :id/move`, `position`으로 형제 순서 관리)
@@ -135,7 +136,7 @@ inote-server/
 |------|--------|------|
 | Auth | `/api/v1/auth/*` | better-auth가 직접 라우트 등록 (세션, 소셜 로그인 등) |
 | Users | `/api/v1/users` | 내 프로필, `/set-password`, 회원 탈퇴 |
-| Admin | `/api/v1/admin/users` | 관리자 전용 |
+| Admin | `/api/v1/admin/users`, `/api/v1/admin/embeddings` | 관리자 전용 |
 | Blog | `/api/v1/blog/posts` | `inote` 글쓰기 |
 | Mandalart | `/api/v1/mandalart` | |
 | Money | `/api/v1/money/*` | expenses, stocks, settings, reviews, mini-game, terms, books |
