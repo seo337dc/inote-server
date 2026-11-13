@@ -7,7 +7,7 @@
 
 | 항목 | 본문의 선택 | 현재 |
 |------|------------|------|
-| DB | Neon PostgreSQL | **Supabase로 이전** — [`0001-neon-to-supabase.md`](./0001-neon-to-supabase.md). Neon은 롤백용으로 남겨뒀다고 10/2 기준 HANDOFF에 적혀 있음 |
+| DB | Neon PostgreSQL | **Supabase로 이전** — https://inote-main.vercel.app/posts/cmwem2akx000xgj391772uj8m. Neon은 롤백용으로 남겨뒀다고 10/2 기준 HANDOFF에 적혀 있음 |
 | FE 배포 | AWS Amplify | **Vercel** (`inote` 레포 CLAUDE.md "배포") |
 | BE 배포 | Render | Render 유지 (서비스 1개만 상시). 호스팅 이전 경위는 `inote` 레포 `docs/adr/0003-hosting-migration.md` |
 | 에러 로그 | Sentry | 아직 프로젝트 미생성 (CLAUDE.md "미결정 항목") |

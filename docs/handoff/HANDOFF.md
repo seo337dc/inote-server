@@ -102,7 +102,7 @@
 ### 이어질 BE 작업
 - ✅ #7 `GET /blog/posts/mine/outline` — 구현 완료(10/7), 테스트만 남음
 - ✅ #8 카테고리 위치 이동 `PATCH /categories/:id/move` — **구현 완료(10/27)**: `PostCategory.position` 마이그레이션(기존 행은 생성순으로 채움) + `MoveCategoryDto` + `CategoriesService.move`, `findAll` 정렬·`create` 맨 끝 배치. 테스트 골격의 `it.todo`는 모두 채움. 다른 부모로 옮길 곳에 같은 이름이 있으면 409(계약에 없던 것, `docs/devlog/be.md` 참고). 로컬 통합 확인 완료(10/28), main 병합됨
-- Neon → Supabase 이전은 끝남(`docs/adr/0001-neon-to-supabase.md`). Neon은 롤백용으로 아직 삭제하지 않음
+- Neon → Supabase 이전은 끝남(https://inote-main.vercel.app/posts/cmwem2akx000xgj391772uj8m). Neon은 롤백용으로 아직 삭제하지 않음
 
 ### 알려진 이슈
 - 전체 `npx jest`(2026-10-27): **369 통과 / 124 todo / 실패 0**. (예전 기록의 "20 실패"는 #6·`findOutline` 정리로 모두 해소됨)

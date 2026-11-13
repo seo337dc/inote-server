@@ -5,7 +5,7 @@
 > 규칙: 나중에 하기로 한 일은 `docs/todo/`에 기록한다 (`inote` 레포 CLAUDE.md와 같은 규칙).
 
 ## 사실과 다른 내용 (우선 수정)
-- [x] **DB가 Neon으로 적혀 있다** — 운영 DB는 Supabase로 이전됨(`docs/adr/0001-neon-to-supabase.md`). 기술 스택 표, 인프라 다이어그램, 환경변수 주석("Neon 연결 문자열")을 고친다.
+- [x] **DB가 Neon으로 적혀 있다** — 운영 DB는 Supabase로 이전됨(https://inote-main.vercel.app/posts/cmwem2akx000xgj391772uj8m). 기술 스택 표, 인프라 다이어그램, 환경변수 주석("Neon 연결 문자열")을 고친다.
 - [x] **"Neon DATABASE_URL에 `channel_binding=require` 제거" 경고** — Neon 전용 설명이라 Supabase에는 해당 없음. 삭제하거나 Supabase 기준으로 바꾼다.
 - [x] **구현 현황의 "Users 모듈 🔜 예정"** — `users/`(내 정보, 비밀번호 설정, 탈퇴)는 이미 구현됨. 완료로 바꾼다.
 - [x] **프로젝트 구조의 `points/ (예정)`** — 폴더가 없다. 삭제한다(`CLAUDE.md`도 같은 내용으로 "폴더 자체가 없음").
@@ -27,7 +27,7 @@
 - [x] **`render.yaml`에 `CF_*`, `EMBEDDINGS_ENABLED`, `SIMILAR_MIN_SCORE`가 없다** — Render 대시보드에서 직접 넣었다면 괜찮다. 이미지 업로드(`post-image`)가 운영에서 동작하려면 `CF_*`가 필요하니 확인한다.
 
 ## 확인이 필요한 것
-- [x] cron-job.org 콜드스타트 방지 설정이 지금도 유효한지 (`docs/adr/0001-neon-to-supabase.md`에 한때 "BE가 Render 정지 상태"라는 언급이 있었다).
+- [x] cron-job.org 콜드스타트 방지 설정이 지금도 유효한지 (https://inote-main.vercel.app/posts/cmwem2akx000xgj391772uj8m에 한때 "BE가 Render 정지 상태"라는 언급이 있었다).
 - [x] 인프라 섹션의 AI 서버 위치(Render/Vercel) — `inote` 레포 `docs/adr/0003-hosting-migration.md`는 Vercel로 옮긴다고 하는데 `render.yaml`의 `INOTE_AI_URL`은 `inote-ai.onrender.com`이다.
 
 ## 같이 고칠 것 (README 밖)

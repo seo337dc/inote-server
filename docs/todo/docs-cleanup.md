@@ -17,7 +17,7 @@
 - [x] **Neon → Supabase** — 남은 곳: `README.md`(기술 스택·환경변수 주석·`channel_binding` 경고·인프라), `CLAUDE.md`(32·45·179·215·332행), `docs/CURSOR.md`(BE 컨텍스트), `docs/learning/TESTING_GUIDE.md`(E2E 표). 상세 목록은 `readme-update.md` 참고.
 - [x] **README.md** — `docs/todo/readme-update.md`의 체크리스트를 처리 (Users 완료 표시, `points/` 삭제, 구조·환경변수 보강, `migrate dev` 위험 안내 교체, `dev-db.sh` 기준 로컬 실행).
 - [x] **CLAUDE.md** — ① "현재 단계" 본문이 2026-09-22 기준이라 낡음(Users/Admin/AUTH_POLICY 중심) → 현황 표만 남기고 본문 삭제, ② 모듈 목록·레포 구조에 `categories/`·`todos/` 추가(`reading-logs`는 현황 표에만 있음), ③ 모델 목록에 `ReadingLog`·`ReadingLogSummary`·`Todo`·`PostCategory` 추가, ④ 환경변수에 `NODE_ENV`·`CF_*`·`R2_KEY_PREFIX` 추가, ⑤ 단위테스트 289개는 재측정 필요, ⑥ 미결정 항목의 `API.md/DATABASE.md/TESTING_GUIDE.md` 줄 삭제(A에서 처리됨).
-- [x] **`docs/adr/0001-neon-to-supabase.md`** — 상태가 "🟡 준비 중(아직 이전 시작 전)"인데 이전 완료됨. "Neon은 롤백용으로 보존" 사실과 함께 상태를 "✅ 완료"로. 파일 앞에 ADR 형식(상태·결정·이유·결과) 요약 추가.
+- [x] **https://inote-main.vercel.app/posts/cmwem2akx000xgj391772uj8m** — 상태가 "🟡 준비 중(아직 이전 시작 전)"인데 이전 완료됨. "Neon은 롤백용으로 보존" 사실과 함께 상태를 "✅ 완료"로. 파일 앞에 ADR 형식(상태·결정·이유·결과) 요약 추가.
 - [ ] **HANDOFF.md** — 날짜 2026-10-12 → 갱신. 카테고리 이름 수정·`Post.categoryId`·이미지 업로드·글 삭제 이미지 정리가 빠져 있음. "다음 BE 작업"의 #8 이동 API(`categories.move.spec.ts` todo)만 남기기.
 - [x] **`docs/CURSOR.md`** — 주요 모듈이 money/auth/users뿐. 참고 문서의 `API.md`/`DATABASE.md` 줄 교체.
 - [x] **`docs/AUTH_POLICY.md`** — 1~6번 완료·7번 보류 상태를 문서 맨 위에 한 줄로 명시(지금은 CLAUDE.md에만 있음).
