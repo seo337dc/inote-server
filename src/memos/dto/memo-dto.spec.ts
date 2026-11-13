@@ -10,6 +10,7 @@ import { validate } from 'class-validator';
 import { CreateMemoDto } from './create-memo.dto';
 import { UpdateMemoDto } from './update-memo.dto';
 import { FindMemosQuery } from './find-memos.query';
+import { FindMemoGroupsQuery } from './find-memo-groups.query';
 
 const BASE = { targetType: 'post', targetId: 'p1' };
 const create = (body: Record<string, unknown>) =>
@@ -137,5 +138,46 @@ describe('FindMemosQuery (3차: 대상 없이도 조회)', () => {
 
   it('targetType이 세 종류 밖이면 실패한다', async () => {
     expect(await find({ targetType: 'comment' })).not.toHaveLength(0);
+  });
+});
+
+// 4차 — 그룹 목록 조회(GET /memos/groups) 쿼리. 계약: inote 레포 docs/todo/memo.md '4차'
+describe('FindMemoGroupsQuery', () => {
+  const groups = (query: Record<string, unknown>) =>
+    validate(plainToInstance(FindMemoGroupsQuery, query));
+
+  it('아무것도 없는 쿼리는 통과한다 (전체, 첫 페이지, 기본 개수)', async () => {
+    expect(await groups({})).toHaveLength(0);
+  });
+
+  it('targetType은 general·post·reading만 통과한다', async () => {
+    for (const targetType of ['general', 'post', 'reading']) {
+      expect(await groups({ targetType })).toHaveLength(0);
+    }
+    expect(await groups({ targetType: 'comment' })).not.toHaveLength(0);
+  });
+
+  it('limit은 쿼리 문자열의 숫자를 정수로 바꾸고 1~50만 통과한다 (경계)', async () => {
+    expect(await groups({ limit: '1' })).toHaveLength(0);
+    expect(await groups({ limit: '50' })).toHaveLength(0);
+    expect(await groups({ limit: '0' })).not.toHaveLength(0);
+    expect(await groups({ limit: '51' })).not.toHaveLength(0);
+    expect(await groups({ limit: '-3' })).not.toHaveLength(0);
+  });
+
+  it('limit이 정수가 아니면 실패한다', async () => {
+    for (const limit of ['abc', '1.5', '']) {
+      expect(await groups({ limit })).not.toHaveLength(0);
+    }
+  });
+
+  it('limit은 숫자로 변환된다 (문자열로 남지 않는다)', () => {
+    const q = plainToInstance(FindMemoGroupsQuery, { limit: '20' });
+    expect(q.limit).toBe(20);
+  });
+
+  it('cursor는 비어 있지 않은 문자열이어야 한다 (모양 검증은 서비스에서 400)', async () => {
+    expect(await groups({ cursor: 'abc' })).toHaveLength(0);
+    expect(await groups({ cursor: '' })).not.toHaveLength(0);
   });
 });
