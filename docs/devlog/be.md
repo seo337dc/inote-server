@@ -60,7 +60,7 @@
 - **데이터 조치(운영 DB, 사용자가 직접 실행)**: 중복 중 옛 `issuer`(`local:oauth:google`) 행만 삭제 — 조회로 대상 1행 확인 후 같은 조건으로 DELETE. 같은 사용자 소유라 사용자·글에는 영향 없음. 중복은 이 계정 하나뿐이었다. 이후 로그인 정상.
 - **코드 조치**: `better-auth`를 `^1.6.16` → 정확한 `1.7.12`로 고정(lockfile 갱신) — `package.json` 자체의 값이라 npm 빌드에서도 효과가 있다. `render.yaml`에는 `--frozen-lockfile`을 넣었지만 **Render가 이 파일을 쓰지 않아(대시보드 명령 사용) 적용되지 않는다.** 또 `scripts/print-deps.js` + `prebuild`를 추가해 빌드 로그에 설치된 의존성 버전(`[deps] better-auth 1.7.12 -> …`)이 찍히게 했다(`npm run build` 앞에서 자동 실행, Render 설정 변경 불필요). 최신 1.7.14는 pnpm의 `minimumReleaseAge`(릴리스 후 1일 미만)에 걸려 `minimumReleaseAgeExclude` 우회가 필요해서, 우회하지 않고 며칠 지난 1.7.12로 정했다(10월 21일 배포 시점의 최신이라 배포본과 같을 가능성이 높음 — Render 빌드 로그로 확인 필요).
 - 테스트: 단위 289개 통과, `pnpm run build` 통과. E2E·실제 구글 로그인은 이 변경에서 돌리지 않음.
-- 글 초안: `inote` 레포 `docs/blog/better-auth-duplicate-account.md`
+- 글: https://inote-main.vercel.app/posts/cmvkn346x0009do38kzy4tcs1
 
 ---
 
