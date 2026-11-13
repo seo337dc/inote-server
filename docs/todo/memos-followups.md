@@ -15,3 +15,10 @@
 - [ ] `memos.service.spec.ts`가 800줄에 가깝다 — 다음에 이 파일을 크게 고칠 때 메서드별 파일로 나누는 것을 검토
 - [ ] `GENERAL_TARGET_ID`가 빈 문자열이라 `targetId: ''` 쿼리와 구분이 안 된다(DTO가 `@IsNotEmpty`로 막고 있어 지금은 문제 없음)
 - [ ] 배포: FE와 같은 시기에 — 정렬이 생성순 → 수정순으로 바뀌어 FE 정렬이 먼저 나가지 않으면 글쓰기 메모장 탭 순서가 달라진다
+
+## 4차(메모 관리 그룹 목록) 후속 — 2026-11-13
+> 계약은 `inote` 레포 `docs/todo/memo.md`의 "4차". `GET /memos/groups` — 키셋 페이지네이션(마지막 그룹의 `(updatedAt, key)`).
+- [x] 개발 DB 통합 확인 — HTTP 31개 시나리오(정렬·키셋·타이·검증·격리·37그룹 2페이지)
+- [ ] **인덱스** — 그룹 조회는 `userId`로 거른 뒤 `GROUP BY`·`MAX(updatedAt)`로 정렬한다. 지금 인덱스는 `@@index([userId, targetType, targetId])`뿐이라 사용자당 메모가 수천 장이 되면 느려질 수 있다. 개인 앱 규모에서는 문제없다고 보고 두었고, 느려지면 `(userId, updatedAt)` 인덱스나 그룹 요약 컬럼을 검토(스키마 변경 → 마이그레이션 필요, 사람이 정한다)
+- [ ] `findGroups`의 SQL이 문자열 키(`CASE ... || ':' ||`)로 묶는다 — `targetType`이 늘면 이 식과 `groupConditions`·`targetTitles`를 함께 고친다(이미 기록한 post/reading 하드코딩 후속과 같은 뿌리)
+- [ ] 한 그룹의 메모는 최대 10장(대상당 상한)이라 응답에 전부 담는다. 상한이 늘면 그룹 안 페이지네이션이 필요하다
