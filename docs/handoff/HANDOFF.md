@@ -96,7 +96,7 @@
 
 ### 카테고리 위치 이동 API (#8) — **구현·확인·main 병합 완료** (운영 배포 여부는 확인 필요)
 - **상태**: 구현·테스트 완료(jest 369 통과, `tsc`·ESLint·E2E 5개 통과). 로컬 BE + 운영 DB + FE(3011)에서 ① 같은 부모 안 순서 ② 다른 카테고리 안으로 ③ 최상위로 ④ 하위 딸린 카테고리 ⑤ 3단계 초과 되돌아감, 그리고 409(옮길 곳에 같은 이름)를 사용자가 확인했다. **409는 유지로 결정**했고 FE 처리도 끝났다. 운영 DB에는 마이그레이션 `20261027120000_add_post_category_position`이 이미 적용돼 있다. dbdiagram(`Post.archivedAt`·`PostCategory.position`)도 반영됨.
-- **남은 일**: 운영(Render) 배포 여부 확인 — **BE 먼저 배포**(FE는 준비됨, 마이그레이션은 서버 시작 때 `migrate deploy`로 적용되며 이미 적용돼 있으면 건너뜀). Render `DATABASE_URL` 끝의 `?connection_limit=3`은 `docs/todo/db-connection.md`.
+- **남은 일**: 운영(Render) 배포 여부 확인 — **BE 먼저 배포**(FE는 준비됨, 마이그레이션은 서버 시작 때 `migrate deploy`로 적용되며 이미 적용돼 있으면 건너뜀). Render `DATABASE_URL` 끝의 `?connection_limit=3`은 `inote` 레포 `docs/todo/backlog.md`.
 - **주의 — `prisma-dbml-generator` 버그**: `schema.prisma`에 새 `///` 주석을 넣으면 길이에 따라 `schema.dbml`의 관련 없는 한글이 깨질 수 있다. 스키마를 바꾼 뒤 `schema.dbml`에 `\ufffd`가 없는지, diff가 추가한 줄뿐인지 확인한다.
 
 ### 이어질 BE 작업
