@@ -199,7 +199,7 @@ export class MemosService {
   /**
    * 메모 만들기. 대상 검증(403·404)이 먼저이고, 그다음 대상당 10장 상한(409)을 확인한다(일반 메모는 대상 검증 없이 전체 10장).
    * 장 수 확인과 만들기는 한 트랜잭션에 묶는다. 다만 기본 격리 수준(Read Committed)이라 같은 대상에 동시에 두 요청이
-   * 들어오면 둘 다 9장으로 읽고 11장이 될 수 있다 — 개인 앱의 UX 상한이라 허용한다(보장이 필요하면 docs/todo/memos-followups.md).
+   * 들어오면 둘 다 9장으로 읽고 11장이 될 수 있다 — 개인 앱의 UX 상한이라 허용한다(보장이 필요하면 inote 레포 docs/todo/backlog.md 7절).
    */
   async create(userId: string, dto: CreateMemoDto) {
     // 일반 메모는 대상이 없다 — 소유 검증을 건너뛰고 targetId는 고정값. 상한 10장은 내 일반 메모 전체 기준
