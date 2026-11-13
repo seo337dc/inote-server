@@ -20,6 +20,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CreateMemoDto } from './dto/create-memo.dto';
 import { FindMemosQuery } from './dto/find-memos.query';
+import { FindMemoGroupsQuery } from './dto/find-memo-groups.query';
 import { UpdateMemoDto } from './dto/update-memo.dto';
 import { MemosService } from './memos.service';
 
@@ -38,6 +39,18 @@ export class MemosController {
   })
   findAll(@CurrentUser() user: { id: string }, @Query() query: FindMemosQuery) {
     return this.memosService.findAll(user.id, query);
+  }
+
+  @Get('groups')
+  @ApiOperation({
+    summary:
+      '메모 관리용 그룹 목록 (최근 수정순, 무한 스크롤) — 글·독서는 대상 하나가 한 그룹(그 대상의 메모 전부), 일반 메모는 한 장이 한 그룹. targetType으로 종류를 거르고, 응답의 nextCursor를 cursor로 되돌려 다음 페이지를 받는다(null이면 마지막)',
+  })
+  findGroups(
+    @CurrentUser() user: { id: string },
+    @Query() query: FindMemoGroupsQuery,
+  ) {
+    return this.memosService.findGroups(user.id, query);
   }
 
   @Post()

@@ -5,9 +5,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMemoDto } from './dto/create-memo.dto';
 import { FindMemosQuery } from './dto/find-memos.query';
+import {
+  FindMemoGroupsQuery,
+  MEMO_GROUPS_DEFAULT_LIMIT,
+} from './dto/find-memo-groups.query';
+import { decodeGroupCursor, encodeGroupCursor } from './memo-cursor';
 import { UpdateMemoDto } from './dto/update-memo.dto';
 import {
   GENERAL_TARGET_ID,
@@ -25,6 +31,31 @@ const MEMO_SELECT = {
   createdAt: true,
   updatedAt: true,
 } as const;
+
+type GroupRow = {
+  key: string;
+  targetType: string;
+  targetId: string;
+  updatedAt: Date;
+};
+
+// 이 페이지 그룹들의 메모만 한 번에 읽는 조건 — 글·독서는 대상 id들, 일반은 메모 id들 (모두 내 메모로 한정은 호출 쪽 userId)
+function groupConditions(groups: GroupRow[]): Prisma.MemoWhereInput[] {
+  const conditions: Prisma.MemoWhereInput[] = [];
+  for (const type of ['post', 'reading'] as const) {
+    const ids = groups
+      .filter((g) => g.targetType === type)
+      .map((g) => g.targetId);
+    if (ids.length > 0)
+      conditions.push({ targetType: type, targetId: { in: ids } });
+  }
+  const generalIds = groups
+    .filter((g) => g.targetType === 'general')
+    .map((g) => g.key);
+  if (generalIds.length > 0)
+    conditions.push({ targetType: 'general', id: { in: generalIds } });
+  return conditions;
+}
 
 @Injectable()
 export class MemosService {
@@ -51,6 +82,74 @@ export class MemosService {
       ...memo,
       targetTitle: titles.get(`${memo.targetType}:${memo.targetId}`) ?? null,
     }));
+  }
+
+  /**
+   * 메모 관리 화면용 그룹 목록 (계약: inote 레포 docs/todo/memo.md 4차, GET /memos/groups).
+   * - 글·독서는 대상(targetType, targetId) 하나가 한 그룹, 일반 메모는 한 장이 한 그룹(key = 메모 id).
+   * - 그룹의 최근 수정 시각(updatedAt) 내림차순, 같으면 key 내림차순. 키셋 페이지네이션 — cursor는 마지막 그룹의 (updatedAt, key).
+   * - 그룹 키 목록은 SQL 한 번(limit+1건으로 다음 페이지 유무를 알아낸다), 그 그룹들의 메모는 findMany 한 번, 제목은 종류별 한 번.
+   */
+  async findGroups(userId: string, query: FindMemoGroupsQuery) {
+    const limit = query.limit ?? MEMO_GROUPS_DEFAULT_LIMIT;
+    const cursor = query.cursor ? decodeGroupCursor(query.cursor) : null;
+    if (query.cursor && !cursor) {
+      throw new BadRequestException('잘못된 cursor입니다.');
+    }
+
+    // key: 일반 메모는 메모 id, 글·독서는 "종류:대상id". 서브쿼리로 묶은 뒤 커서 조건을 건다(별칭은 HAVING에 못 쓰므로)
+    const typeFilter = query.targetType
+      ? Prisma.sql`AND "targetType" = ${query.targetType}`
+      : Prisma.empty;
+    const cursorFilter = cursor
+      ? Prisma.sql`WHERE ("updatedAt" < ${cursor.updatedAt} OR ("updatedAt" = ${cursor.updatedAt} AND "key" < ${cursor.key}))`
+      : Prisma.empty;
+    const rows = await this.prisma.$queryRaw<GroupRow[]>(Prisma.sql`
+      SELECT * FROM (
+        SELECT
+          CASE WHEN "targetType" = 'general' THEN "id" ELSE "targetType" || ':' || "targetId" END AS "key",
+          "targetType",
+          "targetId",
+          MAX("updatedAt") AS "updatedAt"
+        FROM "Memo"
+        WHERE "userId" = ${userId} ${typeFilter}
+        GROUP BY 1, "targetType", "targetId"
+      ) AS g
+      ${cursorFilter}
+      ORDER BY "updatedAt" DESC, "key" DESC
+      LIMIT ${limit + 1}
+    `);
+
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    if (page.length === 0) return { items: [], nextCursor: null };
+
+    const memos = await this.prisma.memo.findMany({
+      where: { userId, OR: groupConditions(page) },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      select: MEMO_SELECT,
+    });
+    const titles = await this.targetTitles(userId, page);
+
+    const items = page.map((group) => ({
+      key: group.key,
+      targetType: group.targetType,
+      targetId: group.targetId,
+      targetTitle: titles.get(`${group.targetType}:${group.targetId}`) ?? null,
+      updatedAt: group.updatedAt,
+      memos: memos.filter((m) =>
+        group.targetType === 'general'
+          ? m.id === group.key
+          : m.targetType === group.targetType && m.targetId === group.targetId,
+      ),
+    }));
+    const last = page[page.length - 1];
+    return {
+      items,
+      nextCursor: hasMore
+        ? encodeGroupCursor({ updatedAt: last.updatedAt, key: last.key })
+        : null,
+    };
   }
 
   // 조회 대상 조건 — 안 준 값은 키 자체를 넣지 않는다(전체·종류별 조회). general은 targetId를 고정값으로 묻는다
